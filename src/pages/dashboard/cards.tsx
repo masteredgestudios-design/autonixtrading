@@ -6,6 +6,7 @@ import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import GoogleDrive from '@/components/load-modal/google-drive';
 import Dialog from '@/components/shared_ui/dialog';
+import { useImportNewBot } from '@/components/import-new-bot/use-import-new-bot';
 import MobileFullPageModal from '@/components/shared_ui/mobile-full-page-modal';
 import Text from '@/components/shared_ui/text';
 import { DBOT_TABS } from '@/constants/bot-contents';
@@ -42,11 +43,12 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
     const { isDesktop } = useDevice();
     const { onCloseDialog, dialog_options, is_dialog_open, setActiveTab, setPreviewOnPopup } = dashboard;
     const { setFormVisibility } = quick_strategy;
+    const file_input_ref = React.useRef<HTMLInputElement>(null);
+    const { onFileChange } = useImportNewBot(() => setActiveTab(DBOT_TABS.BOT_BUILDER));
 
     const openFileLoader = () => {
-        toggleLoadModal();
-        setActiveTabIndex(is_mobile ? 0 : 1);
         setActiveTab(DBOT_TABS.BOT_BUILDER);
+        file_input_ref.current?.click();
     };
 
     const openGoogleDriveDialog = () => {
@@ -108,17 +110,25 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
 
     return React.useMemo(
         () => (
-            <div
-                className={classNames('tab__dashboard__table', {
-                    'tab__dashboard__table--minimized': has_dashboard_strategies && is_mobile,
-                })}
-            >
+            <>
+                <input
+                    ref={file_input_ref}
+                    type='file'
+                    accept='.xml,application/xml,text/xml'
+                    hidden
+                    onChange={onFileChange}
+                />
                 <div
-                    className={classNames('tab__dashboard__table__tiles', {
-                        'tab__dashboard__table__tiles--minimized': has_dashboard_strategies && is_mobile,
+                    className={classNames('tab__dashboard__table', {
+                        'tab__dashboard__table--minimized': has_dashboard_strategies && is_mobile,
                     })}
-                    id='tab__dashboard__table__tiles'
                 >
+                    <div
+                        className={classNames('tab__dashboard__table__tiles', {
+                            'tab__dashboard__table__tiles--minimized': has_dashboard_strategies && is_mobile,
+                        })}
+                        id='tab__dashboard__table__tiles'
+                    >
                     {actions.map(icons => {
                         const { icon, content, callback, id } = icons;
                         return (
@@ -176,9 +186,10 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
                             </div>
                         </MobileFullPageModal>
                     )}
+                    </div>
+                    <DashboardBotList />
                 </div>
-                <DashboardBotList />
-            </div>
+            </>
         ),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [is_dialog_open, has_dashboard_strategies, is_google_drive_configured]
