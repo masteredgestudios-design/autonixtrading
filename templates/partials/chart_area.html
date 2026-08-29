@@ -1,0 +1,163 @@
+<section class="chart-section">
+  <!-- Unified Trade Type Selector (above chart) -->
+  <div class="trade-type-selector-bar">
+    <div class="trade-type-label">Trade Type</div>
+    <div class="trade-type-buttons" id="trade-type-buttons">
+      <button
+        class="trade-type-btn"
+        data-type="rise-fall"
+        aria-pressed="false"
+      >
+        Rise/Fall
+      </button>
+      <button class="trade-type-btn" data-type="even-odd" aria-pressed="false">
+        Even/Odd
+      </button>
+      <button
+        class="trade-type-btn"
+        data-type="match-differ"
+        aria-pressed="false"
+      >
+        Match/Differ
+      </button>
+      <button
+        class="trade-type-btn active"
+        data-type="over-under"
+        aria-pressed="true"
+      >
+        Over/Under
+      </button>
+    </div>
+  </div>
+
+  <!-- Horizontal controls bar (timeframes + chart type) -->
+  <div class="chart-controls-bar">
+    <!-- Timeframe restricted to 1T only -->
+    <div class="chart-tf-group" id="chart-tf-group" style="display: none">
+      <button class="chart-tf-btn active" data-tf="1T">1T</button>
+    </div>
+    <div class="chart-type-group">
+      <button
+        class="chart-type-btn active"
+        data-type="candle"
+        id="btn-chart-candle"
+        title="Candlestick"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <rect x="2" y="4" width="4" height="12" />
+          <line x1="4" y1="2" x2="4" y2="4" />
+          <line x1="4" y1="16" x2="4" y2="22" />
+          <rect x="10" y="7" width="4" height="10" />
+          <line x1="12" y1="4" x2="12" y2="7" />
+          <line x1="12" y1="17" x2="12" y2="20" />
+          <rect x="18" y="5" width="4" height="9" />
+          <line x1="20" y1="2" x2="20" y2="5" />
+          <line x1="20" y1="14" x2="20" y2="22" />
+        </svg>
+      </button>
+      <button
+        class="chart-type-btn"
+        data-type="line"
+        id="btn-chart-line"
+        title="Line chart"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <polyline points="3 17 8 11 13 14 21 6" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Chart body (canvas + overlays) -->
+  <div class="chart-body">
+    <!-- Canvas + overlays -->
+    <div class="chart-canvas-wrap">
+      <canvas id="price-chart" aria-label="Price chart"></canvas>
+      <div class="chart-crosshair" id="chart-crosshair"></div>
+      <div class="price-axis" id="price-axis"></div>
+      <div class="time-axis" id="time-axis"></div>
+      <div class="live-price-label" id="live-price-label"></div>
+
+      <!-- Digit frequency bar (last-digit distribution of recent ticks) -->
+      <div class="digit-freq-bar" id="digit-freq-bar">
+        <div class="digit-freq-label">Last 1000 ticks</div>
+        <div class="digit-freq-cells" id="digit-freq-cells">
+          <div class="digit-cell" data-d="0">
+            <div class="digit-circle" id="dcircle-0">
+              <span class="digit-num">0</span>
+              <span class="digit-pct">—</span>
+            </div>
+          </div>
+          <div class="digit-cell" data-d="1">
+            <div class="digit-circle" id="dcircle-1">
+              <span class="digit-num">1</span>
+              <span class="digit-pct">—</span>
+            </div>
+          </div>
+          <div class="digit-cell" data-d="2">
+            <div class="digit-circle" id="dcircle-2">
+              <span class="digit-num">2</span>
+              <span class="digit-pct">—</span>
+            </div>
+          </div>
+          <div class="digit-cell" data-d="3">
+            <div class="digit-circle" id="dcircle-3">
+              <span class="digit-num">3</span>
+              <span class="digit-pct">—</span>
+            </div>
+          </div>
+          <div class="digit-cell" data-d="4">
+            <div class="digit-circle" id="dcircle-4">
+              <span class="digit-num">4</span>
+              <span class="digit-pct">—</span>
+            </div>
+          </div>
+          <div class="digit-cell" data-d="5">
+            <div class="digit-circle" id="dcircle-5">
+              <span class="digit-num">5</span>
+              <span class="digit-pct">—</span>
+            </div>
+          </div>
+          <div class="digit-cell" data-d="6">
+            <div class="digit-circle" id="dcircle-6">
+              <span class="digit-num">6</span>
+              <span class="digit-pct">—</span>
+            </div>
+          </div>
+          <div class="digit-cell" data-d="7">
+            <div class="digit-circle" id="dcircle-7">
+              <span class="digit-num">7</span>
+              <span class="digit-pct">—</span>
+            </div>
+          </div>
+          <div class="digit-cell" data-d="8">
+            <div class="digit-circle" id="dcircle-8">
+              <span class="digit-num">8</span>
+              <span class="digit-pct">—</span>
+            </div>
+          </div>
+          <div class="digit-cell" data-d="9">
+            <div class="digit-circle" id="dcircle-9">
+              <span class="digit-num">9</span>
+              <span class="digit-pct">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Automated Trading Platform | Deriv Bots | Autonix Trader{% endblock %}
+
+{% block meta_description %}Trade automatically on Deriv with AI-powered bots. Set stakes, take profit & stop loss. Automated trading for beginners & professionals.{% endblock %}
+
+{% block body %}
+<div class="app-wrapper">
+
+  {% include "partials/top_nav.html" %}
+
+  <!-- Mobile drawer backdrop -->
+  <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
+
+  <div class="app-body">
+    {% include "partials/left_rail.html" %}
+
+    <!-- Positions slide panel -->
+    {% include "partials/positions_panel.html" %}
+
+    <main class="main-workspace" id="main-workspace">
+      {% include "partials/asset_selector.html" %}
+      {% include "partials/markets_panel.html" %}
+      {% include "partials/chart_area.html" %}
+    </main>
+
+    <!-- Reports page (hidden by default) -->
+    <div class="reports-page" id="reports-page" style="display:none">
+      <div class="reports-header">
+        <h1 class="reports-title">Analytics &amp; Reports</h1>
+        <button class="reports-back-btn" id="reports-back-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+          Back to Trading
+        </button>
+      </div>
+
+      <!-- Stats summary -->
+      <div class="reports-stats-grid">
+        <div class="reports-stat-card">
+          <span class="reports-stat-label">Total P&amp;L</span>
+          <span class="reports-stat-value" id="rpt-total-pl">$0.00</span>
+        </div>
+        <div class="reports-stat-card">
+          <span class="reports-stat-label">Win Rate</span>
+          <span class="reports-stat-value accent" id="rpt-win-rate">0.0%</span>
+        </div>
+        <div class="reports-stat-card">
+          <span class="reports-stat-label">Total Trades</span>
+          <span class="reports-stat-value" id="rpt-total-trades">0</span>
+        </div>
+        <div class="reports-stat-card">
+          <span class="reports-stat-label">Total Staked</span>
+          <span class="reports-stat-value" id="rpt-total-staked">$0.00</span>
+        </div>
+        <div class="reports-stat-card">
+          <span class="reports-stat-label">Wins / Losses</span>
+          <span class="reports-stat-value" id="rpt-wins-losses">0 / 0</span>
+        </div>
+        <div class="reports-stat-card">
+          <span class="reports-stat-label">Best Trade</span>
+          <span class="reports-stat-value green" id="rpt-best-trade">$0.00</span>
+        </div>
+      </div>
+
+      <!-- Trade history -->
+      <div class="reports-table-wrap">
+        <div class="reports-table-header">
+          <span>Trade History</span>
+          <span class="reports-count" id="rpt-count">0 trades</span>
+        </div>
+        <div class="reports-table-scroll">
+          <table class="reports-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Selection</th>
+                <th>Entry</th>
+                <th>Exit</th>
+                <th>Stake</th>
+                <th>P/L</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody id="reports-tbody">
+              <tr class="reports-empty-row">
+                <td colspan="7">No trades yet — start the bot to begin trading</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {% include "partials/trade_ticket.html" %}
+  </div>
+
+</div>
+
+<!-- Mobile: bot panel backdrop + FAB -->
+<div class="bot-panel-backdrop" id="bot-panel-backdrop" aria-hidden="true"></div>
+<button class="bot-panel-fab" id="bot-panel-fab" aria-label="Open trade panel" title="Trade">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+    <polyline points="16 7 22 7 22 13"/>
+  </svg>
+</button>
+
+<div id="toast" class="toast" aria-live="polite"></div>
+{% endblock %}

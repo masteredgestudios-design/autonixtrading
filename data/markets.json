@@ -1,0 +1,357 @@
+{
+  "categories": [
+    {
+      "id": "derived",
+      "label": "Derived",
+      "instruments": [
+        {
+          "symbol": "R_10",
+          "displayName": "Volatility 10 Index",
+          "subcategory": "Volatility indices",
+          "isClosed": false,
+          "pip": 0.001
+        },
+        {
+          "symbol": "R_25",
+          "displayName": "Volatility 25 Index",
+          "subcategory": "Volatility indices",
+          "isClosed": false,
+          "pip": 0.001
+        },
+        {
+          "symbol": "R_50",
+          "displayName": "Volatility 50 Index",
+          "subcategory": "Volatility indices",
+          "isClosed": false,
+          "pip": 0.001
+        },
+        {
+          "symbol": "R_75",
+          "displayName": "Volatility 75 Index",
+          "subcategory": "Volatility indices",
+          "isClosed": false,
+          "pip": 0.001
+        },
+        {
+          "symbol": "R_100",
+          "displayName": "Volatility 100 Index",
+          "subcategory": "Volatility indices",
+          "isClosed": false,
+          "pip": 0.001
+        },
+        {
+          "symbol": "1HZ10V",
+          "displayName": "Volatility 10 (1s) Index",
+          "subcategory": "Volatility indices",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "1HZ25V",
+          "displayName": "Volatility 25 (1s) Index",
+          "subcategory": "Volatility indices",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "1HZ50V",
+          "displayName": "Volatility 50 (1s) Index",
+          "subcategory": "Volatility indices",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "1HZ75V",
+          "displayName": "Volatility 75 (1s) Index",
+          "subcategory": "Volatility indices",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "1HZ100V",
+          "displayName": "Volatility 100 (1s) Index",
+          "subcategory": "Volatility indices",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "CRASH300N",
+          "displayName": "Crash 300 Index",
+          "subcategory": "Crash/Boom",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "CRASH500",
+          "displayName": "Crash 500 Index",
+          "subcategory": "Crash/Boom",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "CRASH1000",
+          "displayName": "Crash 1000 Index",
+          "subcategory": "Crash/Boom",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "BOOM300N",
+          "displayName": "Boom 300 Index",
+          "subcategory": "Crash/Boom",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "BOOM500",
+          "displayName": "Boom 500 Index",
+          "subcategory": "Crash/Boom",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "BOOM1000",
+          "displayName": "Boom 1000 Index",
+          "subcategory": "Crash/Boom",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "JD10",
+          "displayName": "Jump 10 Index",
+          "subcategory": "Jump indices",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "JD25",
+          "displayName": "Jump 25 Index",
+          "subcategory": "Jump indices",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "JD50",
+          "displayName": "Jump 50 Index",
+          "subcategory": "Jump indices",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "JD75",
+          "displayName": "Jump 75 Index",
+          "subcategory": "Jump indices",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "JD100",
+          "displayName": "Jump 100 Index",
+          "subcategory": "Jump indices",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "STPRNG",
+          "displayName": "Step Index",
+          "subcategory": "Step indices",
+          "isClosed": false,
+          "pip": 0.0001
+        }
+      ]
+    },
+    {
+      "id": "stock_indices",
+      "label": "Stock Indices",
+      "instruments": [
+        {
+          "symbol": "SPX",
+          "displayName": "S&P 500",
+          "subcategory": "American indices",
+          "isClosed": false,
+          "exchange": "NYSE",
+          "pip": 0.01
+        },
+        {
+          "symbol": "DJI",
+          "displayName": "Wall Street 30",
+          "subcategory": "American indices",
+          "isClosed": false,
+          "exchange": "NYSE",
+          "pip": 0.01
+        },
+        {
+          "symbol": "NDX",
+          "displayName": "US Tech 100",
+          "subcategory": "American indices",
+          "isClosed": true,
+          "exchange": "NASDAQ",
+          "pip": 0.01
+        },
+        {
+          "symbol": "HSI",
+          "displayName": "Hong Kong 50",
+          "subcategory": "Asian indices",
+          "isClosed": true,
+          "exchange": "HKEX",
+          "pip": 0.01
+        },
+        {
+          "symbol": "N225",
+          "displayName": "Japan 225",
+          "subcategory": "Asian indices",
+          "isClosed": true,
+          "exchange": "TSE",
+          "pip": 0.01
+        },
+        {
+          "symbol": "FTSE",
+          "displayName": "UK 100",
+          "subcategory": "European indices",
+          "isClosed": false,
+          "exchange": "LSE",
+          "pip": 0.01
+        },
+        {
+          "symbol": "DAX",
+          "displayName": "Germany 40",
+          "subcategory": "European indices",
+          "isClosed": false,
+          "exchange": "XETRA",
+          "pip": 0.01
+        },
+        {
+          "symbol": "CAC",
+          "displayName": "France 40",
+          "subcategory": "European indices",
+          "isClosed": false,
+          "exchange": "EURONEXT",
+          "pip": 0.01
+        }
+      ]
+    },
+    {
+      "id": "cryptocurrencies",
+      "label": "Cryptocurrencies",
+      "instruments": [
+        {
+          "symbol": "cryBTCUSD",
+          "displayName": "BTC/USD",
+          "subcategory": "Crypto",
+          "isClosed": false,
+          "pip": 0.01
+        },
+        {
+          "symbol": "cryETHUSD",
+          "displayName": "ETH/USD",
+          "subcategory": "Crypto",
+          "isClosed": false,
+          "pip": 0.01
+        },
+        {
+          "symbol": "cryXRPUSD",
+          "displayName": "XRP/USD",
+          "subcategory": "Crypto",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "crySOLUSD",
+          "displayName": "SOL/USD",
+          "subcategory": "Crypto",
+          "isClosed": false,
+          "pip": 0.01
+        },
+        {
+          "symbol": "cryADAUSD",
+          "displayName": "ADA/USD",
+          "subcategory": "Crypto",
+          "isClosed": false,
+          "pip": 0.0001
+        }
+      ]
+    },
+    {
+      "id": "forex",
+      "label": "Forex",
+      "instruments": [
+        {
+          "symbol": "frxEURUSD",
+          "displayName": "EUR/USD",
+          "subcategory": "Major pairs",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "frxGBPUSD",
+          "displayName": "GBP/USD",
+          "subcategory": "Major pairs",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "frxUSDJPY",
+          "displayName": "USD/JPY",
+          "subcategory": "Major pairs",
+          "isClosed": false,
+          "pip": 0.01
+        },
+        {
+          "symbol": "frxUSDCAD",
+          "displayName": "USD/CAD",
+          "subcategory": "Major pairs",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "frxAUDUSD",
+          "displayName": "AUD/USD",
+          "subcategory": "Major pairs",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "frxUSDCHF",
+          "displayName": "USD/CHF",
+          "subcategory": "Major pairs",
+          "isClosed": false,
+          "pip": 0.0001
+        },
+        {
+          "symbol": "frxEURGBP",
+          "displayName": "EUR/GBP",
+          "subcategory": "Minor pairs",
+          "isClosed": false,
+          "pip": 0.0001
+        }
+      ]
+    },
+    {
+      "id": "commodities",
+      "label": "Commodities",
+      "instruments": [
+        {
+          "symbol": "frxXAUUSD",
+          "displayName": "Gold/USD",
+          "subcategory": "Metals",
+          "isClosed": false,
+          "pip": 0.01
+        },
+        {
+          "symbol": "frxXAGUSD",
+          "displayName": "Silver/USD",
+          "subcategory": "Metals",
+          "isClosed": false,
+          "pip": 0.001
+        },
+        {
+          "symbol": "OIL_IMPV",
+          "displayName": "Oil/USD",
+          "subcategory": "Energy",
+          "isClosed": false,
+          "pip": 0.001
+        }
+      ]
+    }
+  ]
+}

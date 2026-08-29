@@ -1,0 +1,629 @@
+{% extends "base.html" %}
+
+{% block title %}Managed Trading Investment | Passive Income | Autonix{% endblock %}
+
+{% block meta_description %}Invest in automated trading portfolios on Deriv. Earn passive income from AI-powered strategies. Managed trading made simple.{% endblock %}
+
+{% block body %}
+<div class="invest-page-wrapper">
+    {% include "partials/marketing_navbar.html" %}
+
+    <!-- INVESTMENT PLANS -->
+    <section class="invest-section">
+        <div class="container">
+            <h1>Smart Investment Plans by Autonix</h1>
+            <p class="section-subtitle">
+                Build long-term wealth with Autonix's expert-managed investment
+                plans. Choose your risk level, invest with confidence, and watch
+                your capital grow with our proven automated strategies.
+            </p>
+
+            <div class="plans-grid">
+                <div class="plan-card">
+                    <div class="plan-icon">🌱</div>
+                    <h2>Basic Plan</h2>
+                    <p class="plan-description">
+                        Perfect for beginners wanting to grow capital safely
+                    </p>
+                    <div class="plan-details">
+                        <div class="plan-meta">
+                            <span class="meta-label">Investment:</span>
+                            <span class="meta-value">$10 - $50</span>
+                        </div>
+                        <div class="plan-meta">
+                            <span class="meta-label">Expected Return:</span>
+                            <span class="meta-value">10%</span>
+                        </div>
+                        <div class="plan-meta">
+                            <span class="meta-label">Duration:</span>
+                            <span class="meta-value">3 days</span>
+                        </div>
+                    </div>
+                    <p class="plan-info">
+                        Conservative automated trading with strict risk limits
+                        and capital protection. Ideal for learning and building
+                        momentum.
+                    </p>
+                </div>
+
+                <div class="plan-card">
+                    <div class="plan-icon">📈</div>
+                    <h2>Standard Plan</h2>
+                    <p class="plan-description">
+                        Balanced growth with proven strategies
+                    </p>
+                    <div class="plan-details">
+                        <div class="plan-meta">
+                            <span class="meta-label">Investment:</span>
+                            <span class="meta-value">$100 - $500</span>
+                        </div>
+                        <div class="plan-meta">
+                            <span class="meta-label">Expected Return:</span>
+                            <span class="meta-value">25%</span>
+                        </div>
+                        <div class="plan-meta">
+                            <span class="meta-label">Duration:</span>
+                            <span class="meta-value">3 days</span>
+                        </div>
+                    </div>
+                    <p class="plan-info">
+                        Balanced strategy combining trend-following with risk
+                        controls. Most popular choice for steady wealth
+                        accumulation.
+                    </p>
+                </div>
+
+                <div class="plan-card">
+                    <div class="plan-icon">💎</div>
+                    <h2>Premium Plan</h2>
+                    <p class="plan-description">
+                        Maximum growth with advanced AI automation
+                    </p>
+                    <div class="plan-details">
+                        <div class="plan-meta">
+                            <span class="meta-label">Investment:</span>
+                            <span class="meta-value">$1000 - $5000</span>
+                        </div>
+                        <div class="plan-meta">
+                            <span class="meta-label">Expected Return:</span>
+                            <span class="meta-value">50%</span>
+                        </div>
+                        <div class="plan-meta">
+                            <span class="meta-label">Duration:</span>
+                            <span class="meta-value">3 days</span>
+                        </div>
+                    </div>
+                    <p class="plan-info">
+                        Elite performance with advanced machine learning, market
+                        adaptation, and sophisticated recovery algorithms.
+                    </p>
+                </div>
+            </div>
+
+            <div class="invest-details">
+                <div class="detail-card">
+                    <h3>Withdrawal Information</h3>
+                    <p>
+                        Withdraw earnings after 3 days. A 2% processing fee
+                        applies. We process withdrawals securely and promptly
+                        once compliances are met.
+                    </p>
+                </div>
+
+                <div class="detail-card">
+                    <h3>Accepted Methods</h3>
+                    <div class="payment-methods">
+                        <div class="method-item">
+                            <span class="method-icon">💳</span>
+                            <span>Visa</span>
+                        </div>
+                        <div class="method-item">
+                            <span class="method-icon">💳</span>
+                            <span>Mastercard</span>
+                        </div>
+                        <div class="method-item">
+                            <span class="method-icon">💰</span>
+                            <span>PayPal</span>
+                        </div>
+                        <div class="method-item">
+                            <span class="method-icon">₿</span>
+                            <span>Crypto</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="trading-info">
+                <h2>How We Trade for You</h2>
+                <p>
+                    Our platform uses automated strategies, pattern detection,
+                    and risk controls to place disciplined trades on synthetic
+                    indices.
+                </p>
+                <div class="features-list">
+                    <div class="feature-item">
+                        <span class="feature-icon">🤖</span>
+                        <div>
+                            <strong>Automated Strategies</strong>
+                            <p>AI-assisted entries and session management.</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🛡️</span>
+                        <div>
+                            <strong>Risk Controls</strong>
+                            <p>Stop-loss, take-profit and capital limits.</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🔄</span>
+                        <div>
+                            <strong>Auto-Recovery</strong>
+                            <p>
+                                Martingale-aware recovery only on finalized
+                                losses.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        <div>
+                            <strong>Performance Monitoring</strong>
+                            <p>
+                                Session metrics and live charts for oversight.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cta-section">
+                <h3>Start Investing with Autonix Today</h3>
+                <p>
+                    Join thousands of successful investors earning consistent
+                    returns with our AI-powered investment plans. No experience
+                    required—let our algorithms work for you.
+                </p>
+                <a
+                    href="https://t.me/AutonixinvestAI_bot"
+                    class="cta-primary"
+                    target="_blank"
+                    >🚀 Open Invest AI Bot Now</a
+                >
+                <p
+                    style="
+                        margin-top: 20px;
+                        color: var(--text-secondary);
+                        font-size: 0.9rem;
+                    "
+                >
+                    Questions? Contact us at
+                    <a
+                        href="mailto:auttonix@gmail.com"
+                        style="color: var(--accent-cyan)"
+                        >auttonix@gmail.com</a
+                    >
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <img
+                        src="{{ url_for('static', filename='logo.jpg') }}"
+                        alt="Autonix logo"
+                    />
+                    <div class="brand-text">
+                        <strong>Autonix</strong>
+                        <span class="tagline">Premium Deriv automation</span>
+                    </div>
+                </div>
+
+                <div class="footer-contact">
+                    <h4>Contact</h4>
+                    <p>
+                        Email:
+                        <a href="mailto:auttonix@gmail.com"
+                            >auttonix@gmail.com</a
+                        >
+                    </p>
+                    <p>
+                        Phone: <a href="tel:+254776685739">+254 776 685 739</a>
+                    </p>
+                    <p class="muted">Nairobi, Kenya</p>
+                </div>
+
+                <div class="footer-social">
+                    <h4>Follow Us</h4>
+                    <div class="social-icons" aria-label="Social links">
+                        <a
+                            href="https://wa.me/254776685670"
+                            aria-label="WhatsApp"
+                        >
+                            <img
+                                src="https://cdn.simpleicons.org/whatsapp/25D366"
+                                alt="WhatsApp logo"
+                            />
+                        </a>
+                        <a
+                            href="https://www.tiktok.com/@autonix__"
+                            aria-label="TikTok"
+                            class="tiktok"
+                        >
+                            <img
+                                src="https://cdn.simpleicons.org/tiktok/000000"
+                                alt="TikTok logo"
+                            />
+                        </a>
+                        <a
+                            href="https://www.instagram.com/autonix__"
+                            aria-label="Instagram"
+                        >
+                            <img
+                                src="https://cdn.simpleicons.org/instagram/E4405F"
+                                alt="Instagram logo"
+                            />
+                        </a>
+                        <a
+                            href="https://www.facebook.com/profile.php?id=61560305683930"
+                            aria-label="Facebook"
+                        >
+                            <img
+                                src="https://cdn.simpleicons.org/facebook/1877F2"
+                                alt="Facebook logo"
+                            />
+                        </a>
+                        <a
+                            href="https://t.me/AutonixHubAI_bot"
+                            aria-label="Telegram"
+                        >
+                            <img
+                                src="https://cdn.simpleicons.org/telegram/2AABEE"
+                                alt="Telegram logo"
+                            />
+                        </a>
+                    </div>
+                </div>
+
+                <div class="footer-links">
+                    <h4>Explore</h4>
+                    <a href="/">Home</a>
+                    <a href="https://t.me/AutonixHubAI_bot" target="_blank"
+                        >Bot</a
+                    >
+                    <a href="/invest">Invest</a>
+                    <a href="/terms">Terms</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>
+                    &copy; 2026 Autonix. All rights reserved. | Trading involves
+                    risk. See our <a href="/terms">risk disclosure</a>.
+                </p>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<style>
+    .invest-page-wrapper {
+        width: 100%;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text-primary);
+        padding-top: 70px;
+    }
+
+    .invest-section {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 80px 24px;
+    }
+
+    .invest-section h1 {
+        font-size: 48px;
+        font-weight: 800;
+        text-align: center;
+        margin-bottom: 16px;
+        background: linear-gradient(135deg, var(--color-green), #bb86fc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .invest-section .section-subtitle {
+        font-size: 18px;
+        color: var(--text-secondary);
+        text-align: center;
+        margin-bottom: 60px;
+        line-height: 1.6;
+        max-width: 700px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .plans-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 24px;
+        margin-bottom: 60px;
+    }
+
+    .plan-card {
+        background: var(--bg-glass);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 32px 24px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .plan-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0, 229, 160, 0.1);
+        border-color: var(--color-green);
+    }
+
+    .plan-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+
+    .plan-card h2 {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .plan-description {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin-bottom: 24px;
+    }
+
+    .plan-details {
+        background: rgba(0, 229, 160, 0.05);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        text-align: left;
+    }
+
+    .plan-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+
+    .plan-meta:last-child {
+        margin-bottom: 0;
+    }
+
+    .meta-label {
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .meta-value {
+        color: var(--color-green);
+        font-weight: 700;
+    }
+
+    .plan-info {
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .invest-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 24px;
+        margin-bottom: 60px;
+    }
+
+    .detail-card {
+        background: var(--bg-glass);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+    }
+
+    .detail-card h3 {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+
+    .detail-card p {
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .payment-methods {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .method-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        background: rgba(0, 229, 160, 0.05);
+        border-radius: 8px;
+        font-size: 13px;
+    }
+
+    .method-icon {
+        font-size: 24px;
+    }
+
+    .trading-info {
+        background: var(--bg-glass);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 40px 32px;
+        margin-bottom: 60px;
+    }
+
+    .trading-info h2 {
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+
+    .trading-info > p {
+        color: var(--text-secondary);
+        margin-bottom: 24px;
+        line-height: 1.6;
+    }
+
+    .features-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .feature-item {
+        display: flex;
+        gap: 16px;
+    }
+
+    .feature-icon {
+        font-size: 32px;
+        flex-shrink: 0;
+    }
+
+    .feature-item strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 15px;
+    }
+
+    .feature-item p {
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .cta-section {
+        text-align: center;
+        padding: 60px 40px;
+        background: linear-gradient(
+            135deg,
+            rgba(0, 229, 160, 0.1),
+            rgba(187, 134, 252, 0.1)
+        );
+        border: 1px solid var(--border);
+        border-radius: 12px;
+    }
+
+    .cta-section h3 {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+
+    .cta-section > p {
+        color: var(--text-secondary);
+        margin-bottom: 24px;
+        line-height: 1.6;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .cta-section .cta-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 28px;
+        background: linear-gradient(
+            135deg,
+            var(--color-green),
+            var(--color-green-dim)
+        );
+        color: #000;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 20px rgba(0, 229, 160, 0.3);
+    }
+
+    .cta-section .cta-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 30px rgba(0, 229, 160, 0.5);
+    }
+
+    @media (max-width: 768px) {
+        .invest-section {
+            padding: 40px 16px;
+        }
+
+        .invest-section h1 {
+            font-size: 32px;
+        }
+
+        .invest-section .section-subtitle {
+            font-size: 15px;
+            margin-bottom: 40px;
+        }
+
+        .plans-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .cta-section {
+            padding: 40px 24px;
+        }
+
+        .cta-section h3 {
+            font-size: 24px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .invest-page-wrapper {
+            padding-top: 60px;
+        }
+
+        .invest-section {
+            padding: 24px 12px;
+        }
+
+        .invest-section h1 {
+            font-size: 24px;
+        }
+
+        .plans-grid {
+            gap: 16px;
+        }
+
+        .plan-card {
+            padding: 20px 16px;
+        }
+
+        .cta-section {
+            padding: 24px 16px;
+        }
+
+        .cta-section h3 {
+            font-size: 20px;
+        }
+
+        .features-list {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}

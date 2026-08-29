@@ -1,0 +1,147 @@
+/* ═══════════════════════════════════════════════════════
+   Autonix Trader — Design Tokens  (v11)
+   ═══════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Core palette ── */
+  --color-green:        #00E5A0;
+  --color-green-dim:    #00b87e;
+  --color-green-glow:   rgba(0, 229, 160, .28);
+  --color-green-glow2:  rgba(0, 229, 160, .09);
+  --color-red:          #FF0000;
+  --color-red-dim:      #CC0000;
+  --color-red-glow:     rgba(255, 0, 0, .28);
+  --color-amber:        #FF0000;
+  --color-blue:         #FF0000;
+
+  /* ── Typography ── */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-xs:   10px;
+  --font-size-sm:   11px;
+  --font-size-md:   13px;
+  --font-size-base: 14px;
+  --font-size-lg:   16px;
+  --font-size-xl:   20px;
+  --font-size-2xl:  24px;
+
+  /* ── Radius ── */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-xl:   18px;
+  --radius-2xl:  22px;
+  --radius-3xl:  28px;
+  --radius-pill: 9999px;
+
+  /* ── Spacing ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* ── Transition ── */
+  --transition-fast: 140ms ease;
+  --transition-base: 240ms ease;
+  --transition-slow: 380ms cubic-bezier(.4, 0, .2, 1);
+
+  /* ── Layout ── */
+  --nav-height:  52px;
+  --rail-width:  60px;
+  --trade-width: 320px;
+  --pos-width:   280px;
+
+  /* ── Bot accent ── */
+  --bot-accent:     #00E5A0;
+  --bot-accent-dim: #00b87e;
+
+  /* ── Brand (UI) color — must be red per new theme rules ── */
+  --brand-color:       #FF0000;
+  --brand-color-dim:   #cc0000;
+  --brand-glow:        rgba(255, 0, 0, .28);
+  --brand-glow2:       rgba(255, 0, 0, .09);
+  --color-brand:       #FF0000;
+  --color-brand-dim:   #cc0000;
+  --color-brand-soft:  rgba(255, 0, 0, .10);
+  --color-brand-glow:  rgba(255, 0, 0, .28);
+}
+
+/* ══════════════════════════════════════════════
+   DARK THEME — pure black base
+   ══════════════════════════════════════════════ */
+[data-theme="dark"],
+:root {
+  --bg:          #000000;
+  --bg-panel:    #000000;
+  --bg-elevated: #000000;
+  --bg-card:     #000000;
+  --bg-hover:    #000000;
+  --bg-active:   #000000;
+  --bg-glass:    rgba(255, 255, 255, .03);
+  --bg-glass2:   rgba(255, 255, 255, .06);
+  --bg-input:    rgba(0, 0, 0, .45);
+
+  --border:        rgba(255, 255, 255, .07);
+  --border-subtle: rgba(255, 255, 255, .035);
+  --border-accent: rgba(255, 0, 0, .55);
+  --border-card:   rgba(255, 255, 255, .065);
+
+  --text-primary:   #FFFFFF;
+  --text-secondary: #FFFFFF;
+  --text-muted:     #FFFFFF;
+  --text-dim:       #FFFFFF;
+
+  /* Floating card shadows */
+  --shadow-float:  0 16px 64px rgba(0,0,0,.96), 0 4px 16px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.04) inset;
+  --shadow-panel:  0 8px 40px rgba(0,0,0,.9),   0 2px 8px rgba(0,0,0,.6);
+  --shadow-card:   0 6px 32px rgba(0,0,0,.75),  0 1px 4px rgba(0,0,0,.5);
+  --shadow-glow:   0 0 28px var(--brand-glow), 0 0 56px var(--brand-glow2);
+  --shadow-nav:    0 1px 0 rgba(255,255,255,.05);
+
+  /* Nav glass */
+  --nav-bg:     rgba(0,0,0,.82);
+  --nav-blur:   blur(28px);
+
+  /* Rail */
+  --rail-bg:    rgba(4,4,4,.9);
+}
+
+/* ══════════════════════════════════════════════
+   LIGHT THEME — clean, premium, warm white
+   ══════════════════════════════════════════════ */
+[data-theme="light"] {
+  --bg:          #FFFFFF;
+  --bg-panel:    #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-card:     #FFFFFF;
+  --bg-hover:    #FFFFFF;
+  --bg-active:   #FFFFFF;
+  --bg-glass:    rgba(0, 0, 0, .025);
+  --bg-glass2:   rgba(0, 0, 0, .05);
+  --bg-input:    rgba(255, 255, 255, .9);
+
+  --border:        rgba(0, 0, 0, .09);
+  --border-subtle: rgba(0, 0, 0, .045);
+  --border-accent: rgba(255, 0, 0, .55);
+  --border-card:   rgba(0, 0, 0, .08);
+
+  --text-primary:   #000000;
+  --text-secondary: #000000;
+  --text-muted:     #000000;
+  --text-dim:       #000000;
+
+  /* Floating card shadows — lifted, soft */
+  --shadow-float:  0 12px 48px rgba(0,0,0,.12), 0 4px 16px rgba(0,0,0,.07), 0 1px 0 rgba(255,255,255,.9) inset;
+  --shadow-panel:  0 4px 24px rgba(0,0,0,.10),  0 1px 4px rgba(0,0,0,.06);
+  --shadow-card:   0 2px 16px rgba(0,0,0,.08),  0 1px 3px rgba(0,0,0,.04);
+  --shadow-glow:   0 0 24px var(--brand-glow), 0 0 48px var(--brand-glow2);
+  --shadow-nav:    0 1px 0 rgba(0,0,0,.06);
+
+  /* Nav glass */
+  --nav-bg:     rgba(255,255,255,.88);
+  --nav-blur:   blur(28px);
+
+  /* Rail */
+  --rail-bg:    rgba(255,255,255,.95);
+}

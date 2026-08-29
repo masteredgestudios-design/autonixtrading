@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Autonix{% endblock %}
+
+{% block meta_description %}Your Autonix trading dashboard — manage accounts, view balances, and access all trading tools.{% endblock %}
+
+{% block body %}
+<div class="app-wrapper">
+  {% include "partials/top_nav.html" %}
+  <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
+
+  <div class="app-body">
+    {% include "partials/left_rail.html" %}
+
+    <main class="dash-workspace" id="dash-workspace" aria-label="Dashboard">
+
+      {% if session_data and session_data.isAuthenticated %}
+
+      <!-- Header bar -->
+      <div class="dash-topbar">
+        <div class="dash-topbar-left">
+          <h1 class="dash-title">Dashboard</h1>
+          <p class="dash-subtitle">Welcome back &mdash; <strong>{{ session_data.activeAccount.account }}</strong></p>
+        </div>
+        <div class="dash-topbar-right">
+          <span class="dash-live-dot" title="Live connection" aria-label="Connected"></span>
+          <span class="dash-live-label">Live</span>
+          <div class="dash-bal-chip">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <span id="dash-header-balance">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Balance card -->
+      <section class="dash-section" aria-labelledby="dash-balance-heading">
+        <div class="dash-balance-card">
+          <div class="dash-balance-card-left">
+            <div class="dash-balance-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div>
+              <div class="dash-balance-label" id="dash-balance-heading">Account Balance</div>
+              <div class="dash-balance-amount" id="dash-balance-amount">—</div>
+              <div class="dash-balance-account">
+                {{ session_data.activeAccount.account }}
+                &bull;
+                {{ 'Demo Account' if session_data.activeAccount.isVirtual else session_data.activeAccount.currency + ' Real' }}
+              </div>
+            </div>
+          </div>
+          <div class="dash-balance-card-right">
+            <a href="/trader" class="nav-btn nav-btn-filled" style="gap:7px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+              Start Trading
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Account switcher -->
+      <section class="dash-section" aria-labelledby="dash-accounts-heading">
+        <h2 class="dash-section-title" id="dash-accounts-heading">Your Accounts</h2>
+        <div class="dash-accounts-grid" role="list">
+          {% for acc in session_data.accounts %}
+          <a href="/auth/switch/{{ acc.account }}"
+             class="dash-account-card {% if acc.account == session_data.activeAccount.account %}dash-account-active{% endif %}"
+             role="listitem"
+             aria-current="{{ 'true' if acc.account == session_data.activeAccount.account else 'false' }}">
+            <div class="dash-acct-top">
+              <span class="dash-acct-avatar" aria-hidden="true">{{ acc.account[:2] }}</span>
+              {% if acc.account == session_data.activeAccount.account %}
+              <span class="dash-acct-active-badge">Active</span>
+              {% else %}
+              <span class="dash-acct-switch-hint">Switch</span>
+              {% endif %}
+            </div>
+            <div class="dash-acct-id">{{ acc.account }}</div>
+            <div class="dash-acct-type">
+              {% if acc.isVirtual %}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Demo Account
+              {% else %}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Real &bull; {{ acc.currency }}
+              {% endif %}
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+
+      <!-- Quick access nav -->
+      <section class="dash-section" aria-labelledby="dash-quicknav-heading">
+        <h2 class="dash-section-title" id="dash-quicknav-heading">Quick Access</h2>
+        <div class="dash-nav-grid" role="list">
+
+          <a href="/trader" class="dash-nav-tile" role="listitem">
+            <div class="dash-nav-icon" style="--tile-color:#00E5A0;--tile-bg:rgba(0,229,160,.12)" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            </div>
+            <div class="dash-nav-label">Trader</div>
+            <div class="dash-nav-desc">Live charts &amp; one-click trading</div>
+            <svg class="dash-nav-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+
+          <a href="/bots" class="dash-nav-tile" role="listitem">
+            <div class="dash-nav-icon" style="--tile-color:#5b9dff;--tile-bg:rgba(91,157,255,.12)" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+            </div>
+            <div class="dash-nav-label">Bots</div>
+            <div class="dash-nav-desc">Automated AI trading bots</div>
+            <svg class="dash-nav-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+
+          <a href="/ATDbot" class="dash-nav-tile" role="listitem">
+            <div class="dash-nav-icon" style="--tile-color:#8B5CF6;--tile-bg:rgba(139,92,246,.12)" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            </div>
+            <div class="dash-nav-label">DBot</div>
+            <div class="dash-nav-desc">Visual strategy builder</div>
+            <svg class="dash-nav-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+
+          <a href="/invest" class="dash-nav-tile" role="listitem">
+            <div class="dash-nav-icon" style="--tile-color:#F59E0B;--tile-bg:rgba(245,158,11,.12)" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="dash-nav-label">Invest</div>
+            <div class="dash-nav-desc">Managed investment plans</div>
+            <svg class="dash-nav-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+
+          <a href="/journal" class="dash-nav-tile" role="listitem">
+            <div class="dash-nav-icon" style="--tile-color:#ef4444;--tile-bg:rgba(239,68,68,.12)" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            </div>
+            <div class="dash-nav-label">Journal</div>
+            <div class="dash-nav-desc">Discipline &amp; trade logs</div>
+            <svg class="dash-nav-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+
+          <a href="/trader" class="dash-nav-tile" role="listitem">
+            <div class="dash-nav-icon" style="--tile-color:#10b981;--tile-bg:rgba(16,185,129,.12)" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <div class="dash-nav-label">Reports</div>
+            <div class="dash-nav-desc">Analytics &amp; trade history</div>
+            <svg class="dash-nav-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+
+        </div>
+      </section>
+
+      {% else %}
+
+      <!-- Not authenticated -->
+      <div class="dash-unauth">
+        <div class="dash-unauth-card">
+          <div class="dash-unauth-icon" aria-hidden="true">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h2>Sign in to access your dashboard</h2>
+          <p>Connect your Deriv account to view your balance, switch between accounts, and access all Autonix trading tools.</p>
+          <a href="/auth/login" class="nav-btn nav-btn-filled" style="display:inline-flex;gap:8px;margin-top:8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            Log in with Deriv
+          </a>
+        </div>
+      </div>
+
+      {% endif %}
+
+    </main>
+  </div>
+</div>
+
+<div id="toast" class="toast" aria-live="polite"></div>
+
+<script>
+document.addEventListener("derivBalance", function (e) {
+  if (!e.detail) return;
+  var bal = parseFloat(e.detail.balance);
+  var cur = e.detail.currency || "USD";
+  var str = isFinite(bal) ? cur + " " + bal.toFixed(2) : "—";
+  var a = document.getElementById("dash-balance-amount");
+  var b = document.getElementById("dash-header-balance");
+  if (a) a.textContent = str;
+  if (b) b.textContent = str;
+});
+</script>
+{% endblock %}

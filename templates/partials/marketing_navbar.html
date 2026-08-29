@@ -1,0 +1,212 @@
+<nav class="autonix-navbar" role="navigation" aria-label="Site navigation" id="siteNav">
+  <div class="navbar-container">
+
+    <!-- Logo -->
+    <a href="/" class="navbar-logo" aria-label="Autonix home">
+      <span class="nav-logo-mark">AT</span>
+      <span class="nav-logo-name">Autonix</span>
+    </a>
+
+    <!-- Desktop grouped nav (mega-menus) -->
+    <ul class="navbar-menu" role="list">
+
+      <li class="nav-group" data-group="trading">
+        <button class="nav-group-btn" aria-expanded="false" aria-haspopup="true">
+          Trading
+          <svg class="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 3.5l3 3 3-3"/></svg>
+        </button>
+        <div class="nav-dropdown" role="menu">
+          <a href="/trader" class="nav-drop-item {% if request.path == '/trader' %}active{% endif %}" role="menuitem">
+            <span class="nav-drop-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
+            <div><div class="nav-drop-label">Trader</div><div class="nav-drop-desc">Live charts &amp; execution</div></div>
+          </a>
+          <a href="/ATDbot" class="nav-drop-item {% if request.path.startswith('/ATDbot') %}active{% endif %}" role="menuitem">
+            <span class="nav-drop-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+            <div><div class="nav-drop-label">ATD Bot</div><div class="nav-drop-desc">Visual strategy builder</div></div>
+          </a>
+          <a href="/bots" class="nav-drop-item {% if request.path == '/bots' %}active{% endif %}" role="menuitem">
+            <span class="nav-drop-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg></span>
+            <div><div class="nav-drop-label">Bots</div><div class="nav-drop-desc">Automated AI trading bots</div></div>
+          </a>
+        </div>
+      </li>
+
+      <li class="nav-group" data-group="resources">
+        <button class="nav-group-btn" aria-expanded="false" aria-haspopup="true">
+          Resources
+          <svg class="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 3.5l3 3 3-3"/></svg>
+        </button>
+        <div class="nav-dropdown" role="menu">
+          <a href="/journal" class="nav-drop-item {% if request.path == '/journal' %}active{% endif %}" role="menuitem">
+            <span class="nav-drop-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
+            <div><div class="nav-drop-label">Journal</div><div class="nav-drop-desc">Trading discipline &amp; logs</div></div>
+          </a>
+          <a href="/#faq" class="nav-drop-item" role="menuitem">
+            <span class="nav-drop-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+            <div><div class="nav-drop-label">FAQ</div><div class="nav-drop-desc">Common questions answered</div></div>
+          </a>
+          <a href="/journal" class="nav-drop-item" role="menuitem">
+            <span class="nav-drop-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
+            <div><div class="nav-drop-label">Strategy Guide</div><div class="nav-drop-desc">50% rule &amp; discipline</div></div>
+          </a>
+        </div>
+      </li>
+
+      <li class="nav-group" data-group="account">
+        <button class="nav-group-btn" aria-expanded="false" aria-haspopup="true">
+          Account
+          <svg class="nav-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 3.5l3 3 3-3"/></svg>
+        </button>
+        <div class="nav-dropdown" role="menu">
+          {% if session_data and session_data.isAuthenticated %}
+          <a href="/dashboard" class="nav-drop-item {% if request.path == '/dashboard' %}active{% endif %}" role="menuitem">
+            <span class="nav-drop-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+            <div><div class="nav-drop-label">Dashboard</div><div class="nav-drop-desc">Account overview &amp; balance</div></div>
+          </a>
+          {% endif %}
+          <a href="/invest" class="nav-drop-item {% if request.path == '/invest' %}active{% endif %}" role="menuitem">
+            <span class="nav-drop-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+            <div><div class="nav-drop-label">Invest</div><div class="nav-drop-desc">Managed investment plans</div></div>
+          </a>
+        </div>
+      </li>
+
+    </ul>
+
+    <!-- Right side: lang + CTAs + hamburger -->
+    <div class="navbar-end">
+
+      <button class="nav-lang-btn" aria-label="Language: English" title="Language">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span>EN</span>
+      </button>
+
+      {% if session_data and session_data.isAuthenticated %}
+      <div class="navbar-account-wrap" id="navbar-account-wrap">
+        <button class="navbar-account-btn" id="navbar-account-btn" aria-expanded="false" aria-haspopup="true">
+          <span class="navbar-account-avatar">{{ session_data.activeAccount.account[:2] }}</span>
+          <span class="navbar-account-id">{{ session_data.activeAccount.account }}</span>
+          <span class="navbar-account-tag">{{ 'Demo' if session_data.activeAccount.isVirtual else session_data.activeAccount.currency }}</span>
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 4l4 4 4-4"/></svg>
+        </button>
+        <div class="navbar-account-dropdown" id="navbar-account-dropdown">
+          {% for acc in session_data.accounts %}
+          <a class="navbar-acct-opt {% if acc.account == session_data.activeAccount.account %}active{% endif %}" href="/auth/switch/{{ acc.account }}">
+            <span>{{ acc.account }}</span>
+            <span class="navbar-acct-tag">{{ 'Demo' if acc.isVirtual else acc.currency }}</span>
+          </a>
+          {% endfor %}
+          {% if session_data.activeAccount.isVirtual %}
+          <button class="navbar-acct-opt reset-demo-btn" id="navbar-reset-demo-btn">
+            <span>Reset Demo Balance</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+          </button>
+          {% endif %}
+          <a class="navbar-acct-opt navbar-logout-opt" href="/auth/logout">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span>Log out</span>
+          </a>
+        </div>
+      </div>
+      <a href="/dashboard" class="nav-btn nav-btn-filled">Dashboard</a>
+      {% else %}
+      <a href="/auth/login" class="nav-btn nav-btn-ghost" id="navLoginBtn">Log in</a>
+      <a href="https://track.deriv.com/_AmZyUaWfEMJB4VdSfJsOp2Nd7ZgqdRLk/1" class="nav-btn nav-btn-filled" target="_blank" rel="noopener noreferrer">Sign up</a>
+      {% endif %}
+
+      <button class="nav-hamburger" id="navHamburger" aria-label="Open navigation menu" aria-expanded="false" aria-controls="navDrawer">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- Mobile slide-in drawer -->
+<div class="nav-drawer" id="navDrawer" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Navigation menu">
+  <div class="nav-drawer-inner">
+    <div class="nav-drawer-header">
+      <a href="/" class="navbar-logo" aria-label="Autonix home">
+        <span class="nav-logo-mark">AT</span>
+        <span class="nav-logo-name">Autonix</span>
+      </a>
+      <button class="nav-drawer-close" id="navDrawerClose" aria-label="Close menu">&times;</button>
+    </div>
+
+    <div class="nav-drawer-section">
+      <div class="nav-drawer-label">Trading</div>
+      <a href="/trader"  class="nav-drawer-link {% if request.path == '/trader' %}active{% endif %}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/></svg>Trader</a>
+      <a href="/ATDbot" class="nav-drawer-link {% if request.path.startswith('/ATDbot') %}active{% endif %}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>ATD Bot</a>
+      <a href="/bots"    class="nav-drawer-link {% if request.path == '/bots'   %}active{% endif %}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Bots</a>
+    </div>
+
+    <div class="nav-drawer-section">
+      <div class="nav-drawer-label">Resources</div>
+      <a href="/journal" class="nav-drawer-link {% if request.path == '/journal' %}active{% endif %}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Journal</a>
+      <a href="/#faq"    class="nav-drawer-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>FAQ</a>
+      <a href="/journal" class="nav-drawer-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Strategy Guide</a>
+    </div>
+
+    <div class="nav-drawer-section">
+      <div class="nav-drawer-label">Account</div>
+      {% if session_data and session_data.isAuthenticated %}
+      <a href="/dashboard" class="nav-drawer-link {% if request.path == '/dashboard' %}active{% endif %}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a>
+      {% endif %}
+      <a href="/invest" class="nav-drawer-link {% if request.path == '/invest' %}active{% endif %}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Invest</a>
+    </div>
+
+    <div class="nav-drawer-ctas">
+      {% if session_data and session_data.isAuthenticated %}
+      <a href="/dashboard" class="nav-btn nav-btn-filled" style="width:100%;justify-content:center;">Dashboard</a>
+      <a href="/auth/logout" class="nav-btn nav-btn-ghost" style="width:100%;justify-content:center;margin-top:8px;">Log out</a>
+      {% else %}
+      <a href="/auth/login" class="nav-btn nav-btn-ghost" style="width:100%;justify-content:center;">Log in</a>
+      <a href="https://track.deriv.com/_AmZyUaWfEMJB4VdSfJsOp2Nd7ZgqdRLk/1" class="nav-btn nav-btn-filled" style="width:100%;justify-content:center;margin-top:8px;" target="_blank" rel="noopener noreferrer">Sign up</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<div class="nav-drawer-backdrop" id="navDrawerBackdrop" aria-hidden="true"></div>
+
+<script>
+(function () {
+  var groups  = Array.prototype.slice.call(document.querySelectorAll(".nav-group") || []);
+  function closeAll() {
+    groups.forEach(function (g) {
+      g.classList.remove("open");
+      var b = g.querySelector(".nav-group-btn");
+      if (b) b.setAttribute("aria-expanded", "false");
+    });
+  }
+  groups.forEach(function (g) {
+    var btn = g.querySelector(".nav-group-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var wasOpen = g.classList.contains("open");
+      closeAll();
+      if (!wasOpen) { g.classList.add("open"); btn.setAttribute("aria-expanded", "true"); }
+    });
+    g.addEventListener("focusout", function (e) {
+      if (!g.contains(e.relatedTarget)) { g.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
+    });
+  });
+  document.addEventListener("click", closeAll);
+
+  var ham      = document.getElementById("navHamburger");
+  var drawer   = document.getElementById("navDrawer");
+  var backdrop = document.getElementById("navDrawerBackdrop");
+  var closeBtn = document.getElementById("navDrawerClose");
+  function openDrawer()  { if (!drawer) return; drawer.setAttribute("aria-hidden","false"); drawer.classList.add("open"); if(backdrop)backdrop.classList.add("visible"); if(ham)ham.setAttribute("aria-expanded","true"); document.body.style.overflow="hidden"; }
+  function closeDrawer() { if (!drawer) return; drawer.setAttribute("aria-hidden","true");  drawer.classList.remove("open"); if(backdrop)backdrop.classList.remove("visible"); if(ham)ham.setAttribute("aria-expanded","false"); document.body.style.overflow=""; }
+  if (ham)      ham.addEventListener("click", openDrawer);
+  if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
+  if (backdrop) backdrop.addEventListener("click", closeDrawer);
+
+  var nav = document.getElementById("siteNav");
+  if (nav) {
+    window.addEventListener("scroll", function () { nav.classList.toggle("nav-scrolled", window.scrollY > 24); }, { passive: true });
+  }
+})();
+</script>

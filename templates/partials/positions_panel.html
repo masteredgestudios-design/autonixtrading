@@ -1,0 +1,28 @@
+<aside class="positions-panel" id="positions-panel" aria-label="Active Positions">
+  <div class="positions-panel-inner">
+    <div class="positions-header">
+      <span class="positions-title">Positions & Trades</span>
+      <button class="positions-close-btn" id="positions-close-btn" aria-label="Close positions panel">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="positions-body" id="positions-body">
+      <div class="positions-empty" id="positions-empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <path d="M8 21h8M12 17v4"/>
+        </svg>
+        <p>No active trades</p>
+      </div>
+      <div id="positions-container" class="positions-container"></div>
+    </div>
+    <div class="positions-footer" id="positions-footer" style="display:none">
+      <div class="positions-total-row">
+        <span>Total P&amp;L</span>
+        <span class="positions-total-pl" id="positions-total-pl">$0.00</span>
+      </div>
+    </div>
+  </div>
+</aside>

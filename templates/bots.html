@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}My Bots | Automated Trading Suite | Autonix{% endblock %}
+
+{% block meta_description %}Three intelligent automated trading bots — Free, Basic, and Expert. Set your stake, take profit, and stop loss. Autonix handles the rest.{% endblock %}
+
+{% block body %}
+<div class="app-wrapper">
+  {% include "partials/top_nav.html" %}
+
+  <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
+
+  <div class="app-body">
+    {% include "partials/left_rail.html" %}
+
+    <main class="bots-workspace" id="bots-workspace">
+      <header class="bots-header">
+        <div class="bots-header-left">
+          <span class="bots-eyebrow">Automation Suite</span>
+          <h1 class="bots-title">Trading Bots</h1>
+          <p class="bots-subtitle">
+            Three intelligent bots with hidden strategy logic. Set your stake,
+            take profit, and stop loss — Autonix handles the rest.
+          </p>
+
+          <div class="bots-mode-row" id="bots-mode-row">
+            <span class="bots-mode-pill {% if session_data and session_data.isAuthenticated %}connecting{% else %}demo{% endif %}" id="bots-mode-pill">
+              <span class="bots-mode-dot"></span>
+              <span id="bots-mode-label">{% if session_data and session_data.isAuthenticated %}Connecting to Deriv&hellip;{% else %}Not connected{% endif %}</span>
+              <span class="bots-mode-sub" id="bots-mode-sub">{% if session_data and session_data.isAuthenticated %}Please wait{% else %}Login required to trade{% endif %}</span>
+            </span>
+            <a href="/auth/login" class="bots-connect-btn" id="bots-connect-btn"
+               {% if session_data and session_data.isAuthenticated %}style="display:none"{% endif %}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+              Connect Deriv to trade
+            </a>
+          </div>
+        </div>
+
+        <div class="bots-status-summary" id="bots-summary">
+          <div class="bots-summary-item bots-balance-item">
+            <span class="bots-summary-label">Account</span>
+
+            {% if session_data and session_data.isAuthenticated %}
+            <span class="bots-balance-sub" id="bots-balance-display"
+              >{{ session_data.activeAccount.account }}{% if
+              session_data.activeAccount.isVirtual %} • Demo{% endif %}</span
+            >
+            {% else %}
+            <span class="bots-balance-sub" id="bots-balance-display">Connect Deriv to view balance</span>
+            {% endif %}
+          </div>
+          <div class="bots-summary-item">
+            <span class="bots-summary-label">Active Bots</span>
+            <span class="bots-summary-value" id="bots-active-count">0 / 5</span>
+          </div>
+          <div class="bots-summary-item">
+            <span class="bots-summary-label">Session P/L</span>
+            <span class="bots-summary-value" id="bots-total-pl">$0.00</span>
+          </div>
+          <div class="bots-summary-item">
+            <button class="bots-sound-toggle" id="bots-sound-toggle" title="Sounds ON — click to mute" type="button">
+              <svg class="sound-icon-on" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+              <svg class="sound-icon-off" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+              </svg>
+              <span class="sound-label">Sounds</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {% include "partials/ai_trader.html" %}
+
+      <div class="bots-grid" id="bots-grid">
+        <!-- Bot cards rendered by bots-page.js -->
+      </div>
+
+      <!-- ═══ Bulk Trader ═══ -->
+      <section class="bulk-trader-section" id="bulk-trader-section">
+        <div class="bulk-header">
+          <div class="bulk-header-left">
+            <div class="bulk-header-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <path d="M8 21h8M12 17v4"/>
+                <polyline points="6 9 9 12 12 9 15 12 18 9"/>
+              </svg>
+            </div>
+            <div>
+              <div class="bulk-eyebrow">High-Volume Mode</div>
+              <h2 class="bulk-title">Bulk Trader</h2>
+              <p class="bulk-subtitle">Comprehensive market analysis across both strategies. Intelligent trade allocation. Simultaneous execution.</p>
+            </div>
+          </div>
+          <span class="bulk-status-pill bulk-status-idle" id="bulk-status-pill">Ready</span>
+        </div>
+
+        <div class="bulk-config-grid">
+          <label class="bot-input-field">
+            <span class="bot-input-label">Symbol</span>
+            <select id="bulk-symbol" class="bot-select"></select>
+          </label>
+          <label class="bot-input-field">
+            <span class="bot-input-label">Strategy</span>
+            <select id="bulk-strategy" class="bot-select">
+              <option value="both" selected>Both Strategies</option>
+              <option value="differs">Strategy A – Differs</option>
+              <option value="overunder">Strategy B – Over 1 / Under 8</option>
+            </select>
+          </label>
+          <label class="bot-input-field">
+            <span class="bot-input-label">Stake per Trade (USD)</span>
+            <input type="number" id="bulk-stake" class="bulk-input" value="10" min="0.35" step="0.5" />
+          </label>
+          <label class="bot-input-field">
+            <span class="bot-input-label">Number of Trades</span>
+            <input type="number" id="bulk-num-trades" class="bulk-input" value="10" min="1" max="500" step="1" />
+          </label>
+          <label class="bot-input-field">
+            <span class="bot-input-label">Take Profit (USD)</span>
+            <input type="number" id="bulk-take-profit" class="bulk-input" value="5" min="0" step="1" />
+          </label>
+        </div>
+
+        <!-- Live analysis panel — updated every tick while scanning -->
+        <div class="bulk-analysis-summary" id="bulk-analysis-summary" style="display:none"></div>
+
+        <div class="bulk-actions-row">
+          <button class="bulk-execute-btn" id="bulk-execute-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+              <polyline points="17 6 23 6 23 12"/>
+            </svg>
+            Analyze &amp; Execute
+          </button>
+          <button class="bulk-stop-btn" id="bulk-stop-btn" style="display:none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+            </svg>
+            Stop
+          </button>
+        </div>
+
+        <!-- Live summary bar -->
+        <div class="bulk-live-summary" id="bulk-live-summary" style="display:none"></div>
+
+        <!-- Bulk trade history table -->
+        <div class="bulk-history-wrap" id="bulk-history-wrap" style="display:none">
+          <div class="bulk-history-hdr">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/>
+            </svg>
+            <span>Bulk Trade History</span>
+          </div>
+          <div class="bulk-table-scroll">
+            <table class="bulk-history-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Strategy</th>
+                  <th>Direction</th>
+                  <th>Stake</th>
+                  <th>Status</th>
+                  <th>P / L</th>
+                  <th>Entry</th>
+                  <th>Exit</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="bulk-history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ Centralized Trade History Card ═══ -->
+      <section class="bots-history-card" id="bots-history-card">
+        <div class="bots-history-header">
+          <div class="bots-history-title-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/>
+            </svg>
+            <span class="bots-history-title">Trade History</span>
+            <span class="bots-history-count" id="bots-history-count">0 trades</span>
+          </div>
+          <button class="bots-history-clear" id="bots-history-clear" title="Clear history">Clear</button>
+        </div>
+
+        <p class="bots-history-empty" id="bots-history-empty">
+          No trades yet — start a bot to begin trading.
+        </p>
+
+        <div class="bots-history-table-wrap" id="bots-history-table-wrap" style="display:none">
+          <table class="bots-history-table">
+            <thead>
+              <tr>
+                <th>Bot</th>
+                <th>Trade</th>
+                <th>Stake</th>
+                <th>Result</th>
+                <th>P / L</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody id="bots-history-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="bots-footnote">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        Bots execute one trade at a time and stop automatically when TP or SL is
+        reached. Connection drops halt all bots immediately.
+      </div>
+    </main>
+  </div>
+</div>
+
+
+<div id="toast" class="toast" aria-live="polite"></div>
+{% endblock %} {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/bots-page.js') }}?v=33"></script>
+<script src="{{ url_for('static', filename='js/bulk-trader.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/ai-trader.js') }}?v=1"></script>
+{% endblock %}
