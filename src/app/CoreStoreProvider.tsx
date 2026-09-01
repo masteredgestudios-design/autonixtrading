@@ -151,20 +151,18 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
     );
 
     useEffect(() => {
-        if (!isAuthorizing && client) {
-            const subscription = api_base?.api?.onMessage().subscribe(handleMessages);
-            // Fixed unsubscribe type - only store if subscription exists
-            if (subscription) {
-                msg_listener.current = { unsubscribe: subscription.unsubscribe };
-            }
+        if (isAuthorizing || !client || !api_base?.api) {
+            return undefined;
         }
 
+        const subscription = api_base.api.onMessage().subscribe(handleMessages);
+        msg_listener.current = { unsubscribe: subscription.unsubscribe };
+
         return () => {
-            if (msg_listener.current) {
-                msg_listener.current.unsubscribe?.();
-            }
+            msg_listener.current?.unsubscribe?.();
+            msg_listener.current = null;
         };
-    }, [connectionStatus, handleMessages, isAuthorizing, isAuthorized, client]);
+    }, [client, handleMessages, isAuthorizing]);
 
     useEffect(() => {
         if (!isAuthorizing && isAuthorized && !accountInitialization.current && client) {

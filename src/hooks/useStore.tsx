@@ -12,25 +12,26 @@ type TStoreProvider = {
 };
 
 const StoreProvider: React.FC<TStoreProvider> = ({ children, mockStore }) => {
-    const [store, setStore] = useState<RootStore | null>(null);
+    const [store, setStore] = useState<RootStore | null>(() => (mockStore ? mockStore : null));
     const initializingStore = useRef(false);
 
     useEffect(() => {
+        if (mockStore) {
+            setStore(mockStore);
+            initializingStore.current = true;
+            return;
+        }
+
+        if (store || initializingStore.current) return;
+
         const initializeStore = async () => {
+            initializingStore.current = true;
             const rootStore = new RootStore(Bot);
             setStore(rootStore);
         };
 
-        if (!store && !initializingStore.current) {
-            initializingStore.current = true;
-            // If the store is mocked for testing purposes, then return the mocked value.
-            if (mockStore) {
-                setStore(mockStore);
-            } else {
-                initializeStore();
-            }
-        }
-    }, [store, mockStore]);
+        initializeStore();
+    }, [mockStore, store]);
 
     if (!store) return null;
 

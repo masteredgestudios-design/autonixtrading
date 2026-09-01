@@ -1,5 +1,6 @@
 import React from 'react';
-import { formatMoney, getCurrencyDisplayCode } from '@/components/shared';
+import { getCurrencyDisplayCode } from '@/components/shared';
+import { useCurrency } from '@/contexts/currency-context';
 
 type TMoneyProps = {
     amount: number | string;
@@ -18,6 +19,7 @@ const Money = ({
     should_format = true,
     show_currency = false,
 }: Partial<TMoneyProps>) => {
+    const { formatMoney: formatDisplayMoney, currency: displayCurrency } = useCurrency();
     let sign = '';
     if (Number(amount) && (Number(amount) < 0 || has_sign)) {
         sign = Number(amount) > 0 ? '+' : '-';
@@ -25,13 +27,15 @@ const Money = ({
 
     // if it's formatted already then don't make any changes unless we should remove extra -/+ signs
     const value = has_sign || should_format ? Math.abs(Number(amount)) : amount;
-    const final_amount = should_format ? formatMoney(currency, value, true, 0, 0) : value;
+    const final_amount = should_format
+        ? formatDisplayMoney(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : value;
 
     return (
         <React.Fragment>
             <span>{has_sign && sign}</span>
             <span data-testid='dt_span' className={className}>
-                {final_amount} {show_currency && getCurrencyDisplayCode(currency)}
+                {final_amount} {show_currency && !should_format && getCurrencyDisplayCode(displayCurrency)}
             </span>
         </React.Fragment>
     );

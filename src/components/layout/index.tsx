@@ -43,7 +43,7 @@ const Layout = observer(() => {
     const query_currency = (getQueryParams.get('account') ?? '')?.toUpperCase();
     const isCurrencyValid = validCurrencies.includes(query_currency);
     const api_accounts: any[][] = [];
-    let subscription: { unsubscribe: () => void };
+    const subscriptionRef = { current: undefined as { unsubscribe: () => void } | undefined };
 
     const validateApiAccounts = ({ data }: any) => {
         //TO do work on this with account switcher
@@ -100,20 +100,27 @@ const Layout = observer(() => {
                 setClientHasCurrency(true);
             }
 
-            if (subscription) {
-                subscription?.unsubscribe();
+            if (subscriptionRef.current) {
+                subscriptionRef.current.unsubscribe();
+                subscriptionRef.current = undefined;
             }
         }
     };
 
     useEffect(() => {
-        if (isCurrencyValid && api_base.api) {
-            // Subscribe to the onMessage event
-            const is_valid_currency = currency && validCurrencies.includes(currency.toUpperCase());
-            if (!is_valid_currency) return;
-            subscription = api_base.api.onMessage().subscribe(validateApiAccounts);
-        }
-    }, []);
+        if (!isCurrencyValid || !api_base.api) return undefined;
+
+        const is_valid_currency = currency && validCurrencies.includes(currency.toUpperCase());
+        if (!is_valid_currency) return undefined;
+
+        const subscription = api_base.api.onMessage().subscribe(validateApiAccounts);
+        subscriptionRef.current = subscription;
+
+        return () => {
+            subscription.unsubscribe();
+            subscriptionRef.current = undefined;
+        };
+    }, [currency, isCurrencyValid, validCurrencies]);
 
     useEffect(() => {
         // Always set the currency in session storage, even if the user is not logged in

@@ -12,6 +12,7 @@
 
   <!-- Right: Search + icons + auth -->
   <div class="nav-right">
+    {% include "partials/currency_switcher.html" %}
     <div class="nav-search-wrap">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/>
@@ -32,7 +33,7 @@
       <div class="account-chip" id="account-chip">
         <div class="account-avatar">{{ session_data.activeAccount.account[:2] }}</div>
         <div class="account-chip-info">
-          <span class="account-balance">{{ session_data.activeAccount.currency }} {{ "%.2f"|format((session_data.activeAccount.balance or 0)|float) }}</span>
+          <span class="account-balance" data-usd-amount="{{ session_data.activeAccount.balance or 0 }}">${{ "%.2f"|format((session_data.activeAccount.balance or 0)|float) }}</span>
         </div>
         <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M2 4l4 4 4-4"/>

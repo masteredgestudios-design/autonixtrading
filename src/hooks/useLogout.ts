@@ -2,10 +2,11 @@ import { useCallback } from 'react';
 import { clearAuthInfo } from '@/external/deriv-core';
 import { useStore } from '@/hooks/useStore';
 import { ErrorLogger } from '@/utils/error-logger';
+import { logoutFromFlask } from '@/services/flask-auth.service';
 
 /**
  * Custom hook to handle logout functionality
- * Clears all session and local storage to reset the session
+ * Uses Flask's logout endpoint which clears the session and revokes tokens server-side
  * @returns {Function} handleLogout - Function to trigger the logout process
  */
 export const useLogout = () => {
@@ -13,11 +14,9 @@ export const useLogout = () => {
 
     return useCallback(async () => {
         try {
-            await fetch('/auth/session', { method: 'DELETE', credentials: 'include' });
-            // Call the client store logout method which clears all storage
-            await client?.logout();
-            // Analytics.reset() removed - Analytics package has been removed from the project
-            // See migrate-docs/MONITORING_PACKAGES.md for re-enabling analytics if needed
+            // Use Flask's logout endpoint which handles session clearing and token revocation
+            await logoutFromFlask();
+            // If we get here, the logout was successful and we've been redirected
         } catch (error) {
             ErrorLogger.error('Logout', 'Logout failed', error);
             // If logout fails, clear only auth-related storage keys

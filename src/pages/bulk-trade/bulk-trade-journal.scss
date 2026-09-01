@@ -1,0 +1,238 @@
+.bulk-trade-journal {
+    .journal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 1.25rem 0;
+        color: var(--color-general-1200);
+    }
+
+    .journal-empty {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: var(--color-general-900);
+        font-size: 0.95rem;
+
+        p {
+            margin: 0;
+        }
+    }
+
+    .journal-batches {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+
+        .batch-card {
+            border: 1px solid var(--color-general-700);
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+            background-color: var(--color-general-700);
+
+            .batch-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1rem;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid var(--color-general-600);
+
+                .batch-id {
+                    font-weight: 600;
+                    color: var(--color-general-1200);
+                    font-size: 0.95rem;
+                }
+
+                .batch-status {
+                    padding: 0.25rem 0.75rem;
+                    border-radius: 0.25rem;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+
+                    &.running {
+                        background-color: #3b82f6;
+                        color: white;
+                    }
+
+                    &.completed {
+                        background-color: #10b981;
+                        color: white;
+                    }
+
+                    &.failed {
+                        background-color: #ef4444;
+                        color: white;
+                    }
+
+                    &.ready {
+                        background-color: var(--color-general-600);
+                        color: var(--color-general-900);
+                    }
+                }
+            }
+
+            .batch-info-grid,
+            .batch-stats-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            .info-item,
+            .stat-item {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+
+                .info-label,
+                .stat-label {
+                    font-size: 0.75rem;
+                    font-weight: 500;
+                    color: var(--color-general-900);
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+
+                .info-value,
+                .stat-value {
+                    font-size: 0.95rem;
+                    font-weight: 600;
+                    color: var(--color-general-1200);
+
+                    &.wins {
+                        color: #10b981;
+                    }
+
+                    &.losses {
+                        color: #ef4444;
+                    }
+
+                    &.failed {
+                        color: #f59e0b;
+                    }
+
+                    &.profit {
+                        color: #10b981;
+                    }
+
+                    &.loss {
+                        color: #ef4444;
+                    }
+                }
+
+                &.total {
+                    grid-column: 1 / -1;
+                    padding-top: 0.5rem;
+                    border-top: 1px solid var(--color-general-600);
+
+                    .stat-value {
+                        font-size: 1.25rem;
+                        color: var(--color-general-1200);
+                    }
+                }
+            }
+
+            .batch-contracts {
+                margin-top: 1rem;
+                border-top: 1px solid var(--color-general-600);
+                padding-top: 1rem;
+
+                .contracts-header {
+                    display: grid;
+                    grid-template-columns: 50px 1fr 120px 100px;
+                    gap: 1rem;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    color: var(--color-general-900);
+                    margin-bottom: 0.75rem;
+                    padding-bottom: 0.75rem;
+                    border-bottom: 1px solid var(--color-general-600);
+                }
+
+                .contract-row {
+                    display: grid;
+                    grid-template-columns: 50px 1fr 120px 100px;
+                    gap: 1rem;
+                    align-items: center;
+                    padding: 0.75rem 0;
+                    border-bottom: 1px solid var(--color-general-800);
+                    font-size: 0.875rem;
+
+                    &:last-child {
+                        border-bottom: none;
+                    }
+
+                    .col-index {
+                        color: var(--color-general-900);
+                        font-weight: 500;
+                    }
+
+                    .col-trade {
+                        color: var(--color-general-1100);
+                    }
+
+                    .col-status {
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        text-align: center;
+                        font-size: 0.75rem;
+
+                        &.status-won {
+                            color: #10b981;
+                        }
+
+                        &.status-lost {
+                            color: #ef4444;
+                        }
+
+                        &.status-failed {
+                            color: #f59e0b;
+                        }
+
+                        &.status-pending,
+                        &.status-open,
+                        &.status-submitted {
+                            color: #3b82f6;
+                        }
+                    }
+
+                    .col-result {
+                        text-align: right;
+                        font-weight: 600;
+
+                        &.profit {
+                            color: #10b981;
+                        }
+
+                        &.loss {
+                            color: #ef4444;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @media (max-width: 768px) {
+        .journal-batches {
+            .batch-card {
+                padding: 1rem;
+
+                .batch-info-grid,
+                .batch-stats-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+
+                .batch-contracts {
+                    .contracts-header,
+                    .contract-row {
+                        grid-template-columns: 40px 1fr 80px 70px;
+                        font-size: 0.75rem;
+                    }
+                }
+            }
+        }
+    }
+}

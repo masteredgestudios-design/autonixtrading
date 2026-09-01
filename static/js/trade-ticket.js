@@ -15,6 +15,10 @@
     return (stake * 1.955).toFixed(2);
   }
 
+  function displayMoney(value) {
+    return window.AutonixCurrency ? window.AutonixCurrency.format(value) : Number(value).toFixed(2) + " USD";
+  }
+
   function updateBuyBtn() {
     const btn = document.getElementById("buy-btn");
     const btnText = document.getElementById("buy-btn-text");
@@ -33,13 +37,13 @@
       if (btnText) btnText.textContent = "Buy Fall";
     }
 
-    if (btnSub) btnSub.textContent = "Payout " + payout + " USD";
-    if (payoutEl) payoutEl.textContent = payout + " USD";
+    if (btnSub) btnSub.textContent = "Payout " + displayMoney(payout);
+    if (payoutEl) payoutEl.textContent = displayMoney(payout);
   }
 
   function updateStakeDisplay() {
     const el = document.getElementById("stake-display");
-    if (el) el.textContent = stakeValue.toFixed(2) + " USD";
+    if (el) el.textContent = displayMoney(stakeValue);
   }
 
   function updateDurationDisplay() {
@@ -190,7 +194,7 @@
           asset +
           " — Payout " +
           payout +
-          " USD",
+          "",
         direction === "rise" ? "green" : "red",
         3000,
       );

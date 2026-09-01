@@ -6,6 +6,14 @@
 
   if (!document.getElementById("bots-grid")) return;
 
+  function displayMoney(value) {
+    return window.AutonixCurrency ? window.AutonixCurrency.format(value) : "$" + Number(value || 0).toFixed(2);
+  }
+
+  function displaySignedMoney(value) {
+    return (Number(value) >= 0 ? "+" : "-") + displayMoney(Math.abs(Number(value) || 0));
+  }
+
   /* ─── Audio ──────────────────────────────────────────────────── */
   var _AudioCtx = window.AudioContext || window.webkitAudioContext;
   var _audioCtx = null;
@@ -1368,7 +1376,7 @@
 
     var plEl = document.getElementById("pl-" + def.id);
     if (plEl) {
-      plEl.textContent = (state.sessionPL >= 0 ? "+$" : "-$") + Math.abs(state.sessionPL).toFixed(2);
+      plEl.textContent = displaySignedMoney(state.sessionPL);
       plEl.className = "bot-stat-val " + (state.sessionPL >= 0 ? "pos" : "neg");
     }
     var trEl = document.getElementById("trades-"  + def.id); if (trEl) trEl.textContent = state.trades;
@@ -1402,7 +1410,7 @@
         lastWrap.style.display = "";
         lastRes.className = "bot-last-result " + (state.lastResult.won ? "win" : "loss");
         lastRes.textContent =
-          (state.lastResult.won ? "WIN +" : "LOSS -") + "$" + Math.abs(state.lastResult.pl).toFixed(2) +
+          (state.lastResult.won ? "WIN " : "LOSS ") + displaySignedMoney(state.lastResult.pl) +
           " \u00b7 " + state.lastResult.selection.toUpperCase() +
           (state.lastResult.digit !== undefined ? " " + state.lastResult.digit : "");
       } else {
@@ -1431,7 +1439,7 @@
     if (ac) ac.textContent = active + " / 5";
     var tp = document.getElementById("bots-total-pl");
     if (tp) {
-      tp.textContent = (total >= 0 ? "+$" : "-$") + Math.abs(total).toFixed(2);
+      tp.textContent = displaySignedMoney(total);
       tp.className = "bots-summary-value " + (total >= 0 ? "pos" : "neg");
     }
   }
@@ -1513,12 +1521,12 @@
     if (tableWrap) tableWrap.style.display = "";
     var ACCENT = { freeBot: "#00E5A0", basicBot: "#5b9dff", expertBot: "#F59E0B" };
     tbody.innerHTML = globalHistory.slice(0, 200).map(function (h) {
-      var plStr = (h.pl >= 0 ? "+" : "") + "$" + Math.abs(h.pl).toFixed(2);
+      var plStr = displaySignedMoney(h.pl);
       return (
         '<tr class="' + (h.won ? "hrow-win" : "hrow-loss") + '">' +
         '<td><span class="h-bot-dot" style="background:' + (ACCENT[h.botId] || "#aaa") + '"></span>' + h.botName + '</td>' +
         '<td>' + h.tradeType + '</td>' +
-        '<td>$' + h.stake.toFixed(2) + '</td>' +
+        '<td>' + displayMoney(h.stake) + '</td>' +
         '<td><span class="h-result-badge ' + (h.won ? "h-win" : "h-loss-badge") + '">' + (h.won ? "WIN" : "LOSS") + '</span></td>' +
         '<td class="' + (h.pl >= 0 ? "h-profit" : "h-loss") + '">' + plStr + '</td>' +
         '<td class="h-time">' + h.time + '</td>' +

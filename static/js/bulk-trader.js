@@ -43,7 +43,7 @@
 
   /* ─── DOM helpers ────────────────────────────────────────────────── */
   function $id(id)  { return document.getElementById(id); }
-  function fmtPL(n) { return (n >= 0 ? "+" : "") + "$" + Math.abs(n).toFixed(2); }
+  function fmtPL(n) { return (n >= 0 ? "+" : "-") + (window.AutonixCurrency ? window.AutonixCurrency.format(Math.abs(n)) : "$" + Math.abs(n).toFixed(2)); }
   function esc(s) {
     return String(s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;")

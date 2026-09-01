@@ -41,7 +41,12 @@ import { useLocation } from 'react-router';
 import { useStore } from '@/hooks/useStore';
 import './menu-items.scss';
 
-const navigationItems = [
+type NavigationItem = {
+    label: string;
+    href: string;
+};
+
+const navigationItems: NavigationItem[] = [
     { label: 'Trader', href: '/trader' },
     { label: 'ATD Bot', href: '/ATDbot' },
     { label: 'Bots', href: '/bots' },
@@ -49,7 +54,7 @@ const navigationItems = [
     { label: 'FAQ', href: '/#faq' },
     { label: 'Strategy Guide', href: '/journal' },
     { label: 'Invest', href: '/invest' },
-] as const;
+];
 
 export const MenuItems = observer(() => {
     const store = useStore();

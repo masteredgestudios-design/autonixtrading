@@ -1,6 +1,7 @@
 // @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
 import AppStore from './app-store';
 import BlocklyStore from './blockly-store';
+import BulkTradeStore from './bulk-trade-store';
 import ChartStore from './chart-store';
 import ClientStore from './client-store';
 import CommonStore from './common-store';
@@ -24,6 +25,7 @@ import UiStore from './ui-store';
 export default class RootStore {
     public dbot;
     public app: AppStore;
+    public bulk_trade: BulkTradeStore;
     public summary_card: SummaryCardStore;
     public flyout: FlyoutStore;
     public flyout_help: FlyoutHelpStore;
@@ -65,6 +67,7 @@ export default class RootStore {
         this.core.common = this.common;
 
         this.app = new AppStore(this, this.core);
+        this.bulk_trade = new BulkTradeStore(this);
         this.summary_card = new SummaryCardStore(this, this.core);
         this.flyout = new FlyoutStore(this);
         this.flyout_help = new FlyoutHelpStore(this);

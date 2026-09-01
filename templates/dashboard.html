@@ -181,8 +181,9 @@
 document.addEventListener("derivBalance", function (e) {
   if (!e.detail) return;
   var bal = parseFloat(e.detail.balance);
-  var cur = e.detail.currency || "USD";
-  var str = isFinite(bal) ? cur + " " + bal.toFixed(2) : "—";
+  var str = isFinite(bal)
+    ? (window.AutonixCurrency ? window.AutonixCurrency.format(bal) : "$" + bal.toFixed(2))
+    : "—";
   var a = document.getElementById("dash-balance-amount");
   var b = document.getElementById("dash-header-balance");
   if (a) a.textContent = str;

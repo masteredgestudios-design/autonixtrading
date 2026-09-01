@@ -64,6 +64,10 @@
   </div>
 
   <style>
+    .display-currency-switcher { display: inline-flex; align-items: center; margin-inline: 8px; }
+    .display-currency-switcher select { min-height: 32px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-panel); color: var(--text-primary); padding: 0 6px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
     body,
     .app-wrapper,
     .autonix-page-wrapper,
@@ -179,6 +183,7 @@
   </script>
   <script src="{{ url_for('static', filename='js/deriv-ws.js') }}?v=12"></script>
   <script src="{{ url_for('static', filename='js/theme-toggle.js') }}?v=3"></script>
+  <script src="{{ url_for('static', filename='js/currency.js') }}?v=1"></script>
   <script src="{{ url_for('static', filename='js/markets-panel.js') }}?v=5"></script>
   <script src="{{ url_for('static', filename='js/chart.js') }}?v=5"></script>
   <script src="{{ url_for('static', filename='js/trade-ticket.js') }}?v=5"></script>

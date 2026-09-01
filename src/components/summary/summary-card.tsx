@@ -10,7 +10,9 @@ import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import ContractCardLoader from '../contract-card-loading';
 import { getCardLabels } from '../shared';
-import ContractCard from '../shared_ui/contract-card';
+import ContractCardBody from '../shared_ui/contract-card/contract-card-items/contract-card-body';
+import ContractCardFooter from '../shared_ui/contract-card/contract-card-items/contract-card-footer';
+import ContractCardHeader from '../shared_ui/contract-card/contract-card-items/contract-card-header';
 import { TSummaryCardProps } from './summary-card.types';
 
 const SummaryCard = observer(({ contract_info, is_contract_loading, is_bot_running }: TSummaryCardProps) => {
@@ -29,7 +31,7 @@ const SummaryCard = observer(({ contract_info, is_contract_loading, is_bot_runni
     }, [is_contract_loading]);
 
     const card_header = (
-        <ContractCard.Header
+        <ContractCardHeader
             contract_info={contract_info}
             display_name={
                 (contract_info as any)?.underlying_symbol
@@ -45,7 +47,7 @@ const SummaryCard = observer(({ contract_info, is_contract_loading, is_bot_runni
     );
 
     const card_body = (
-        <ContractCard.Body
+        <ContractCardBody
             addToast={addToast}
             contract_info={contract_info}
             currency={contract_info?.currency ?? ''}
@@ -64,7 +66,7 @@ const SummaryCard = observer(({ contract_info, is_contract_loading, is_bot_runni
     );
 
     const card_footer = (
-        <ContractCard.Footer
+        <ContractCardFooter
             contract_info={contract_info}
             getCardLabels={getCardLabels}
             is_multiplier={is_multiplier}
@@ -95,22 +97,14 @@ const SummaryCard = observer(({ contract_info, is_contract_loading, is_bot_runni
             {is_contract_loading && !is_bot_running && <ContractCardLoader speed={2} />}
             {is_bot_running && <ContractCardLoader speed={2} contract_stage={contract_stage} />}
             {!is_contract_loading && contract_info && !is_bot_running && (
-                <ContractCard
-                    contract_info={contract_info}
-                    getCardLabels={getCardLabels}
-                    is_multiplier={is_multiplier}
-                    profit_loss={contract_info.profit}
-                    should_show_result_overlay={true}
+                <div
+                    className={classNames('dc-contract-card', {
+                        'dc-contract-card--green': contract_info.profit > 0,
+                        'dc-contract-card--red': contract_info.profit < 0,
+                    })}
                 >
-                    <div
-                        className={classNames('dc-contract-card', {
-                            'dc-contract-card--green': contract_info.profit > 0,
-                            'dc-contract-card--red': contract_info.profit < 0,
-                        })}
-                    >
-                        {contract_el}
-                    </div>
-                </ContractCard>
+                    {contract_el}
+                </div>
             )}
             {!is_contract_loading && !contract_info && !is_bot_running && (
                 <Text as='p' align='center' lineHeight='s' size='xs'>

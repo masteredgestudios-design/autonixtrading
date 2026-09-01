@@ -48,6 +48,7 @@ type TDrawerContent = {
     is_drawer_open: boolean;
     active_tour: string;
     setActiveTabIndex: () => void;
+    is_embedded?: boolean;
 };
 
 type TDrawerFooter = {
@@ -129,12 +130,12 @@ const DrawerHeader = ({ is_clear_stat_disabled, is_mobile, is_drawer_open, onCle
         />
     );
 
-const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTabIndex, ...props }: TDrawerContent) => {
+export const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTabIndex, is_embedded = false, ...props }: TDrawerContent) => {
     const { isDesktop } = useDevice();
     // Use the useBlockScroll hook to prevent body scrolling when drawer is open on mobile
 
     React.useEffect(() => {
-        if (!isDesktop && is_drawer_open) {
+        if (!isDesktop && is_drawer_open && !is_embedded) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = '';
@@ -143,7 +144,7 @@ const DrawerContent = ({ active_index, is_drawer_open, active_tour, setActiveTab
         return () => {
             document.body.style.overflow = '';
         };
-    }, [is_drawer_open, isDesktop]);
+    }, [is_drawer_open, isDesktop, is_embedded]);
 
     return (
         <>
@@ -247,7 +248,7 @@ const StatisticsInfoModal = ({
     );
 };
 
-const RunPanel = observer(() => {
+const RunPanel = observer(({ is_embedded = false }: { is_embedded?: boolean }) => {
     const store = useStore() ?? {};
     const { run_panel, dashboard, transactions, client } = store;
     const { isDesktop } = useDevice();
@@ -268,7 +269,7 @@ const RunPanel = observer(() => {
     const { statistics } = transactions;
     const { active_tour, active_tab } = dashboard;
     const { total_payout, total_profit, total_stake, won_contracts, lost_contracts, number_of_runs } = statistics;
-    const { BOT_BUILDER, CHART } = DBOT_TABS;
+    const { BOT_BUILDER, CHART, BULK_TRADE } = DBOT_TABS;
 
     React.useEffect(() => {
         onMount();
@@ -312,7 +313,9 @@ const RunPanel = observer(() => {
     );
 
     const show_run_panel = [BOT_BUILDER, CHART].includes(active_tab) || active_tour;
-    if ((!show_run_panel && isDesktop) || active_tour === 'bot_builder') return null;
+    if ((!is_embedded && (!show_run_panel && (isDesktop || active_tab === BULK_TRADE))) || active_tour === 'bot_builder') {
+        return null;
+    }
 
     return (
         <>

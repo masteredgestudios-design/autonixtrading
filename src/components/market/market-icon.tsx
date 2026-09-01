@@ -1,5 +1,13 @@
-import { lazy, Suspense } from 'react';
+import { lazy as reactLazy, Suspense } from 'react';
+import type { ElementType } from 'react';
 import { IconSize } from '@deriv/quill-icons';
+
+const EmptyMarketIcon = () => null;
+const lazy = (loader: () => Promise<{ default?: ElementType }>) =>
+    reactLazy(async () => {
+        const loaded = await loader();
+        return { default: loaded.default || EmptyMarketIcon };
+    });
 
 const MARKET_ICONS = {
     FRXAUDCAD: lazy(() =>
@@ -246,7 +254,9 @@ const MARKET_ICONS = {
         import('@deriv/quill-icons/Markets').then(module => ({ default: module.MarketDerivedVolatility901sIcon }))
     ),
     '1HZ100V': lazy(() =>
-        import('@deriv/quill-icons/Markets').then(module => ({ default: module.MarketDerivedVolatility1001sIcon }))
+        import('@deriv/quill-icons/Markets').then(module => ({
+            default: module.MarketDerivedVolatility1001sIcon || module.MarketDerivedVolatility100Icon || EmptyMarketIcon,
+        }))
     ),
     '1HZ150V': lazy(() =>
         import('@deriv/quill-icons/Markets').then(module => ({ default: module.MarketDerivedVolatility1501sIcon }))

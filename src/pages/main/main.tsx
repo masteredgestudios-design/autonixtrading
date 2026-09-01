@@ -4,7 +4,7 @@ import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import { useLocation, useNavigate } from 'react-router';
 import ChunkLoader from '@/components/loader/chunk-loader';
-import { generateOAuthURL } from '@/components/shared';
+import { initiateFlaskLogin } from '@/services/flask-auth.service';
 import DesktopWrapper from '@/components/shared_ui/desktop-wrapper';
 import Dialog from '@/components/shared_ui/dialog';
 import MobileWrapper from '@/components/shared_ui/mobile-wrapper';
@@ -46,6 +46,7 @@ import RunStrategy from '../dashboard/run-strategy';
 import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
+const BulkTrade = lazy(() => import('../bulk-trade'));
 const Tutorial = lazy(() => import('../tutorials'));
 
 const AppWrapper = observer(() => {
@@ -79,7 +80,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'bulk_trade', 'tutorial'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -368,11 +369,12 @@ const AppWrapper = observer(() => {
 
     // [AI]
     const handleLoginGeneration = async () => {
-        const oauthUrl = await generateOAuthURL();
-        if (oauthUrl) {
-            window.location.replace(oauthUrl);
-        } else {
-            console.error('Failed to generate OAuth URL');
+        // Use Flask's login endpoint which handles the full OAuth flow
+        // This ensures consistency with the Flask app and header login buttons
+        try {
+            initiateFlaskLogin();
+        } catch (error) {
+            console.error('Failed to initiate Flask login:', error);
         }
     };
     // [/AI]
@@ -436,6 +438,25 @@ const AppWrapper = observer(() => {
                                     fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}
                                 >
                                     <ChartWrapper show_digits_stats={false} />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedObjectsColumnCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='var(--text-general)'
+                                        />
+                                        <Localize i18n_default_text='Bulk Trade' />
+                                    </>
+                                }
+                                id='id-bulk-trade'
+                            >
+                                <Suspense
+                                    fallback={<ChunkLoader message={localize('Please wait, loading bulk trade...')} />}
+                                >
+                                    <BulkTrade />
                                 </Suspense>
                             </div>
                             <div

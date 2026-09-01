@@ -1,5 +1,6 @@
 import { ReactElement } from 'react';
 import classNames from 'classnames';
+import { useCurrency } from '@/contexts/currency-context';
 import ContentLoader from 'react-content-loader';
 import { getContractTypeName } from '@/external/bot-skeleton';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
@@ -72,6 +73,7 @@ const IconContainer = ({ message, icon }: { message: string; icon: ReactElement 
 );
 
 export default function MobileTransactionCards({ transaction }: { transaction: TTransaction }) {
+    const { formatMoney } = useCurrency();
     return (
         <div className={`${PARENT_CLASS}__card`} data-testid='dt_mobile_transaction_card'>
             <div className={`${PARENT_CLASS}__card__row`}>
@@ -113,7 +115,7 @@ export default function MobileTransactionCards({ transaction }: { transaction: T
                 />
             </div>
             <div className={`${PARENT_CLASS}__card__row`}>
-                <CardColumn title='Buy Price' label={Math.abs(transaction?.buy_price ?? 0).toFixed(2)} />
+                <CardColumn title='Buy Price' label={formatMoney(Math.abs(transaction?.buy_price ?? 0))} />
                 <CardColumn
                     title='Exit Spot'
                     label={transaction?.exit_spot}
@@ -132,7 +134,7 @@ export default function MobileTransactionCards({ transaction }: { transaction: T
                                 [`${PARENT_CLASS}__card__profit--loss`]: transaction?.profit < 0,
                             })}
                         >
-                            {Math.abs(transaction?.profit ?? 0).toFixed(2)}
+                            {formatMoney(Math.abs(transaction?.profit ?? 0))}
                         </div>
                     }
                     right_aligned

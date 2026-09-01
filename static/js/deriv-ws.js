@@ -246,7 +246,9 @@
     /* Update top-nav balance chip */
     var balEl = document.querySelector(".account-balance");
     if (balEl && loginid === state.accountId) {
-      balEl.textContent = currency + " " + parseFloat(balance).toFixed(2);
+      balEl.textContent = window.AutonixCurrency
+        ? window.AutonixCurrency.format(balance)
+        : currency + " " + parseFloat(balance).toFixed(2);
     }
   }
 

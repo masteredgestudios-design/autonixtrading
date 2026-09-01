@@ -1,0 +1,29 @@
+entrypoint = "app.py"
+modules = ["python-3.11", "nodejs-20"]
+
+[nix]
+channel = "stable-24.11"
+
+[unitTest]
+language = "python3"
+
+[packager]
+language = "python3"
+ignoredPaths = [".git", "node_modules"]
+
+[packager.features]
+enableGuessImports = true
+
+[env]
+PYTHONUNBUFFERED = "1"
+FLASK_ENV = "production"
+SESSION_SECRET = "dev-secret-key-replit"
+
+[build]
+requiresPython = "3.11"
+requires = []
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+exposeToInternet = true

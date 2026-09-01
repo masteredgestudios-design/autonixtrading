@@ -180,7 +180,9 @@
         function (bal, cur) {
           var balEl = document.querySelector(".account-balance");
           if (balEl) {
-            balEl.textContent = cur + " " + parseFloat(bal).toFixed(2);
+            balEl.textContent = window.AutonixCurrency
+              ? window.AutonixCurrency.format(bal)
+              : cur + " " + parseFloat(bal).toFixed(2);
           }
         },
         wsUrl,

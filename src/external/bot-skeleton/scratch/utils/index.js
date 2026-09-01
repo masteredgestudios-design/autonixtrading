@@ -40,6 +40,39 @@ export const updateXmlValues = blockly_options => {
     };
 };
 
+export const normalizeStrategyXml = rawXml => {
+    if (typeof rawXml !== 'string' || !rawXml.trim()) return null;
+
+    try {
+        const document = new DOMParser().parseFromString(rawXml, 'application/xml');
+        if (document.getElementsByTagName('parsererror').length > 0) return null;
+
+        const xmlRoot = document.documentElement;
+        if (!xmlRoot || xmlRoot.nodeName.toLowerCase() !== 'xml') return null;
+
+        const blockNodes = Array.from(xmlRoot.querySelectorAll('block'));
+        if (!blockNodes.length) return null;
+
+        const supportedBlocks = blockNodes.filter(block => {
+            const type = block.getAttribute('type');
+            return !!type && Object.prototype.hasOwnProperty.call(window.Blockly?.Blocks || {}, type);
+        });
+
+        if (!supportedBlocks.length) return null;
+
+        if (supportedBlocks.length !== blockNodes.length) {
+            blockNodes
+                .filter(block => !supportedBlocks.includes(block))
+                .forEach(block => block.parentNode?.removeChild(block));
+        }
+
+        return xmlRoot.querySelectorAll('block').length ? xmlRoot : null;
+    } catch (error) {
+        console.error('[Strategy] Failed to normalize XML input.', error);
+        return null;
+    }
+};
+
 export const getSelectedTradeType = (workspace = window.Blockly.derivWorkspace) => {
     const trade_type_block = workspace.getAllBlocks(true).find(block => block.type === 'trade_definition_tradetype');
     const selected_trade_type = trade_type_block?.getFieldValue('TRADETYPE_LIST');
@@ -166,6 +199,11 @@ export const loadXmlIntoWorkspace = (xml, workspace) => {
         throw new Error('The Blockly workspace is not available for XML loading.');
     }
 
+    const normalizedXml = typeof xml === 'string' ? normalizeStrategyXml(xml) : xml;
+    if (!normalizedXml) {
+        throw new Error('The strategy XML is empty or invalid.');
+    }
+
     const is_main_workspace = workspace === window.Blockly.derivWorkspace;
     if (is_main_workspace && window.Blockly.derivWorkspace !== workspace) {
         throw new Error('The Blockly workspace has been replaced.');
@@ -173,11 +211,12 @@ export const loadXmlIntoWorkspace = (xml, workspace) => {
 
     window.Blockly.Events.disable();
     try {
-        window.Blockly.Xml.clearWorkspaceAndLoadFromXml(xml, workspace);
+        window.Blockly.Xml.clearWorkspaceAndLoadFromXml(normalizedXml, workspace);
         if (!isUsableWorkspace(workspace)) {
             throw new Error('The Blockly workspace was disposed during XML loading.');
         }
         workspace.cleanUp();
+        workspace.strategy_to_load = window.Blockly.Xml.domToText(normalizedXml);
         return workspace;
     } finally {
         window.Blockly.Events.enable();
@@ -218,24 +257,22 @@ const loadStrategy = async ({
         };
     };
 
-    // Check if XML can be parsed correctly.
-    try {
-        const xmlDoc = new DOMParser().parseFromString(block_string, 'application/xml');
-        if (xmlDoc.getElementsByTagName('parsererror').length) {
-            return showInvalidStrategyError();
-        } else {
-            console.info('[IMPORT] XML parsed');
-            show_snackbar && botNotification(notification_message().BOT_IMPORT);
-        }
-    } catch (e) {
+    const normalizedXml = normalizeStrategyXml(block_string);
+    if (!normalizedXml) {
         return showInvalidStrategyError();
     }
+
+    console.info('[IMPORT] XML parsed');
+    if (show_snackbar) botNotification(notification_message().BOT_IMPORT);
 
     let xml;
     // Check if XML can be parsed into a strategy.
     try {
         xml = window.Blockly.utils.xml.textToDom(block_string);
     } catch (e) {
+        return showInvalidStrategyError();
+    }
+    if (!xml || !xml.querySelectorAll('block').length) {
         return showInvalidStrategyError();
     }
     try {

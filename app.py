@@ -8,6 +8,7 @@ import secrets
 import urllib.request
 import urllib.error
 import urllib.parse
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from flask import (
@@ -58,6 +59,9 @@ _ALLOWED_ORIGINS = {
         os.getenv("CORS_ORIGIN", ""),
     ])
 }
+
+_EXCHANGE_RATE_CACHE = {"rate": None, "fetched_at": 0.0}
+_EXCHANGE_RATE_CACHE_TTL = 3600
 CORS(
     app,
     supports_credentials=True,
@@ -78,10 +82,34 @@ def _security_headers(response):
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
             "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; "
             "img-src 'self' data: https:; "
-            "connect-src 'self' wss://ws.derivws.com wss://*.derivws.com https://api.deriv.com https://auth.deriv.com https://api.derivws.com https://api.frankfurter.app https://api.coingecko.com https://query1.finance.yahoo.com; "
+            "connect-src 'self' wss://ws.derivws.com wss://*.derivws.com https://api.deriv.com https://auth.deriv.com https://api.derivws.com https://open.er-api.com https://api.frankfurter.app https://api.coingecko.com https://query1.finance.yahoo.com; "
             "frame-ancestors *;",
         )
     return response
+
+
+def _get_usd_kes_rate():
+    """Return a cached USD/KES rate from a live, no-key exchange feed."""
+    now = time.time()
+    if (_EXCHANGE_RATE_CACHE["rate"] is not None and
+            now - _EXCHANGE_RATE_CACHE["fetched_at"] < _EXCHANGE_RATE_CACHE_TTL):
+        return _EXCHANGE_RATE_CACHE["rate"]
+
+    url = "https://open.er-api.com/v6/latest/USD"
+    try:
+        raw = _http_get(url, timeout=8)
+        payload = json.loads(raw)
+        rate = float(payload["rates"]["KES"])
+        if rate <= 0:
+            raise ValueError("non-positive exchange rate")
+    except Exception as exc:
+        app.logger.warning("USD/KES rate refresh failed: %s", exc)
+        if _EXCHANGE_RATE_CACHE["rate"] is None:
+            raise
+        return _EXCHANGE_RATE_CACHE["rate"]
+
+    _EXCHANGE_RATE_CACHE.update(rate=rate, fetched_at=now)
+    return rate
 
 DATA_DIR = BASE_DIR / "data"
 DERIV_APP_ID = os.getenv("DERIV_APP_ID") or os.getenv("NEXT_PUBLIC_DERIV_APP_ID")
@@ -881,10 +909,14 @@ def _handle_oauth_callback():
             }
             session.permanent = True
 
-        return redirect("/")
+        # After successful authentication, redirect to Dashboard
+        app.logger.info("[OAuth] Redirecting to /dashboard after successful login")
+        return redirect("/dashboard")
 
     _build_accounts_session(accounts, access_token, refresh_token, expires_in)
-    return redirect("/")
+    # After successful authentication, redirect to Dashboard
+    app.logger.info("[OAuth] Redirecting to /dashboard after successful login")
+    return redirect("/dashboard")
 
 
 @app.route("/")
@@ -1199,6 +1231,33 @@ def get_session():
     return jsonify(safe)
 
 
+@app.route("/api/exchange-rate", methods=["GET"])
+def exchange_rate():
+    """Expose the shared display-only USD/KES rate to the React client."""
+    try:
+        rate = _get_usd_kes_rate()
+    except Exception:
+        return jsonify({"error": "exchange_rate_unavailable"}), 503
+    return jsonify({
+        "base": "USD",
+        "quote": "KES",
+        "rate": rate,
+        "fetchedAt": _EXCHANGE_RATE_CACHE["fetched_at"],
+        "ttlSeconds": _EXCHANGE_RATE_CACHE_TTL,
+    })
+
+
+@app.route("/api/display-currency", methods=["GET", "POST"])
+def display_currency():
+    if request.method == "POST":
+        value = str((request.get_json(silent=True) or {}).get("currency", "")).upper()
+        if value not in {"USD", "KES"}:
+            return jsonify({"error": "invalid_currency"}), 400
+        session["display_currency"] = value
+        session.modified = True
+    return jsonify({"currency": session.get("display_currency"), "hasPreference": "display_currency" in session})
+
+
 @app.route("/auth/balance", methods=["POST"])
 def update_balance():
     user = session.get("user")
@@ -1462,6 +1521,7 @@ def place_trade():
     contract_type = data.get("contract_type")
     symbol = data.get("symbol", "1HZ100V")
     stake = data.get("stake", 10)
+    display_currency = str(data.get("displayCurrency", "USD")).upper()
     duration = data.get("duration", 1)
     selection = data.get("selection")
     digit = data.get("digit")
@@ -1473,9 +1533,16 @@ def place_trade():
             }
         ), 400
     try:
-        stake = float(stake)
+        stake_decimal = Decimal(str(stake))
+        if display_currency == "KES":
+            stake_decimal = (stake_decimal / Decimal(str(_get_usd_kes_rate()))).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+        elif display_currency != "USD":
+            raise InvalidOperation
+        stake = float(stake_decimal)
         duration = int(duration)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, InvalidOperation):
         return jsonify(
             {"error": "invalid_fields", "message": "Invalid stake or duration"}
         ), 400
@@ -1704,6 +1771,44 @@ def validate_activation():
     if code and code in valid_codes:
         return jsonify({"valid": True})
     return jsonify({"valid": False, "error": "Invalid activation code. Please check and try again."})
+
+
+# ─── Debug endpoints (for testing auth flow) ──────────────────────────────────
+
+@app.route("/api/auth-debug", methods=["GET"])
+def auth_debug():
+    """Debug endpoint to check Flask session and authentication state."""
+    user = session.get("user")
+    
+    debug_info = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "session_exists": user is not None,
+        "is_authenticated": user.get("isAuthenticated") if user else False,
+        "session_keys": list(user.keys()) if user else [],
+        "active_account": user.get("activeAccount", {}).get("account") if user else None,
+        "num_accounts": len(user.get("accounts", [])) if user else 0,
+    }
+    
+    app.logger.info(f"[Debug] Auth status: {debug_info}")
+    return jsonify(debug_info)
+
+
+@app.route("/api/auth-test", methods=["GET"])
+def auth_test():
+    """Simple endpoint to test if user is authenticated."""
+    user = session.get("user")
+    
+    if not user:
+        return jsonify({"authenticated": False, "message": "No session found"}), 401
+    
+    if not user.get("isAuthenticated"):
+        return jsonify({"authenticated": False, "message": "Session exists but not authenticated"}), 401
+    
+    return jsonify({
+        "authenticated": True,
+        "account": user.get("activeAccount", {}).get("account"),
+        "currency": user.get("activeAccount", {}).get("currency"),
+    })
 
 # ─── Run ──────────────────────────────────────────────────────────────────────
 

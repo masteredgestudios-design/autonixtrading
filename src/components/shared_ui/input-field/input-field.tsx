@@ -1,6 +1,7 @@
 import React from 'react';
 import classNames from 'classnames';
 import { getCurrencyDisplayCode, isCryptocurrency } from '@/components/shared';
+import { useCurrency } from '@/contexts/currency-context';
 import Text from '../text';
 import Tooltip from '../tooltip';
 import IncrementButtons, { TButtonType } from './increment-buttons';
@@ -118,6 +119,7 @@ const InputField = ({
     value,
     data_testid,
 }: TInputField) => {
+    const { currency: displayCurrency, fromUsd, toUsd } = useCurrency();
     const [local_value, setLocalValue] = React.useState<string>();
     const Icon = icon as React.ElementType;
     const has_error = error_messages && !!error_messages.length && !is_error_tooltip_hidden;
@@ -168,6 +170,9 @@ const InputField = ({
             }
         }
 
+        if (prefix && currency === 'USD' && displayCurrency === 'KES' && e.target.value !== '') {
+            e.target.value = String(toUsd(e.target.value));
+        }
         onChange?.(e);
         if (callback) {
             callback(e);
@@ -285,6 +290,11 @@ const InputField = ({
     };
 
     let display_value = local_value || value;
+
+    if (prefix && currency === 'USD' && displayCurrency === 'KES' && display_value !== '') {
+        const numericValue = Number(display_value);
+        display_value = Number.isFinite(numericValue) ? String(fromUsd(numericValue)) : display_value;
+    }
 
     if (unit) {
         display_value = is_unit_at_right ? `${value} ${unit}` : `${unit} ${value}`;

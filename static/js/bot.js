@@ -89,6 +89,14 @@
     return document.getElementById(id);
   }
 
+  function displayMoney(value) {
+    return window.AutonixCurrency ? window.AutonixCurrency.format(value) : "$" + Number(value || 0).toFixed(2);
+  }
+
+  function displaySignedMoney(value) {
+    return (Number(value) >= 0 ? "+" : "-") + displayMoney(Math.abs(Number(value) || 0));
+  }
+
   /* ═══════════════════════════ INIT ═══════════════════════════ */
   document.addEventListener("DOMContentLoaded", function () {
     loadTradeHistory();
@@ -553,9 +561,8 @@
       lastEl.style.display = "";
       lastRes.className = "bot-last-result " + (won ? "win" : "loss");
       lastRes.textContent =
-        (won ? "+" : "") +
-        pl.toFixed(2) +
-        " USD (" +
+        displaySignedMoney(pl) +
+        " (" +
         (won ? "WIN" : "LOSS") +
         ")";
     }
@@ -563,7 +570,7 @@
     /* Toast notification for trade result */
     window.showToast &&
       window.showToast(
-        (won ? "WIN +" : "LOSS -") + "$" + Math.abs(pl).toFixed(2) + " USD",
+        (won ? "WIN " : "LOSS ") + displaySignedMoney(pl),
         won ? "green" : "red",
         2200,
       );
@@ -779,8 +786,8 @@
         "</div>" +
         '<div class="position-info-row">' +
         '<span class="position-info-label">Stake</span>' +
-        '<span class="position-info-value">$' +
-        t.stake.toFixed(2) +
+        '<span class="position-info-value">' +
+        displayMoney(t.stake) +
         "</span>" +
         "</div>" +
         '<div class="position-pnl-display">' +
@@ -788,8 +795,7 @@
         '<span class="position-pnl-amount ' +
         plClass +
         '">' +
-        (pl >= 0 ? "+" : "") +
-        pl.toFixed(2) +
+        displaySignedMoney(pl) +
         "</span>" +
         "</div>" +
         "</div>";
@@ -801,7 +807,7 @@
     var totalEl = $id("positions-total-pl");
     if (totalEl) {
       totalEl.textContent =
-        (totalPL >= 0 ? "+" : "") + "$" + totalPL.toFixed(2);
+        displaySignedMoney(totalPL);
       totalEl.className =
         "positions-total-pl " + (totalPL >= 0 ? "profit" : "loss");
     }
@@ -816,9 +822,7 @@
 
     if (pl) {
       pl.textContent =
-        (botState.sessionPL >= 0 ? "+" : "") +
-        "$" +
-        botState.sessionPL.toFixed(2);
+        displaySignedMoney(botState.sessionPL);
       pl.className =
         "bot-stat-value " + (botState.sessionPL >= 0 ? "profit" : "loss");
     }
@@ -878,13 +882,13 @@
 
     setText(
       "rpt-total-pl",
-      (totalPL >= 0 ? "+" : "") + "$" + totalPL.toFixed(2),
+      displaySignedMoney(totalPL),
     );
     setText("rpt-win-rate", winRate + "%");
     setText("rpt-total-trades", total);
-    setText("rpt-total-staked", "$" + totalSt.toFixed(2));
+    setText("rpt-total-staked", displayMoney(totalSt));
     setText("rpt-wins-losses", wins + " / " + losses);
-    setText("rpt-best-trade", best > 0 ? "+$" + best.toFixed(2) : "$0.00");
+    setText("rpt-best-trade", best > 0 ? displaySignedMoney(best) : displayMoney(0));
     setText("rpt-count", total + " trade" + (total !== 1 ? "s" : ""));
 
     // Color total P&L
@@ -906,7 +910,7 @@
       .slice(0, 200)
       .map(function (t) {
         var plClass = t.pl >= 0 ? "pl-profit" : "pl-loss";
-        var plStr = (t.pl >= 0 ? "+" : "") + "$" + Math.abs(t.pl).toFixed(2);
+        var plStr = displaySignedMoney(t.pl);
         return (
           "<tr>" +
           '<td><span class="badge-type">' +
@@ -921,8 +925,8 @@
           "<td>" +
           escHtml(t.exit) +
           "</td>" +
-          "<td>$" +
-          escHtml(t.stake) +
+          "<td>" +
+          displayMoney(t.stake) +
           "</td>" +
           '<td class="' +
           plClass +

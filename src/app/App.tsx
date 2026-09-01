@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import React from 'react';
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router';
-import { cleanupUrl, handleOAuthCallback } from '@/external/deriv-core';
+import { cleanupUrl } from '@/external/deriv-core';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import LocalStorageSyncWrapper from '@/components/localStorage-sync-wrapper';
 import RoutePromptDialog from '@/components/route-prompt-dialog';
@@ -12,6 +12,7 @@ import { isPreviewMode, PREVIEW_BASE_PATH } from '@/utils/is-preview-mode';
 import { localize, TranslationProvider } from '@deriv-com/translations';
 import CoreStoreProvider from './CoreStoreProvider';
 import i18nInstance from './i18n';
+import { CurrencyProvider } from '@/contexts/currency-context';
 import './app-root.scss';
 
 const Layout = lazy(() => import('../components/layout'));
@@ -42,16 +43,18 @@ const router = createBrowserRouter(
                     fallback={<ChunkLoader message={localize('Please wait while we connect to the server...')} />}
                 >
                     <TranslationProvider defaultLang='EN' i18nInstance={i18nInstance}>
-                        <LanguageHandler>
-                            <StoreProvider>
-                                <LocalStorageSyncWrapper>
-                                    <RoutePromptDialog />
-                                    <CoreStoreProvider>
-                                        <Layout />
-                                    </CoreStoreProvider>
-                                </LocalStorageSyncWrapper>
-                            </StoreProvider>
-                        </LanguageHandler>
+                        <CurrencyProvider>
+                            <LanguageHandler>
+                                <StoreProvider>
+                                    <LocalStorageSyncWrapper>
+                                        <RoutePromptDialog />
+                                        <CoreStoreProvider>
+                                            <Layout />
+                                        </CoreStoreProvider>
+                                    </LocalStorageSyncWrapper>
+                                </StoreProvider>
+                            </LanguageHandler>
+                        </CurrencyProvider>
                     </TranslationProvider>
                 </Suspense>
             }
@@ -69,50 +72,63 @@ const router = createBrowserRouter(
  * Main App component
  *
  * Responsibilities:
- * 1. OAuth callback handling (via vendored deriv-core handleOAuthCallback)
- * 2. Account switching from URL (via useAccountSwitching hook)
+ * 1. Account switching from URL (via useAccountSwitching hook)
+ * 2. Dashboard redirect after successful login from Flask
  * 3. Router provider setup
+ *
+ * Authentication is handled by Flask. React checks Flask's /auth/session
+ * endpoint via the CoreStoreProvider which manages authentication state.
+ *
+ * On mount, checks if the user is authenticated via Flask and redirects
+ * to Dashboard if so (post-login behavior).
  */
 function App() {
     // Handle account switching via URL parameter
     useAccountSwitching();
 
     React.useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (!urlParams.has('code')) return;
-
-        const handleCallback = async () => {
+        // After successful login from Flask, redirect to Dashboard
+        // Flask will set up the session and redirect to /trader
+        // React should check if authenticated and redirect to Dashboard
+        
+        const checkAuthAndRedirect = async () => {
             try {
-                const authInfo = await handleOAuthCallback(window.location.href, {
-                    clientId: process.env.NEXT_PUBLIC_DERIV_APP_ID || '',
-                    redirectUri: window.location.origin,
-                    scopes: 'trade',
+                const response = await fetch('/auth/session', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
                 });
 
-                const { DerivWSAccountsService } = await import('@/services/derivws-accounts.service');
-                const accounts = await DerivWSAccountsService.fetchAccountsList(authInfo.access_token);
-
-                if (accounts && accounts.length > 0) {
-                    DerivWSAccountsService.storeAccounts(accounts);
-                    const firstAccount = accounts[0];
-                    localStorage.setItem('active_loginid', firstAccount.account_id);
-                    const isDemo =
-                        firstAccount.account_id.startsWith('VRT') || firstAccount.account_id.startsWith('VRTC');
-                    localStorage.setItem('account_type', isDemo ? 'demo' : 'real');
-
-                    const { api_base } = await import('@/external/bot-skeleton');
-                    await api_base.init(true);
-                } else {
-                    console.error('No accounts returned after authentication');
+                if (response.ok) {
+                    const sessionData = await response.json();
+                    
+                    // If authenticated, redirect to Dashboard
+                    if (sessionData?.isAuthenticated === true) {
+                        // Clean up any URL parameters from OAuth
+                        cleanupUrl(window.location.origin);
+                        
+                        // Redirect to Dashboard using hash-based navigation
+                        const currentUrl = new URL(window.location.href);
+                        const languageParam = currentUrl.searchParams.get('lang');
+                        let dashboardUrl = window.location.pathname;
+                        
+                        if (languageParam) {
+                            dashboardUrl += `?lang=${languageParam}`;
+                        }
+                        
+                        dashboardUrl += '#dashboard';
+                        window.history.replaceState({}, '', dashboardUrl);
+                    }
                 }
             } catch (error) {
-                console.error('OAuth callback error:', error);
-            } finally {
-                cleanupUrl(window.location.origin);
+                console.error('[App] Failed to check auth session:', error);
+                // Continue normally if check fails - let useApiBase handle authentication
             }
         };
 
-        handleCallback();
+        checkAuthAndRedirect();
     }, []);
 
     return <RouterProvider router={router} />;

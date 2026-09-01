@@ -17,6 +17,28 @@
     }
 }
 
+.display-currency-switcher {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-inline-end: 0.8rem;
+    white-space: nowrap;
+
+    select {
+        min-height: 2.8rem;
+        border: 1px solid var(--general-section-1);
+        border-radius: 0.4rem;
+        background: var(--general-main-1);
+        color: var(--text-prominent);
+        padding: 0 0.6rem;
+    }
+
+    span {
+        color: var(--text-general);
+        font-size: 1.1rem;
+    }
+}
+
 .account-switcher {
     &__item {
         .deriv-account-switcher-item {

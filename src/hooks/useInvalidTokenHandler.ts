@@ -3,13 +3,14 @@ import { clearAuthInfo } from '@/external/deriv-core';
 import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
 import { ErrorLogger } from '@/utils/error-logger';
 import { reloadPage, replaceUrl } from '@/utils/navigation-utils';
+import { initiateFlaskLogin } from '@/services/flask-auth.service';
 
 /**
- * Hook to handle invalid token events by clearing auth data and redirecting to OAuth login
+ * Hook to handle invalid token events by clearing auth data and redirecting to Flask login
  *
  * This hook listens for 'InvalidToken' events emitted by the API base when
  * a token is invalid. When such an event is detected, it clears the invalid
- * authentication data and redirects to OAuth login to prevent infinite reload loops.
+ * authentication data and redirects to Flask login to prevent infinite reload loops.
  *
  * @returns {{ unregisterHandler: () => void }} An object containing a function to unregister the event handler
  */
@@ -26,16 +27,11 @@ export const useInvalidTokenHandler = (): { unregisterHandler: () => void } => {
             // Clear sessionStorage completely to remove any stale auth data
             sessionStorage.clear();
 
-            // Redirect to OAuth login instead of reload to get fresh authentication
-            const { generateOAuthURL } = await import('@/components/shared');
-            const oauthUrl = await generateOAuthURL();
-
-            if (oauthUrl) {
-                // Use replace to prevent back button from returning to invalid state
-                replaceUrl(oauthUrl);
-            } else {
-                // Fallback: reload if OAuth URL generation fails
-                ErrorLogger.error('InvalidToken', 'Failed to generate OAuth URL, falling back to reload');
+            // Redirect to Flask login which handles the OAuth flow
+            try {
+                initiateFlaskLogin();
+            } catch (error) {
+                ErrorLogger.error('InvalidToken', 'Failed to initiate Flask login, falling back to reload');
                 reloadPage();
             }
         } catch (error) {

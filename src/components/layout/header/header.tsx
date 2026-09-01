@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
-import { generateOAuthURL } from '@/components/shared';
+import { initiateFlaskLogin, logoutFromFlask } from '@/services/flask-auth.service';
 import Button from '@/components/shared_ui/button';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useApiBase } from '@/hooks/useApiBase';
@@ -11,6 +11,7 @@ import { navigateToTransfer } from '@/utils/transfer-utils';
 import { Localize } from '@deriv-com/translations';
 import { Header, useDevice, Wrapper } from '@deriv-com/ui';
 import { AppLogo } from '../app-logo';
+import DisplayCurrencySwitcher from '@/components/currency/display-currency-switcher';
 import AccountSwitcher from './account-switcher';
 import MenuItems from './menu-items';
 import MobileMenu from './mobile-menu';
@@ -86,13 +87,8 @@ const AppHeader = observer(() => {
     const handleSignup = useCallback(async () => {
         try {
             setIsAuthorizing(true);
-            const oauthUrl = await generateOAuthURL('registration');
-            if (oauthUrl) {
-                window.location.replace(oauthUrl);
-            } else {
-                console.error('Failed to generate OAuth URL for signup');
-                setIsAuthorizing(false);
-            }
+            // Use Flask's login endpoint for signup - Deriv OAuth handles both flows
+            initiateFlaskLogin();
         } catch (error) {
             console.error('Signup redirection failed:', error);
             setIsAuthorizing(false);
@@ -103,17 +99,8 @@ const AppHeader = observer(() => {
         try {
             // Set authorizing state immediately when login is clicked
             setIsAuthorizing(true);
-
-            // Generate OAuth URL with CSRF token and PKCE parameters
-            const oauthUrl = await generateOAuthURL();
-
-            if (oauthUrl) {
-                // Redirect to OAuth URL
-                window.location.replace(oauthUrl);
-            } else {
-                console.error('Failed to generate OAuth URL');
-                setIsAuthorizing(false);
-            }
+            // Redirect to Flask's login endpoint which handles the full OAuth flow
+            initiateFlaskLogin();
         } catch (error) {
             console.error('Login redirection failed:', error);
             // Reset authorizing state if redirection fails
@@ -138,6 +125,7 @@ const AppHeader = observer(() => {
                     // For mobile left section - only account switcher
                     return (
                         <div className='auth-actions'>
+                            <DisplayCurrencySwitcher />
                             <div className='account-info'>
                                 <AccountSwitcher activeAccount={activeAccount} />
                             </div>
@@ -147,6 +135,7 @@ const AppHeader = observer(() => {
                     // For right section - transfer button (and account switcher on desktop)
                     return (
                         <div className='auth-actions'>
+                            <DisplayCurrencySwitcher />
                             {isDesktop && (
                                 <div className='account-info'>
                                     <AccountSwitcher activeAccount={activeAccount} />
@@ -175,6 +164,7 @@ const AppHeader = observer(() => {
                 const isAuthConfigured = Boolean(process.env.NEXT_PUBLIC_DERIV_APP_ID);
                 return (
                     <div className='auth-actions'>
+                        <DisplayCurrencySwitcher />
                         <Button tertiary disabled={!isAuthConfigured} onClick={handleLogin}>
                             <Localize i18n_default_text='Log in' />
                         </Button>

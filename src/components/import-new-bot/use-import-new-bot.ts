@@ -1,28 +1,23 @@
 import React from 'react';
 import { botNotification } from '@/components/bot-notification/bot-notification';
 import { notification_message } from '@/components/bot-notification/bot-notification-utils';
-import { loadXmlIntoWorkspace } from '@/external/bot-skeleton/scratch/utils';
+import { loadXmlIntoWorkspace, normalizeStrategyXml } from '@/external/bot-skeleton/scratch/utils';
 
 const show_import_error = () =>
     botNotification(notification_message().xml_import_error, undefined, { className: 'error-toast' });
 
 const parseAndValidateXml = (value: string) => {
-    const document = new DOMParser().parseFromString(value, 'application/xml');
-    if (document.getElementsByTagName('parsererror').length) throw new Error('Invalid Blockly XML.');
-
-    const xml = window.Blockly?.utils?.xml?.textToDom(value);
-    const blocks = xml?.querySelectorAll('block');
-    if (!xml || !blocks?.length) throw new Error('The XML file does not contain Blockly blocks.');
-
-    const unsupported_blocks = Array.from(blocks)
-        .map(block => block.getAttribute('type'))
-        .filter(block_type => !block_type || !Object.prototype.hasOwnProperty.call(window.Blockly.Blocks, block_type));
-
-    if (unsupported_blocks.length) {
-        throw new Error(`Unsupported Blockly blocks: ${unsupported_blocks.join(', ')}`);
+    const normalizedXml = normalizeStrategyXml(value);
+    if (!normalizedXml) {
+        throw new Error('The XML file does not contain supported Blockly blocks.');
     }
 
-    return xml;
+    const xml = window.Blockly?.utils?.xml?.textToDom(value);
+    if (!xml || !xml.querySelectorAll('block').length) {
+        throw new Error('The XML file does not contain Blockly blocks.');
+    }
+
+    return normalizedXml;
 };
 
 export const useImportNewBot = (onSuccess?: () => void) => {

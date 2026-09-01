@@ -42,11 +42,11 @@
   function $id(id) { return document.getElementById(id); }
   function fmtMoney(n) {
     var value = Number(n || 0);
-    return "$" + value.toFixed(2);
+    return window.AutonixCurrency ? window.AutonixCurrency.format(value) : "$" + value.toFixed(2);
   }
   function fmtSignedMoney(n) {
     var value = Number(n || 0);
-    return (value >= 0 ? "+" : "-") + "$" + Math.abs(value).toFixed(2);
+    return (value >= 0 ? "+" : "-") + fmtMoney(Math.abs(value));
   }
   function clamp(n, min, max) {
     return Math.max(min, Math.min(max, n));

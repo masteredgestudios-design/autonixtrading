@@ -1,11 +1,12 @@
 import classnames from 'classnames';
-import { formatMoney, getCurrencyDisplayCode } from '@/components/shared';
+import { useCurrency } from '@/contexts/currency-context';
 import Text from '@/components/shared_ui/text';
 import { LogTypes } from '@/external/bot-skeleton';
 import { Localize, localize } from '@deriv-com/translations';
 import { TFormatMessageProps } from '../journal.types';
 
 const FormatMessage = ({ logType, className, extra }: TFormatMessageProps) => {
+    const { formatMoney } = useCurrency();
     const getLogMessage = () => {
         switch (logType) {
             case LogTypes.LOAD_BLOCK: {
@@ -41,7 +42,7 @@ const FormatMessage = ({ logType, className, extra }: TFormatMessageProps) => {
                     <Localize
                         i18n_default_text='Profit amount: <0>{{profit}}</0>'
                         values={{
-                            profit: `${formatMoney(currency, profit, true)} ${getCurrencyDisplayCode(currency)}`,
+                            profit: formatMoney(profit),
                         }}
                         components={[<Text key={0} size='xxs' styles={{ color: 'var(--status-success)' }} />]}
                     />
@@ -53,7 +54,7 @@ const FormatMessage = ({ logType, className, extra }: TFormatMessageProps) => {
                     <Localize
                         i18n_default_text='Loss amount: <0>{{profit}}</0>'
                         values={{
-                            profit: `${formatMoney(currency, profit, true)} ${getCurrencyDisplayCode(currency)}`,
+                            profit: formatMoney(profit),
                         }}
                         components={[<Text key={0} size='xxs' styles={{ color: 'var(--status-danger)' }} />]}
                     />

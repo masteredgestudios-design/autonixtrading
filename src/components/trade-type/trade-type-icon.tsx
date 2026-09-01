@@ -1,5 +1,13 @@
-import { lazy, Suspense } from 'react';
+import { lazy as reactLazy, Suspense } from 'react';
+import type { ElementType } from 'react';
 import { IconSize } from '@deriv/quill-icons';
+
+const EmptyTradeTypeIcon = () => null;
+const lazy = (loader: () => Promise<{ default?: ElementType }>) =>
+    reactLazy(async () => {
+        const loaded = await loader();
+        return { default: loaded.default || EmptyTradeTypeIcon };
+    });
 
 const TRADE_TYPE_ICONS = {
     ACCU: lazy(() =>
@@ -18,7 +26,9 @@ const TRADE_TYPE_ICONS = {
         import('@deriv/quill-icons/TradeTypes').then(module => ({ default: module.TradeTypesDigitsOddIcon }))
     ),
     DIGITOVER: lazy(() =>
-        import('@deriv/quill-icons/TradeTypes').then(module => ({ default: module.TradeTypesDigitsOverIcon }))
+        import('@deriv/quill-icons/TradeTypes').then(module => ({
+            default: module.TradeTypesDigitsOverIcon || module.TradeTypesDigitsIcon || EmptyTradeTypeIcon,
+        }))
     ),
     DIGITUNDER: lazy(() =>
         import('@deriv/quill-icons/TradeTypes').then(module => ({ default: module.TradeTypesDigitsUnderIcon }))
