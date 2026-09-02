@@ -4,10 +4,8 @@ import { useStore } from '@/hooks/useStore';
 import {
     LabelPairedArrowRotateLeftMdRegularIcon,
     LabelPairedArrowRotateRightMdRegularIcon,
-    LabelPairedArrowsRotateMdRegularIcon,
     LabelPairedChartLineMdRegularIcon,
     LabelPairedChartTradingviewMdRegularIcon,
-    LabelPairedFloppyDiskMdRegularIcon,
     LabelPairedMagnifyingGlassMinusMdRegularIcon,
     LabelPairedMagnifyingGlassPlusMdRegularIcon,
     LabelPairedObjectsAlignLeftMdRegularIcon,
@@ -20,42 +18,15 @@ import ToolbarIcon from './toolbar-icon';
 import ImportNewBotButton from './import-new-bot-button';
 
 const WorkspaceGroup = observer(() => {
-    const { dashboard, toolbar, save_modal } = useStore();
+    const { dashboard, toolbar } = useStore();
     const { setChartModalVisibility, setTradingViewModalVisibility } = dashboard;
-    const { has_redo_stack, has_undo_stack, onResetClick, onSortClick, onUndoClick, onZoomInOutClick } = toolbar;
-    const { toggleSaveModal } = save_modal;
+    const { has_redo_stack, has_undo_stack, onSortClick, onUndoClick, onZoomInOutClick } = toolbar;
     const { isDesktop } = useDevice();
 
     return (
         <div className='toolbar__wrapper'>
             <div className='toolbar__group toolbar__group-btn' data-testid='dt_toolbar_group_btn'>
-                <ToolbarIcon
-                    popover_message={localize('Reset')}
-                    icon={
-                        <span
-                            id='db-toolbar__reset-button'
-                            className='toolbar__icon'
-                            onClick={onResetClick}
-                            data-testid='dt_toolbar_reset_button'
-                        >
-                            <LabelPairedArrowsRotateMdRegularIcon />
-                        </span>
-                    }
-                />
                 <ImportNewBotButton />
-                <ToolbarIcon
-                    popover_message={localize('Save')}
-                    icon={
-                        <span
-                            className='toolbar__icon'
-                            id='db-toolbar__save-button'
-                            data-testid='dt_toolbar_save_button'
-                            onClick={toggleSaveModal}
-                        >
-                            <LabelPairedFloppyDiskMdRegularIcon />
-                        </span>
-                    }
-                />
                 <ToolbarIcon
                     popover_message={localize('Sort blocks')}
                     icon={

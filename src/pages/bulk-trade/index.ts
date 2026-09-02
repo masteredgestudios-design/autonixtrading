@@ -1,3 +1,1 @@
-import BulkTrade from './bulk-trade';
-
-export default BulkTrade;
+export { default } from './bulk-trade';

@@ -48,7 +48,7 @@ const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
                                     lineHeight='xxl'
                                     weight='bold'
                                 >
-                                    {localize('Load or build your bot')}
+                                    {localize('XML Bot Store')}
                                 </Text>
                             )}
                             <Text
@@ -58,13 +58,9 @@ const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
                                 size={isDesktop ? 's' : 'xxs'}
                                 className={classNames('subtitle', { 'subtitle__has-list': has_dashboard_strategies })}
                             >
-                                {is_google_drive_configured
-                                    ? localize(
-                                          'Import a bot from your computer or Google Drive, build it from scratch, or start with a quick strategy.'
-                                      )
-                                    : localize(
-                                          'Import a bot from your computer, build it from scratch, or start with a quick strategy.'
-                                      )}
+                                {localize(
+                                    'Browse built-in XML strategies and load any bot directly into the Bot Builder.'
+                                )}
                             </Text>
                         </div>
                         <Cards has_dashboard_strategies={has_dashboard_strategies} is_mobile={!isDesktop} />

@@ -6,12 +6,13 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "rsbuild dev --port 4003",
-    "build": "rsbuild build",
+    "dev": "npm run generate:xml-bot-store && rsbuild dev --port 4003",
+    "build": "npm run generate:xml-bot-store && rsbuild build",
     "test": "jest",
     "type-check": "tsc --noEmit",
     "generate:brand-css": "node scripts/generate-brand-css.js",
-    "prebuild": "node scripts/generate-brand-css.js"
+    "generate:xml-bot-store": "node scripts/generate-xml-bot-store.js",
+    "prebuild": "node scripts/generate-brand-css.js && node scripts/generate-xml-bot-store.js"
   },
   "dependencies": {
     "@deriv-com/quill-ui": "1.18.1",

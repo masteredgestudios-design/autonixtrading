@@ -312,14 +312,18 @@ const RunPanel = observer(({ is_embedded = false }: { is_embedded?: boolean }) =
         />
     );
 
-    const show_run_panel = [BOT_BUILDER, CHART].includes(active_tab) || active_tour;
+    const show_run_panel = [BOT_BUILDER, CHART, BULK_TRADE].includes(active_tab) || active_tour;
     if ((!is_embedded && (!show_run_panel && (isDesktop || active_tab === BULK_TRADE))) || active_tour === 'bot_builder') {
         return null;
     }
 
     return (
         <>
-            <div className={!isDesktop && is_drawer_open ? 'run-panel__container--mobile' : 'run-panel'}>
+            <div
+                className={classNames(
+                    !isDesktop && is_drawer_open ? 'run-panel__container--mobile' : 'run-panel'
+                )}
+            >
                 <Drawer
                     anchor='right'
                     className={classNames('run-panel', {
