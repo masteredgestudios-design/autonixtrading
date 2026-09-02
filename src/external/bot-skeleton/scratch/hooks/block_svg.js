@@ -3,14 +3,21 @@ import { localize } from '@deriv-com/translations';
 import DBotStore from '../dbot-store';
 
 window.Blockly.BlockSvg.prototype.removeSelect = function () {
-    window.Blockly.utils.dom.removeClass(this.svgGroup_, 'blocklySelected');
-    if (window.Blockly.derivWorkspace.lastAddedBlock === this) {
-        window.Blockly.derivWorkspace.lastAddedBlock = null;
+    if (this.svgGroup_) {
+        window.Blockly.utils.dom.removeClass(this.svgGroup_, 'blocklySelected');
+    }
+
+    const workspace = this.workspace || window.Blockly.derivWorkspace;
+    if (workspace && !workspace.isDisposed?.() && workspace.lastAddedBlock === this) {
+        workspace.lastAddedBlock = null;
     }
 };
 
 window.Blockly.BlockSvg.prototype.addSelect = function () {
-    if (!window.Blockly.derivWorkspace.isFlyoutVisible) {
+    const workspace = this.workspace || window.Blockly.derivWorkspace;
+    if (!workspace || workspace.isDisposed?.() || workspace.isFlyoutVisible) return;
+
+    if (!workspace.isFlyoutVisible) {
         const { flyout } = DBotStore.instance;
         if (flyout) {
             flyout.setVisibility(false);
@@ -18,19 +25,19 @@ window.Blockly.BlockSvg.prototype.addSelect = function () {
 
         // If there's a lastAddedBlock that's not this block, remove its highlight
         if (
-            window.Blockly.derivWorkspace.lastAddedBlock &&
-            window.Blockly.derivWorkspace.lastAddedBlock !== this &&
-            window.Blockly.derivWorkspace.lastAddedBlock.svgGroup_
+            workspace.lastAddedBlock &&
+            workspace.lastAddedBlock !== this &&
+            workspace.lastAddedBlock.svgGroup_
         ) {
             window.Blockly.utils.dom.removeClass(
-                window.Blockly.derivWorkspace.lastAddedBlock.svgGroup_,
+                workspace.lastAddedBlock.svgGroup_,
                 'blocklySelected'
             );
         }
 
         // Add highlight to this block and update lastAddedBlock
         window.Blockly.utils.dom.addClass(/** @type {!Element} */ (this.svgGroup_), 'blocklySelected');
-        window.Blockly.derivWorkspace.lastAddedBlock = this;
+        workspace.lastAddedBlock = this;
     }
 };
 

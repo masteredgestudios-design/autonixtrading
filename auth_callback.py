@@ -73,7 +73,7 @@ def handle_oauth_callback(
     if decoded:
         state_nonce, code_verifier = decoded
         stored_nonce = session_data.pop("pkce_nonce", None)
-        if stored_nonce and not secrets.compare_digest(state_nonce, stored_nonce):
+        if not stored_nonce or not secrets.compare_digest(state_nonce, stored_nonce):
             logger.warning("[OAuth] Nonce mismatch - possible CSRF attack")
             return None, 400
         logger.info("[OAuth] PKCE verifier recovered from signed state")

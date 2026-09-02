@@ -7,11 +7,11 @@ import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useApiBase } from '@/hooks/useApiBase';
 import { useLogout } from '@/hooks/useLogout';
 import { useStore } from '@/hooks/useStore';
-import { navigateToTransfer } from '@/utils/transfer-utils';
 import { Localize } from '@deriv-com/translations';
 import { Header, useDevice, Wrapper } from '@deriv-com/ui';
 import { AppLogo } from '../app-logo';
 import DisplayCurrencySwitcher from '@/components/currency/display-currency-switcher';
+import Transfer from '@/components/transfer/transfer';
 import AccountSwitcher from './account-switcher';
 import MenuItems from './menu-items';
 import MobileMenu from './mobile-menu';
@@ -22,6 +22,7 @@ const AppHeader = observer(() => {
     const { isAuthorizing, activeLoginid, setIsAuthorizing, authData } = useApiBase();
     const { client } = useStore() ?? {};
     const [authTimeout, setAuthTimeout] = useState(false);
+    const [isTransferOpen, setIsTransferOpen] = useState(false);
     const is_account_regenerating = client?.is_account_regenerating || false;
 
     // Detect OAuth callback on mount (before App.tsx cleans up the URL).
@@ -108,14 +109,7 @@ const AppHeader = observer(() => {
         }
     }, [setIsAuthorizing]);
 
-    const handleTransfer = useCallback(() => {
-        const transferCurrency = authData?.currency;
-        if (!transferCurrency) {
-            console.error('No currency available for transfer');
-            return;
-        }
-        navigateToTransfer(transferCurrency);
-    }, [authData?.currency]);
+    const handleTransfer = useCallback(() => setIsTransferOpen(true), []);
 
     const renderAccountSection = useCallback(
         (position: 'left' | 'right' = 'right') => {
@@ -135,7 +129,7 @@ const AppHeader = observer(() => {
                     // For right section - transfer button (and account switcher on desktop)
                     return (
                         <div className='auth-actions'>
-                            <DisplayCurrencySwitcher />
+                            {(isDesktop || !activeLoginid) && <DisplayCurrencySwitcher />}
                             {isDesktop && (
                                 <div className='account-info'>
                                     <AccountSwitcher activeAccount={activeAccount} />
@@ -236,6 +230,7 @@ const AppHeader = observer(() => {
                     {renderAccountSection('right')}
                 </Wrapper>
             </Header>
+            <Transfer is_open={isTransferOpen} on_close={() => setIsTransferOpen(false)} />
         </>
     );
 });

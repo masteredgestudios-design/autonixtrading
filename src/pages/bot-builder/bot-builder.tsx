@@ -46,7 +46,6 @@ const BotBuilder = observer(() => {
 
             const { is_reset_button_clicked } = toolbar;
             if (e.type !== 'selected' && !is_reset_button_clicked) {
-                botNotification(notification_message().workspace_change);
                 is_blockly_listener_registered.current = false;
                 workspace.removeChangeListener(handleBlockChangeOnBotRun);
             } else if (is_reset_button_clicked) {

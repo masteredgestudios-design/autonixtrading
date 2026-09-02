@@ -1,3 +1,8 @@
+declare module '*.scss' {
+    const styles: Record<string, string>;
+    export default styles;
+}
+
 // Google Drive API Type Definitions
 interface DriveFileListParams {
     pageSize?: number;

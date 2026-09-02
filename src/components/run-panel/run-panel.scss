@@ -21,6 +21,14 @@
             height: calc(100% - env(safe-area-inset-bottom, 0));
             padding-bottom: env(safe-area-inset-bottom, 0);
 
+            .dc-drawer {
+                top: calc(100% - 12.1rem) !important;
+
+                @supports (-webkit-touch-callout: none) {
+                    top: calc(100% - 12.1rem - env(safe-area-inset-bottom, 0)) !important;
+                }
+            }
+
             &-closed {
                 position: unset;
             }
@@ -197,7 +205,7 @@
 
         flex-direction: column;
         position: fixed;
-        bottom: 0;
+        bottom: 3.6rem;
         width: 100%;
         background-color: var(--general-main-1);
         border-top: solid 2px var(--general-section-1);
@@ -205,13 +213,13 @@
 
         /* Fix for iOS devices to respect safe area */
         @supports (-webkit-touch-callout: none) {
-            bottom: env(safe-area-inset-bottom, 0);
+            bottom: calc(3.6rem + env(safe-area-inset-bottom, 0));
             padding-bottom: env(safe-area-inset-bottom, 0);
         }
 
         /* Additional class for iOS detection via JS */
         &.ios-device {
-            bottom: env(safe-area-inset-bottom, 0);
+            bottom: calc(3.6rem + env(safe-area-inset-bottom, 0));
             padding-bottom: env(safe-area-inset-bottom, 0);
         }
     }

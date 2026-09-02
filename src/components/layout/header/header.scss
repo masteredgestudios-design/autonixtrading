@@ -1,5 +1,6 @@
 @use 'components/shared/styles/constants' as *;
 @use 'components/shared/styles/mixins' as *;
+@use '../../transfer/transfer';
 
 .app-header {
     &__account-settings {
@@ -279,11 +280,21 @@
     display: flex;
     padding-block: 8px;
     align-items: center;
+    min-width: 0;
+
+    @include mobile-or-tablet-screen {
+        gap: 0.4rem;
+    }
 
     button {
         font-weight: 400;
         margin-inline-end: 1.6rem;
         border-radius: 16px;
+
+        @include mobile-or-tablet-screen {
+            margin-inline-end: 0.8rem;
+            white-space: nowrap;
+        }
 
         // Login / Sign up are disabled until the OAuth app id is configured.
         // Keep them visually unchanged when disabled (no faded/0.32 opacity).

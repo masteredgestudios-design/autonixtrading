@@ -8,6 +8,7 @@ import secrets
 import urllib.request
 import urllib.error
 import urllib.parse
+import uuid
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -137,8 +138,9 @@ DERIV_TOKEN_URL = "https://auth.deriv.com/oauth2/token"
 DERIV_REVOKE_URL = "https://auth.deriv.com/oauth2/revoke"
 DERIV_LOGOUT_URL = "https://auth.deriv.com/oauth2/sessions/logout"
 
-# Scopes per Deriv OAuth 2.0 documentation
-DERIV_SCOPES = "trade account_manage"
+# OAuth scopes documented by Deriv for this application. Payment permission is
+# required by the wallet transfer API; existing sessions must re-authenticate.
+DERIV_SCOPES = "trade account_manage payment"
 
 # Userinfo endpoint — fallback for newer accounts that don't get per-account tokens in the exchange
 DERIV_USERINFO_URL = "https://auth.deriv.com/oauth2/userinfo"
@@ -146,6 +148,9 @@ DERIV_USERINFO_URL = "https://auth.deriv.com/oauth2/userinfo"
 # Legacy WebSocket app_id — used for wss://ws.derivws.com connections (separate from OAuth client_id)
 DERIV_LEGACY_APP_ID = os.getenv("DERIV_LEGACY_APP_ID")
 DERIV_WS_APP_ID = DERIV_LEGACY_APP_ID
+DERIV_WALLET_API_BASE = "https://api.derivws.com/wallet/v1"
+TRANSFER_PLATFORMS = {"mt5", "ctrader", "options", "crypto-exchange", "tradingview"}
+TRANSFER_DIRECTIONS = {"from_wallet", "to_wallet"}
 
 
 # ─── PKCE helpers ─────────────────────────────────────────────────────────────
@@ -608,9 +613,8 @@ def _handle_oauth_callback():
     decoded = _pkce_state_decode(returned_state)
     if decoded:
         state_nonce, code_verifier = decoded
-        # Optional CSRF check: verify nonce matches what we stored (best-effort)
         stored_nonce = session.pop("pkce_nonce", None)
-        if stored_nonce and not secrets.compare_digest(state_nonce, stored_nonce):
+        if not stored_nonce or not secrets.compare_digest(state_nonce, stored_nonce):
             app.logger.warning("[OIDC] nonce mismatch — possible CSRF or stale session")
             return _render_index(
                 auth_error="Login session expired or invalid. Please try again.",
@@ -623,7 +627,7 @@ def _handle_oauth_callback():
         stored_state = session.pop("pkce_nonce", None) or session.pop(
             "pkce_state", None
         )
-        if stored_state and not secrets.compare_digest(returned_state, stored_state):
+        if not stored_state or not secrets.compare_digest(returned_state, stored_state):
             app.logger.warning("[OIDC] state mismatch — possible CSRF or stale session")
             return _render_index(
                 auth_error="Login session expired or invalid. Please try again.",
@@ -1229,6 +1233,157 @@ def get_session():
     # Return account metadata only. Tokens remain in Flask's server-side session.
     safe = _safe_for_template(user)
     return jsonify(safe)
+
+
+def _wallet_api_request(method, path, access_token, payload=None):
+    body = None if payload is None else json.dumps(payload).encode("utf-8")
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {access_token}",
+        "Deriv-App-ID": DERIV_APP_ID,
+    }
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(
+        f"{DERIV_WALLET_API_BASE}{path}", data=body, headers=headers, method=method
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        raw = error.read().decode("utf-8", errors="replace")
+        try:
+            details = json.loads(raw)
+        except (TypeError, ValueError):
+            details = {"error": raw or error.reason}
+        return error.code, details
+    except (urllib.error.URLError, TimeoutError) as error:
+        return 503, {"error": "wallet_service_unavailable", "detail": str(error)}
+
+
+def _transfer_user():
+    user = session.get("user")
+    if not user or not user.get("isAuthenticated"):
+        return None, (jsonify({"error": "unauthorized"}), 401)
+    token = user.get("_accessToken")
+    if not token:
+        return None, (jsonify({"error": "reauthentication_required"}), 401)
+    return (user, token), None
+
+
+def _wallet_rows(payload):
+    data = payload.get("data", payload) if isinstance(payload, dict) else {}
+    if isinstance(data, dict):
+        rows = data.get("wallets") or data.get("items") or data.get("accounts") or []
+    else:
+        rows = data
+    return [row for row in rows if isinstance(row, dict)]
+
+
+@app.route("/api/transfers/options", methods=["GET"])
+def transfer_options():
+    auth, error_response = _transfer_user()
+    if error_response:
+        return error_response
+    user, token = auth
+    status, payload = _wallet_api_request("GET", "/wallets", token)
+    if status != 200:
+        return jsonify({"error": "wallet_lookup_failed", "detail": payload}), status
+
+    wallets = []
+    for wallet in _wallet_rows(payload):
+        wallet_id = wallet.get("wallet_id") or wallet.get("id")
+        currency = str(wallet.get("currency") or "").upper()
+        if wallet_id and currency:
+            wallets.append({
+                "wallet_id": str(wallet_id),
+                "currency": currency,
+                "balance": wallet.get("balance", 0),
+                "wallet_currency": wallet.get("wallet_currency"),
+                "exchange_rate": wallet.get("exchange_rate"),
+                "rate_token": wallet.get("rate_token"),
+            })
+
+    accounts = [
+        {
+            "account_id": account.get("account"),
+            "currency": str(account.get("currency") or "").upper(),
+            "balance": account.get("balance", 0),
+            "platform_name": "options",
+        }
+        for account in user.get("accounts", [])
+        if account.get("account") and not account.get("isVirtual") and account.get("accountType") == "real"
+    ]
+    return jsonify({"wallets": wallets, "accounts": accounts})
+
+
+@app.route("/api/transfers", methods=["POST"])
+def create_transfer():
+    auth, error_response = _transfer_user()
+    if error_response:
+        return error_response
+    user, token = auth
+    body = request.get_json(silent=True) or {}
+    direction = body.get("direction")
+    platform_name = body.get("platform_name")
+    wallet_id = body.get("wallet_id")
+    platform_account_id = body.get("platform_account_id")
+    amount_text = str(body.get("amount", "")).strip()
+    if direction not in TRANSFER_DIRECTIONS or platform_name not in TRANSFER_PLATFORMS:
+        return jsonify({"error": "invalid_transfer_selection"}), 400
+    if not wallet_id or not platform_account_id:
+        return jsonify({"error": "missing_transfer_account"}), 400
+    real_accounts = {
+        str(account.get("account")): account
+        for account in user.get("accounts", [])
+        if account.get("account") and not account.get("isVirtual") and account.get("accountType") == "real"
+    }
+    account = real_accounts.get(str(platform_account_id))
+    if not account:
+        return jsonify({"error": "account_not_owned_or_not_real"}), 403
+    try:
+        amount = Decimal(amount_text)
+        if not amount.is_finite() or amount <= 0 or amount.as_tuple().exponent < -2:
+            raise InvalidOperation
+        amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except (InvalidOperation, ValueError):
+        return jsonify({"error": "invalid_amount"}), 400
+
+    # Re-read wallet ownership immediately before submitting. Never trust a wallet ID
+    # supplied by the browser, even when it came from an earlier options response.
+    wallet_status, wallet_payload = _wallet_api_request("GET", "/wallets", token)
+    wallet = next((row for row in _wallet_rows(wallet_payload) if str(row.get("wallet_id") or row.get("id")) == str(wallet_id)), None)
+    if wallet_status != 200 or not wallet:
+        return jsonify({"error": "wallet_not_owned_or_unavailable"}), 403 if wallet_status == 200 else wallet_status
+
+    account_currency = str(account.get("currency") or "").upper()
+    wallet_currency = str(wallet.get("currency") or "").upper()
+    currency = wallet_currency if direction == "from_wallet" else account_currency
+    transfer = {
+        "wallet_id": str(wallet_id),
+        "amount": format(amount, ".2f"),
+        "currency": currency,
+        "direction": direction,
+        "platform_name": platform_name,
+        "platform_account_id": str(platform_account_id),
+        "request_id": str(uuid.uuid4()),
+    }
+    description = str(body.get("description", "")).strip()
+    if description:
+        transfer["description"] = description[:240]
+    cross_currency = wallet_currency != account_currency
+    rate_fields = {key: body.get(key) for key in ("wallet_currency", "exchange_rate", "rate_token")}
+    if cross_currency:
+        if not all(rate_fields.values()):
+            return jsonify({"error": "cross_currency_rate_required"}), 400
+        transfer.update(rate_fields)
+    elif any(value is not None for value in rate_fields.values()):
+        return jsonify({"error": "unexpected_exchange_fields"}), 400
+
+    status, payload = _wallet_api_request("POST", "/transfers/platforms", token, transfer)
+    if status < 400:
+        return jsonify({"success": True, "transfer": payload, "request_id": transfer["request_id"]}), status
+    return jsonify({"error": "transfer_failed", "detail": payload}), status
 
 
 @app.route("/api/exchange-rate", methods=["GET"])
