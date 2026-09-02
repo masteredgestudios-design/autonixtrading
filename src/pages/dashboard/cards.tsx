@@ -15,23 +15,33 @@ type TCardProps = {
     is_mobile: boolean;
 };
 
-const waitForWorkspace = async () => {
-    const started_at = Date.now();
-    while (Date.now() - started_at < 6000) {
-        const workspace = window.Blockly?.derivWorkspace;
-        if (workspace && !workspace.isDisposed?.()) return workspace;
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    return null;
-};
-
 const XmlBotStore = observer(() => {
-    const { dashboard } = useStore();
+    const { dashboard, blockly_store } = useStore();
     const { setActiveTab } = dashboard;
     const { isDesktop } = useDevice();
     const [bots, setBots] = React.useState<XmlBotDefinition[]>([]);
     const [is_loading, setIsLoading] = React.useState(true);
     const [is_loading_bot_id, setIsLoadingBotId] = React.useState<string | null>(null);
+    const active_load_ref = React.useRef<string | null>(null);
+
+    const waitForWorkspaceReady = React.useCallback(async () => {
+        const started_at = Date.now();
+
+        while (Date.now() - started_at < 10000) {
+            const workspace = window.Blockly?.derivWorkspace;
+            if (workspace && !workspace.isDisposed?.() && !blockly_store?.is_loading) {
+                return workspace;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        const final_workspace = window.Blockly?.derivWorkspace;
+        if (final_workspace && !final_workspace.isDisposed?.() && !blockly_store?.is_loading) {
+            return final_workspace;
+        }
+
+        return null;
+    }, [blockly_store?.is_loading]);
 
     React.useEffect(() => {
         let is_active = true;
@@ -55,15 +65,26 @@ const XmlBotStore = observer(() => {
 
     const handleLoadBot = React.useCallback(
         async (bot: XmlBotDefinition) => {
+            if (active_load_ref.current === bot.id || is_loading_bot_id === bot.id) {
+                return;
+            }
+
+            active_load_ref.current = bot.id;
             setActiveTab(DBOT_TABS.BOT_BUILDER);
-            const workspace = await waitForWorkspace();
+            const workspace = await waitForWorkspaceReady();
             if (!workspace) {
                 console.error('[XML Bot Store] Blockly workspace is not ready.');
+                active_load_ref.current = null;
                 return;
             }
 
             setIsLoadingBotId(bot.id);
             try {
+                const workspace_snapshot = window.Blockly?.derivWorkspace;
+                if (!workspace_snapshot || workspace_snapshot.isDisposed?.() || workspace_snapshot !== workspace) {
+                    throw new Error('The Bot Builder workspace changed before the XML could be loaded.');
+                }
+
                 const result = await load({
                     block_string: bot.xml,
                     workspace,
@@ -72,22 +93,21 @@ const XmlBotStore = observer(() => {
                     from: 'xml_store',
                     drop_event: {},
                     showIncompatibleStrategyDialog: false,
-                    show_snackbar: true,
+                    show_snackbar: false,
                 });
 
                 if (result?.error) {
                     throw new Error(result.error);
                 }
 
-                workspace.strategy_to_load = bot.xml;
-                workspace.current_strategy_id = bot.id;
             } catch (error) {
                 console.error('[XML Bot Store] Failed to load bot into workspace', error);
             } finally {
+                active_load_ref.current = null;
                 setIsLoadingBotId(null);
             }
         },
-        [setActiveTab]
+        [is_loading_bot_id, setActiveTab, waitForWorkspaceReady]
     );
 
     if (is_loading) {
