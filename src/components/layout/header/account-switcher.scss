@@ -174,6 +174,15 @@
         pointer-events: none;
         display: flex;
         align-items: center;
+        justify-content: center;
+        width: 3.2rem;
+        height: 3.2rem;
+        border-radius: 0.8rem;
+        background: var(--brand-red-coral);
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
 
         &-icon {
             display: flex;
@@ -212,6 +221,11 @@
         &--invert {
             transform: rotate(180deg);
         }
+    }
+
+    &__account-id {
+        color: var(--text-prominent);
+        font-weight: 700;
     }
 
     @include desktop-screen {

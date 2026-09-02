@@ -9,7 +9,6 @@ import { useLogout } from '@/hooks/useLogout';
 import { useStore } from '@/hooks/useStore';
 import { Localize } from '@deriv-com/translations';
 import { Header, useDevice, Wrapper } from '@deriv-com/ui';
-import { AppLogo } from '../app-logo';
 import DisplayCurrencySwitcher from '@/components/currency/display-currency-switcher';
 import AccountSwitcher from './account-switcher';
 import MenuItems from './menu-items';
@@ -209,12 +208,20 @@ const AppHeader = observer(() => {
                     'app-header--mobile': !isDesktop,
                 })}
             >
-                <Wrapper variant='left'>
+                <Wrapper variant='left' className='react-flask-header__left'>
                     <MobileMenu onLogout={handleLogout} />
-                    <AppLogo />
+                    <a href='/' className='react-flask-header__logo' aria-label='Autonix home'>
+                        <span>AT</span>
+                    </a>
+                    <span className='react-flask-header__brand'>AutonixTraders</span>
                     {isDesktop ? <MenuItems /> : renderAccountSection('left')}
                 </Wrapper>
-                <Wrapper variant='right'>
+                <Wrapper variant='right' className='react-flask-header__right'>
+                    <button className='react-flask-header__notification' type='button' aria-label='Notifications' title='Notifications'>
+                        <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' aria-hidden='true'>
+                            <path d='M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9' /><path d='M13.73 21a2 2 0 0 1-3.46 0' />
+                        </svg>
+                    </button>
                     {renderAccountSection('right')}
                 </Wrapper>
             </Header>

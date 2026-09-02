@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">34.72% </span>
+                <span class="strong">48.61% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>25/72</span>
+                <span class='fraction'>35/72</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">33.33% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">34.72% </span>
+                <span class="strong">48.61% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>25/72</span>
+                <span class='fraction'>35/72</span>
             </div>
         
             
@@ -196,16 +196,16 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React, { createContext, useContext, useEffect, useState } from 'react';
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span></td><td class="text"><pre class="prettyprint lang-js">import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
     convertFromUsd,
     convertToUsd,
@@ -266,24 +266,24 @@ export const CurrencyProvider = <span class="fstat-no" title="function not cover
 <span class="cstat-no" title="statement not covered" >    return &lt;CurrencyContext.Provider value={value}&gt;{children}&lt;/CurrencyContext.Provider&gt;;</span>
 <span class="cstat-no" title="statement not covered" >};</span>
 &nbsp;
-export const useCurrency = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    const context = useContext(CurrencyContext);</span>
-<span class="cstat-no" title="statement not covered" >    return context ?? {</span>
-<span class="cstat-no" title="statement not covered" >        currency: 'USD' as DisplayCurrency,</span>
-<span class="cstat-no" title="statement not covered" >        rate: 0,</span>
-<span class="cstat-no" title="statement not covered" >        setCurrency: () =&gt; undefined,</span>
-<span class="cstat-no" title="statement not covered" >        formatMoney: (amount: number | string) =&gt; formatDisplayMoney(amount, 'USD', 0),</span>
-<span class="cstat-no" title="statement not covered" >        fromUsd: (amount: number | string) =&gt; Number(amount) || 0,</span>
-<span class="cstat-no" title="statement not covered" >        toUsd: (amount: number | string) =&gt; Number(amount) || 0,</span>
-<span class="cstat-no" title="statement not covered" >    };</span>
-<span class="cstat-no" title="statement not covered" >};</span></pre></td></tr></table></pre>
+export const useCurrency = () =&gt; {
+    const context = useContext(CurrencyContext);
+    return context ?? {
+        currency: 'USD' as DisplayCurrency,
+        rate: 0,
+        setCurrency: <span class="fstat-no" title="function not covered" >() =&gt; undefined,</span>
+        formatMoney: (amount: number | string) =&gt; formatDisplayMoney(amount, 'USD', 0),
+        fromUsd: <span class="fstat-no" title="function not covered" >(amount: number | string) =&gt; Number(amount) || 0,</span>
+        toUsd: <span class="fstat-no" title="function not covered" >(amount: number | string) =&gt; Number(amount) || 0,</span>
+    };
+};</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-02T08:34:30.274Z
+                at 2026-09-02T19:37:04.879Z
             </div>
         <script src="../prettify.js"></script>
         <script>

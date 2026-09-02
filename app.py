@@ -2055,7 +2055,7 @@ def dashboard_live_chart():
     return jsonify({
         "symbol": symbol["symbol"],
         "displayName": symbol["displayName"],
-        "websocketUrl": f"wss://ws.derivws.com/websockets/v3?app_id={DERIV_WS_APP_ID}",
+        "websocketUrl": "wss://api.derivws.com/trading/v1/options/ws/public",
     })
 
 

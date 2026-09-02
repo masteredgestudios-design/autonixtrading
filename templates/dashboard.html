@@ -296,30 +296,40 @@ document.addEventListener("derivBalance", function (e) {
     if (!canvas) return;
     var context = canvas.getContext("2d");
     var values = [];
+    var times = [];
+    var socket = null;
+    var reconnectTimer = null;
+    var chartConfig = null;
     function draw() {
       var ratio = window.devicePixelRatio || 1;
       var width = canvas.clientWidth || 600;
       var height = canvas.clientHeight || 260;
       canvas.width = width * ratio; canvas.height = height * ratio; context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, width, height);
-      context.strokeStyle = "rgba(128,145,162,.18)"; context.lineWidth = 1;
-      for (var y = 1; y < 5; y++) { context.beginPath(); context.moveTo(0, y * height / 5); context.lineTo(width, y * height / 5); context.stroke(); }
+      var plot = { left: 64, right: 16, top: 16, bottom: 42 };
+      var plotWidth = Math.max(1, width - plot.left - plot.right);
+      var plotHeight = Math.max(1, height - plot.top - plot.bottom);
+      var min = values.length ? Math.min.apply(null, values) : 0;
+      var max = values.length ? Math.max.apply(null, values) : 1;
+      var span = max - min || Math.max(Math.abs(max) * 0.001, 0.01);
+      min -= span * 0.08; max += span * 0.08; span = max - min;
+      context.font = "10px sans-serif"; context.textBaseline = "middle"; context.textAlign = "right";
+      context.strokeStyle = "rgba(128,145,162,.18)"; context.fillStyle = "rgba(128,145,162,.85)"; context.lineWidth = 1;
+      for (var y = 0; y <= 4; y++) { var gridY = plot.top + y * plotHeight / 4; var gridValue = max - y * span / 4; context.beginPath(); context.moveTo(plot.left, gridY); context.lineTo(width - plot.right, gridY); context.stroke(); context.fillText(gridValue.toFixed(2), plot.left - 10, gridY); }
+      context.strokeStyle = "rgba(128,145,162,.55)"; context.beginPath(); context.moveTo(plot.left, plot.top); context.lineTo(plot.left, height - plot.bottom); context.lineTo(width - plot.right, height - plot.bottom); context.stroke();
+      context.textAlign = "center"; context.textBaseline = "top";
+      var labels = Math.min(5, Math.max(2, values.length));
+      for (var x = 0; x < labels; x++) { var labelIndex = values.length > 1 ? Math.round(x * (values.length - 1) / (labels - 1)) : 0; var labelX = plot.left + (values.length > 1 ? labelIndex * plotWidth / (values.length - 1) : plotWidth / 2); var labelTime = times[labelIndex]; var text = labelTime ? new Date(labelTime * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "tick " + (labelIndex + 1); context.fillText(text, labelX, height - plot.bottom + 10); }
       if (!values.length) return;
       if (values.length === 1) {
-        context.fillStyle = "#00e5a0"; context.beginPath(); context.arc(width / 2, height / 2, 4, 0, Math.PI * 2); context.fill(); return;
+        context.fillStyle = "#00e5a0"; context.beginPath(); context.arc(plot.left + plotWidth / 2, plot.top + plotHeight / 2, 4, 0, Math.PI * 2); context.fill(); return;
       }
-      var min = Math.min.apply(null, values), max = Math.max.apply(null, values), span = max - min || 1;
-      context.beginPath(); values.forEach(function (value, index) { var x = index * width / (values.length - 1); var y = height - ((value - min) / span) * (height - 18) - 9; index ? context.lineTo(x, y) : context.moveTo(x, y); });
+      context.beginPath(); values.forEach(function (value, index) { var lineX = plot.left + index * plotWidth / (values.length - 1); var lineY = plot.top + plotHeight - ((value - min) / span) * plotHeight; index ? context.lineTo(lineX, lineY) : context.moveTo(lineX, lineY); });
       context.strokeStyle = "#00e5a0"; context.lineWidth = 2; context.stroke();
     }
-    fetch("/dashboard/api/live-chart", { credentials: "same-origin" }).then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.error || "Market unavailable"); return data; }); }).then(function (config) {
-      var socket = new WebSocket(config.websocketUrl);
-      socket.onopen = function () { status.textContent = "LIVE · receiving real-time ticks"; socket.send(JSON.stringify({ ticks_history: config.symbol, count: 80, end: "latest", style: "ticks" })); socket.send(JSON.stringify({ ticks: config.symbol, subscribe: 1 })); };
-      socket.onmessage = function (event) { var message = JSON.parse(event.data); if (message.error) { status.textContent = message.error.message || "Deriv market data request failed."; return; } if (message.history && Array.isArray(message.history.prices)) { values = message.history.prices.map(Number).filter(Number.isFinite).slice(-80); if (values.length) price.textContent = values[values.length - 1].toFixed(4); draw(); return; } if (!message.tick) return; var latest = Number(message.tick.quote); if (!Number.isFinite(latest)) return; values.push(latest); if (values.length > 80) values.shift(); price.textContent = latest.toFixed(4); draw(); };
-      socket.onerror = function () { status.textContent = "Live market data is temporarily unavailable."; };
-      socket.onclose = function () { status.textContent = "Market data connection closed."; };
-      window.addEventListener("resize", draw);
-    }).catch(function (error) { status.textContent = error.message; price.textContent = "—"; });
+    function connect() { if (!chartConfig) return; status.textContent = "Connecting to Deriv market data…"; socket = new WebSocket(chartConfig.websocketUrl); socket.onopen = function () { status.textContent = "LIVE · receiving real-time ticks"; socket.send(JSON.stringify({ ticks_history: chartConfig.symbol, count: 80, end: "latest", style: "ticks" })); socket.send(JSON.stringify({ ticks: chartConfig.symbol, subscribe: 1 })); }; socket.onmessage = function (event) { var message = JSON.parse(event.data); if (message.error) { status.textContent = message.error.message || "Deriv market data request failed."; return; } if (message.history && Array.isArray(message.history.prices)) { values = message.history.prices.map(Number).filter(Number.isFinite).slice(-80); times = (message.history.times || []).slice(-values.length); if (values.length) price.textContent = values[values.length - 1].toFixed(4); draw(); return; } if (!message.tick) return; var latest = Number(message.tick.quote); if (!Number.isFinite(latest)) return; values.push(latest); times.push(Number(message.tick.epoch) || Math.floor(Date.now() / 1000)); if (values.length > 80) { values.shift(); times.shift(); } price.textContent = latest.toFixed(4); draw(); }; socket.onerror = function () { status.textContent = "Live feed interrupted; reconnecting…"; }; socket.onclose = function () { if (chartConfig) reconnectTimer = setTimeout(connect, 1500); }; }
+    fetch("/dashboard/api/live-chart", { credentials: "same-origin" }).then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.error || "Market unavailable"); return data; }); }).then(function (config) { chartConfig = config; connect(); }).catch(function (error) { status.textContent = error.message; price.textContent = "—"; });
+    window.addEventListener("resize", draw);
   }
   loadFinance();
   initLiveChart();

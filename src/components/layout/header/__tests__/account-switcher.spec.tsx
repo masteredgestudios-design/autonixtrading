@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import AccountSwitcher from '../account-switcher';
 
 const mockCheckAndRegenerateWebSocket = jest.fn();
@@ -88,8 +88,9 @@ describe('AccountSwitcher', () => {
 
     it('renders active account type and balance', () => {
         render(<AccountSwitcher activeAccount={mockActiveAccount} />);
-        expect(screen.getByText('Real account')).toBeInTheDocument();
-        expect(screen.getByTestId('dt_balance')).toHaveTextContent('100.00 USD');
+        expect(screen.getByText('RO')).toBeInTheDocument();
+        expect(screen.queryByText('Real account')).not.toBeInTheDocument();
+        expect(screen.getByTestId('dt_balance')).toHaveTextContent('$100.00');
     });
 
     it('opens dropdown on click when multiple accounts exist', () => {
@@ -143,15 +144,18 @@ describe('AccountSwitcher', () => {
         expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     });
 
-    it('sets localStorage and calls checkAndRegenerateWebSocket on account select', () => {
+    it('sets localStorage and calls checkAndRegenerateWebSocket on account select', async () => {
         const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
+        jest.spyOn(global, 'fetch').mockResolvedValue({ ok: true } as Response);
         render(<AccountSwitcher activeAccount={mockActiveAccount} />);
         fireEvent.click(screen.getByTestId('dt_acc_info'));
         const options = screen.getAllByRole('option');
         const inactiveOption = options.find(o => o.getAttribute('aria-selected') === 'false');
         if (inactiveOption) fireEvent.click(inactiveOption);
-        expect(setItemSpy).toHaveBeenCalledWith('active_loginid', 'VRTC456');
-        expect(mockCheckAndRegenerateWebSocket).toHaveBeenCalledTimes(1);
+        await waitFor(() => {
+            expect(setItemSpy).toHaveBeenCalledWith('active_loginid', 'VRTC456');
+            expect(mockCheckAndRegenerateWebSocket).toHaveBeenCalledTimes(1);
+        });
         setItemSpy.mockRestore();
     });
 

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">46.51% </span>
+                <span class="strong">79.06% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>20/43</span>
+                <span class='fraction'>34/43</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">37.5% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>3/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">28.57% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/7</span>
+                <span class='fraction'>2/7</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">46.51% </span>
+                <span class="strong">79.06% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>20/43</span>
+                <span class='fraction'>34/43</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -126,20 +126,20 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
+<span class="cline-any cline-yes">75x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -161,27 +161,27 @@ export const usdToKes = <span class="fstat-no" title="function not covered" >(am
 &nbsp;
 export const kesToUsd = <span class="fstat-no" title="function not covered" >(amount: number, rate: number) =&gt; roundMoney(amount / rate);</span>
 &nbsp;
-export const convertFromUsd = <span class="fstat-no" title="function not covered" >(amount: number, currency: DisplayCurrency, rate: number) =&gt;</span>
-    currency === 'KES' &amp;&amp; rate &gt; 0 ? usdToKes(amount, rate) : amount;
+export const convertFromUsd = (amount: number, currency: DisplayCurrency, rate: number) =&gt;
+    currency === 'KES'<span class="branch-0 cbranch-no" title="branch not covered" > &amp;&amp; rate &gt; 0 <span class="branch-0 cbranch-no" title="branch not covered" ></span>? usdToKes(amount, rate) </span>: amount;
 &nbsp;
 export const convertToUsd = <span class="fstat-no" title="function not covered" >(amount: number, currency: DisplayCurrency, rate: number) =&gt;</span>
     currency === 'KES' &amp;&amp; rate &gt; 0 ? kesToUsd(amount, rate) : amount;
 &nbsp;
-export const formatDisplayMoney = <span class="fstat-no" title="function not covered" >(</span>
-<span class="cstat-no" title="statement not covered" >    amount: number | string,</span>
-<span class="cstat-no" title="statement not covered" >    currency: DisplayCurrency,</span>
-<span class="cstat-no" title="statement not covered" >    rate: number,</span>
-<span class="cstat-no" title="statement not covered" >    options: Intl.NumberFormatOptions = {}</span>
-<span class="cstat-no" title="statement not covered" >) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    const value = Number(String(amount).replace(/,/g, '')) || 0;</span>
-<span class="cstat-no" title="statement not covered" >    const converted = convertFromUsd(value, currency, rate);</span>
-<span class="cstat-no" title="statement not covered" >    const formatted = new Intl.NumberFormat('en-KE', {</span>
-<span class="cstat-no" title="statement not covered" >        minimumFractionDigits: currency === 'KES' ? 2 : 2,</span>
-<span class="cstat-no" title="statement not covered" >        maximumFractionDigits: currency === 'KES' ? 2 : 2,</span>
-<span class="cstat-no" title="statement not covered" >        ...options,</span>
-<span class="cstat-no" title="statement not covered" >    }).format(converted);</span>
-<span class="cstat-no" title="statement not covered" >    return currency === 'KES' ? `KSh ${formatted}` : `$${formatted}`;</span>
-<span class="cstat-no" title="statement not covered" >};</span>
+export const formatDisplayMoney = (
+    amount: number | string,
+    currency: DisplayCurrency,
+    rate: number,
+    options: Intl.NumberFormatOptions = {}
+) =&gt; {
+    const value = Number(String(amount).replace(/,/g, '')) || 0;
+    const converted = convertFromUsd(value, currency, rate);
+    const formatted = new Intl.NumberFormat('en-KE', {
+        minimumFractionDigits: currency === 'KES' <span class="branch-0 cbranch-no" title="branch not covered" >? 2 </span>: 2,
+        maximumFractionDigits: currency === 'KES' <span class="branch-0 cbranch-no" title="branch not covered" >? 2 </span>: 2,
+        ...options,
+    }).format(converted);
+    return currency === 'KES' <span class="branch-0 cbranch-no" title="branch not covered" >? `KSh ${formatted}` </span>: `$${formatted}`;
+};
 &nbsp;
 export const fetchUsdToKesRate = <span class="fstat-no" title="function not covered" >async (): Promise&lt;number&gt; =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    const response = await fetch('/api/exchange-rate', { credentials: 'include' });</span>
@@ -196,7 +196,7 @@ export const fetchUsdToKesRate = <span class="fstat-no" title="function not cove
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-02T08:34:30.274Z
+                at 2026-09-02T19:37:04.879Z
             </div>
         <script src="../prettify.js"></script>
         <script>

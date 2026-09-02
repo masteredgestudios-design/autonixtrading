@@ -2,6 +2,81 @@
 @use 'components/shared/styles/mixins' as *;
 
 .app-header {
+    background: var(--general-main-1);
+    border-bottom: 1px solid var(--general-section-1);
+
+    &__wrapper {
+        min-width: 0;
+    }
+
+    .react-flask-header__left,
+    .react-flask-header__right {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .react-flask-header__left {
+        gap: 0.8rem;
+    }
+
+    .react-flask-header__right {
+        gap: 0.8rem;
+    }
+
+    .react-flask-header__logo {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        width: 3.2rem;
+        height: 3.2rem;
+        border-radius: 0.8rem;
+        background: var(--brand-red-coral);
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-decoration: none;
+        box-shadow: 0 0 1.6rem rgb(194 0 0 / 25%);
+    }
+
+    .react-flask-header__brand {
+        color: var(--text-prominent);
+        font-size: 1.5rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .react-flask-header__notification {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 3.2rem;
+        height: 3.2rem;
+        border: 0;
+        border-radius: 0.4rem;
+        background: transparent;
+        color: var(--text-general);
+        cursor: pointer;
+
+        &:hover {
+            background: var(--state-hover);
+        }
+    }
+
+    @include mobile-or-tablet-screen {
+        .react-flask-header__brand,
+        .react-flask-header__notification {
+            display: none;
+        }
+
+        .react-flask-header__left,
+        .react-flask-header__right {
+            gap: 0.4rem;
+        }
+    }
+
     &__account-settings {
         padding-inline-end: 1.2rem;
         border-inline-end: 0.1rem solid var(--general-section-1);
