@@ -304,15 +304,18 @@ document.addEventListener("derivBalance", function (e) {
       context.clearRect(0, 0, width, height);
       context.strokeStyle = "rgba(128,145,162,.18)"; context.lineWidth = 1;
       for (var y = 1; y < 5; y++) { context.beginPath(); context.moveTo(0, y * height / 5); context.lineTo(width, y * height / 5); context.stroke(); }
-      if (values.length < 2) return;
+      if (!values.length) return;
+      if (values.length === 1) {
+        context.fillStyle = "#00e5a0"; context.beginPath(); context.arc(width / 2, height / 2, 4, 0, Math.PI * 2); context.fill(); return;
+      }
       var min = Math.min.apply(null, values), max = Math.max.apply(null, values), span = max - min || 1;
       context.beginPath(); values.forEach(function (value, index) { var x = index * width / (values.length - 1); var y = height - ((value - min) / span) * (height - 18) - 9; index ? context.lineTo(x, y) : context.moveTo(x, y); });
       context.strokeStyle = "#00e5a0"; context.lineWidth = 2; context.stroke();
     }
     fetch("/dashboard/api/live-chart", { credentials: "same-origin" }).then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.error || "Market unavailable"); return data; }); }).then(function (config) {
       var socket = new WebSocket(config.websocketUrl);
-      socket.onopen = function () { status.textContent = "LIVE · receiving real-time ticks"; socket.send(JSON.stringify({ ticks: config.symbol, subscribe: 1 })); };
-      socket.onmessage = function (event) { var message = JSON.parse(event.data); if (!message.tick) return; var latest = Number(message.tick.quote); if (!Number.isFinite(latest)) return; values.push(latest); if (values.length > 80) values.shift(); price.textContent = latest.toFixed(4); draw(); };
+      socket.onopen = function () { status.textContent = "LIVE · receiving real-time ticks"; socket.send(JSON.stringify({ ticks_history: config.symbol, count: 80, end: "latest", style: "ticks" })); socket.send(JSON.stringify({ ticks: config.symbol, subscribe: 1 })); };
+      socket.onmessage = function (event) { var message = JSON.parse(event.data); if (message.error) { status.textContent = message.error.message || "Deriv market data request failed."; return; } if (message.history && Array.isArray(message.history.prices)) { values = message.history.prices.map(Number).filter(Number.isFinite).slice(-80); if (values.length) price.textContent = values[values.length - 1].toFixed(4); draw(); return; } if (!message.tick) return; var latest = Number(message.tick.quote); if (!Number.isFinite(latest)) return; values.push(latest); if (values.length > 80) values.shift(); price.textContent = latest.toFixed(4); draw(); };
       socket.onerror = function () { status.textContent = "Live market data is temporarily unavailable."; };
       socket.onclose = function () { status.textContent = "Market data connection closed."; };
       window.addEventListener("resize", draw);
