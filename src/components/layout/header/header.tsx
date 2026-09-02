@@ -11,7 +11,6 @@ import { Localize } from '@deriv-com/translations';
 import { Header, useDevice, Wrapper } from '@deriv-com/ui';
 import { AppLogo } from '../app-logo';
 import DisplayCurrencySwitcher from '@/components/currency/display-currency-switcher';
-import Transfer from '@/components/transfer/transfer';
 import AccountSwitcher from './account-switcher';
 import MenuItems from './menu-items';
 import MobileMenu from './mobile-menu';
@@ -19,10 +18,9 @@ import './header.scss';
 
 const AppHeader = observer(() => {
     const { isDesktop } = useDevice();
-    const { isAuthorizing, activeLoginid, setIsAuthorizing, authData } = useApiBase();
+    const { isAuthorizing, activeLoginid, setIsAuthorizing } = useApiBase();
     const { client } = useStore() ?? {};
     const [authTimeout, setAuthTimeout] = useState(false);
-    const [isTransferOpen, setIsTransferOpen] = useState(false);
     const is_account_regenerating = client?.is_account_regenerating || false;
 
     // Detect OAuth callback on mount (before App.tsx cleans up the URL).
@@ -109,7 +107,6 @@ const AppHeader = observer(() => {
         }
     }, [setIsAuthorizing]);
 
-    const handleTransfer = useCallback(() => setIsTransferOpen(true), []);
 
     const renderAccountSection = useCallback(
         (position: 'left' | 'right' = 'right') => {
@@ -126,7 +123,7 @@ const AppHeader = observer(() => {
                         </div>
                     );
                 } else if (position === 'right') {
-                    // For right section - transfer button (and account switcher on desktop)
+                    // For right section, show the account switcher on desktop.
                     return (
                         <div className='auth-actions'>
                             {(isDesktop || !activeLoginid) && <DisplayCurrencySwitcher />}
@@ -135,13 +132,6 @@ const AppHeader = observer(() => {
                                     <AccountSwitcher activeAccount={activeAccount} />
                                 </div>
                             )}
-                            <Button
-                                primary
-                                disabled={client?.is_logging_out || !authData?.currency}
-                                onClick={handleTransfer}
-                            >
-                                <Localize i18n_default_text='Transfer' />
-                            </Button>
                         </div>
                     );
                 }
@@ -204,10 +194,8 @@ const AppHeader = observer(() => {
             authTimeout,
             is_account_regenerating,
             isOAuthPending,
-            authData,
             handleLogin,
             handleSignup,
-            handleTransfer,
         ]
     );
 
@@ -230,7 +218,6 @@ const AppHeader = observer(() => {
                     {renderAccountSection('right')}
                 </Wrapper>
             </Header>
-            <Transfer is_open={isTransferOpen} on_close={() => setIsTransferOpen(false)} />
         </>
     );
 });

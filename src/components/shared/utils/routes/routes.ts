@@ -107,12 +107,10 @@ export const standalone_routes = {
     traders_hub: `${getDerivDomain('derivHome')}/dashboard/home`,
     traders_hub_lowcode: getDerivDomain('derivHub'),
     recent_transactions: `${getDerivDomain('derivHub')}/tradershub/redirect?action=redirect_to&redirect_to=wallet`,
-    wallets_transfer: `${getDerivDomain('derivDtrader')}/wallet/account-transfer`,
     signup: `${getDerivDomain('derivHome')}/dashboard/signup`,
     deriv_com: getDerivDomain('derivCom'),
     deriv_app: `${getDerivDomain('derivHome')}/dashboard/home`,
     account_limits: `${getDerivDomain('derivDtrader')}/account/account-limits`,
     help_center: `${getDerivDomain('derivCom')}/help-centre/`,
     responsible: `${getDerivDomain('derivCom')}/responsible/`,
-    transfer: `${getDerivDomain('derivHome')}/dashboard/transfer?acc=options&from=home&source=options`,
 };

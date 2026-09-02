@@ -21,6 +21,14 @@
         <div class="dash-topbar-left">
           <h1 class="dash-title">Dashboard</h1>
           <p class="dash-subtitle">Welcome back &mdash; <strong>{{ session_data.activeAccount.account }}</strong></p>
+          <div class="dash-identity-row">
+            <span class="dash-environment-badge {% if session_data.activeAccount.isVirtual %}is-demo{% else %}is-real{% endif %}">
+              {{ 'DEMO' if session_data.activeAccount.isVirtual else 'LIVE / REAL' }}
+            </span>
+            <span>{{ session_data.activeAccount.account }}</span>
+            <span>{{ 'Demo account' if session_data.activeAccount.isVirtual else 'Real account' }}</span>
+            <span>{{ session_data.activeAccount.currency }}</span>
+          </div>
         </div>
         <div class="dash-topbar-right">
           <span class="dash-live-dot" title="Live connection" aria-label="Connected"></span>
@@ -58,35 +66,44 @@
         </div>
       </section>
 
-      <!-- Account switcher -->
       <section class="dash-section" aria-labelledby="dash-accounts-heading">
         <h2 class="dash-section-title" id="dash-accounts-heading">Your Accounts</h2>
         <div class="dash-accounts-grid" role="list">
           {% for acc in session_data.accounts %}
-          <a href="/auth/switch/{{ acc.account }}"
-             class="dash-account-card {% if acc.account == session_data.activeAccount.account %}dash-account-active{% endif %}"
-             role="listitem"
-             aria-current="{{ 'true' if acc.account == session_data.activeAccount.account else 'false' }}">
-            <div class="dash-acct-top">
-              <span class="dash-acct-avatar" aria-hidden="true">{{ acc.account[:2] }}</span>
-              {% if acc.account == session_data.activeAccount.account %}
-              <span class="dash-acct-active-badge">Active</span>
-              {% else %}
-              <span class="dash-acct-switch-hint">Switch</span>
-              {% endif %}
-            </div>
+          <a href="/auth/switch/{{ acc.account }}" class="dash-account-card {% if acc.account == session_data.activeAccount.account %}dash-account-active{% endif %}" role="listitem" aria-current="{{ 'true' if acc.account == session_data.activeAccount.account else 'false' }}">
+            <div class="dash-acct-top"><span class="dash-acct-avatar" aria-hidden="true">{{ acc.account[:2] }}</span>{% if acc.account == session_data.activeAccount.account %}<span class="dash-acct-active-badge">Active</span>{% else %}<span class="dash-acct-switch-hint">Switch</span>{% endif %}</div>
             <div class="dash-acct-id">{{ acc.account }}</div>
-            <div class="dash-acct-type">
-              {% if acc.isVirtual %}
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              Demo Account
-              {% else %}
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              Real &bull; {{ acc.currency }}
-              {% endif %}
-            </div>
+            <div class="dash-acct-type">{% if acc.isVirtual %}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Demo Account{% else %}<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Real &bull; {{ acc.currency }}{% endif %}</div>
           </a>
           {% endfor %}
+        </div>
+      </section>
+
+      <section class="dash-section dash-surface dash-live-chart-section" aria-labelledby="dash-chart-heading">
+        <div class="dash-section-heading-row"><div><h2 class="dash-section-title" id="dash-chart-heading">Live market chart</h2><p class="dash-section-note"><span class="dash-chart-live-dot"></span> LIVE &middot; Volatility 100 (1s)</p></div><a class="dash-inline-link" href="/trader">Open Trader &rarr;</a></div>
+        <div class="dash-chart-toolbar"><strong id="dash-chart-symbol">Volatility 100 (1s)</strong><span id="dash-chart-price">Connecting&hellip;</span></div>
+        <canvas id="dash-live-chart" aria-label="Live Volatility 100 (1s) price chart"></canvas>
+        <div class="dash-chart-status" id="dash-chart-status">Connecting to Deriv market data&hellip;</div>
+      </section>
+
+      <div class="dash-command-grid">
+        <section class="dash-section dash-surface" aria-labelledby="dash-active-heading"><div class="dash-section-heading-row"><div><h2 class="dash-section-title" id="dash-active-heading">Active trades</h2><p class="dash-section-note">Open positions require the live Trader view.</p></div><a class="dash-inline-link" href="/trader">View all &rarr;</a></div><div class="dash-empty-state"><strong>No active trades</strong><span>Start a trade to see its symbol, stake, status, and account here.</span><a class="nav-btn nav-btn-filled" href="/trader">Start Trading</a></div></section>
+        <section class="dash-section dash-surface" aria-labelledby="dash-automation-heading"><div class="dash-section-heading-row"><div><h2 class="dash-section-title" id="dash-automation-heading">Automation</h2><p class="dash-section-note">Bot status is managed in the Bots workspace.</p></div><a class="dash-inline-link" href="/bots">Manage bots &rarr;</a></div><div class="dash-empty-state"><strong>No bot status available</strong><span>Open Bots to view and manage your saved strategies.</span><a class="nav-btn nav-btn-quiet" href="/bots">Open Bots</a></div></section>
+      </div>
+
+      <section class="dash-section dash-finance-section" aria-labelledby="dash-finance-heading">
+        <div class="dash-section-heading-row">
+          <div>
+            <h2 class="dash-section-title" id="dash-finance-heading">Wallets &amp; balances</h2>
+            <p class="dash-section-note">Move funds between your Deriv Wallet and eligible real trading accounts.</p>
+          </div>
+          <button class="nav-btn nav-btn-filled dash-transfer-trigger" type="button" data-transfer-open>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 7h13l-3-3M17 17H4l3 3"/><path d="M20 7l-3 3M4 17l3-3"/></svg>
+            Transfer funds
+          </button>
+        </div>
+        <div class="dash-finance-grid" id="dash-finance-grid">
+          <div class="dash-finance-placeholder">Loading your wallet balances&hellip;</div>
         </div>
       </section>
 
@@ -177,6 +194,27 @@
 
 <div id="toast" class="toast" aria-live="polite"></div>
 
+<div class="dash-modal" id="transfer-modal" hidden role="dialog" aria-modal="true" aria-labelledby="transfer-modal-title">
+  <div class="dash-modal-card">
+    <div class="dash-modal-header">
+      <div><span class="dash-kicker">Secure funds movement</span><h2 id="transfer-modal-title">Transfer funds</h2></div>
+      <button class="dash-modal-close" type="button" data-transfer-close aria-label="Close transfer">&times;</button>
+    </div>
+    <div id="transfer-feedback" class="dash-transfer-feedback" hidden role="alert"></div>
+    <form id="transfer-form">
+      <div class="dash-transfer-grid">
+        <label>From<select id="transfer-source" required></select></label>
+        <label>To<select id="transfer-destination" required></select></label>
+      </div>
+      <div class="dash-transfer-source-info" id="transfer-source-info">Select a source account to view its available balance.</div>
+      <label>Amount<div class="dash-amount-field"><input id="transfer-amount" inputmode="decimal" placeholder="0.00" required /><span id="transfer-currency">—</span></div></label>
+      <label>Description <span class="dash-optional">optional</span><input id="transfer-description" maxlength="240" /></label>
+      <div class="dash-transfer-breakdown" id="transfer-breakdown" hidden></div>
+      <div class="dash-modal-actions"><button class="nav-btn nav-btn-quiet" type="button" data-transfer-close>Cancel</button><button class="nav-btn nav-btn-filled" id="transfer-submit" type="submit">Validate transfer</button></div>
+    </form>
+  </div>
+</div>
+
 <script>
 document.addEventListener("derivBalance", function (e) {
   if (!e.detail) return;
@@ -189,5 +227,99 @@ document.addEventListener("derivBalance", function (e) {
   if (a) a.textContent = str;
   if (b) b.textContent = str;
 });
+
+(function () {
+  var modal = document.getElementById("transfer-modal");
+  if (!modal) return;
+  var form = document.getElementById("transfer-form");
+  var sourceSelect = document.getElementById("transfer-source");
+  var destinationSelect = document.getElementById("transfer-destination");
+  var amountInput = document.getElementById("transfer-amount");
+  var currency = document.getElementById("transfer-currency");
+  var sourceInfo = document.getElementById("transfer-source-info");
+  var feedback = document.getElementById("transfer-feedback");
+  var breakdown = document.getElementById("transfer-breakdown");
+  var submit = document.getElementById("transfer-submit");
+  var records = [];
+  var validation = null;
+  var busy = false;
+
+  function showFeedback(message, isSuccess) {
+    feedback.textContent = message || "";
+    feedback.hidden = !message;
+    feedback.className = "dash-transfer-feedback " + (isSuccess ? "is-success" : "is-error");
+  }
+  function label(item) { return item.label + " · " + Number(item.balance || 0).toFixed(2) + " " + item.currency; }
+  function updateSource() {
+    var item = records.find(function (record) { return record.id === sourceSelect.value; });
+    sourceInfo.textContent = item ? "Available balance: " + Number(item.balance || 0).toFixed(2) + " " + item.currency : "Select a source account to view its available balance.";
+    currency.textContent = item ? item.currency : "—";
+  }
+  function openTransfer() {
+    modal.hidden = false;
+    showFeedback("Loading your wallets and eligible accounts…", false);
+    fetch("/dashboard/api/transfers/options", { credentials: "same-origin" }).then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.detail?.error || data.error || "Unable to load transfer accounts."); return data; }); }).then(function (data) {
+      records = data.sources || [];
+      sourceSelect.innerHTML = records.map(function (item) { return '<option value="' + item.id + '">' + label(item) + '</option>'; }).join("");
+      destinationSelect.innerHTML = records.map(function (item) { return '<option value="' + item.id + '">' + label(item) + '</option>'; }).join("");
+      if (records.length > 1) destinationSelect.selectedIndex = 1;
+      showFeedback(""); updateSource();
+    }).catch(function (error) { showFeedback(error.message, false); });
+  }
+  function closeTransfer() { if (!busy) modal.hidden = true; }
+  document.querySelectorAll("[data-transfer-open]").forEach(function (button) { button.addEventListener("click", openTransfer); });
+  document.querySelectorAll("[data-transfer-close]").forEach(function (button) { button.addEventListener("click", closeTransfer); });
+  sourceSelect.addEventListener("change", updateSource);
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    if (busy) return;
+    var amount = amountInput.value.trim();
+    var source = records.find(function (item) { return item.id === sourceSelect.value; });
+    if (!/^\d+(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0) { showFeedback("Enter a valid positive amount with no more than two decimal places.", false); return; }
+    if (!source || Number(amount) > Number(source.balance || 0)) { showFeedback("The amount exceeds the available source balance.", false); return; }
+    busy = true; submit.disabled = true; submit.textContent = "Validating…"; showFeedback("");
+    fetch("/dashboard/api/transfers/validate", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source_id: sourceSelect.value, destination_id: destinationSelect.value, amount: amount }) }).then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.error || "Transfer validation failed."); return data; }); }).then(function (data) {
+      validation = data; breakdown.hidden = false; breakdown.textContent = "Validation complete. Review the amount and confirm to execute this transfer."; submit.textContent = "Confirm transfer";
+      submit.onclick = function () { executeTransfer(); }; submit.type = "button";
+    }).catch(function (error) { showFeedback(error.message, false); busy = false; submit.disabled = false; submit.textContent = "Validate transfer"; });
+  });
+  function executeTransfer() {
+    if (!validation || !busy) return;
+    submit.disabled = true; submit.textContent = "Transferring…";
+    fetch("/dashboard/api/transfers", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source_id: sourceSelect.value, destination_id: destinationSelect.value, amount: amountInput.value, description: document.getElementById("transfer-description").value }) }).then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.error || "Transfer failed."); return data; }); }).then(function (data) { showFeedback("Transfer completed: " + data.amount + " " + data.currency + ". Balances are being refreshed.", true); breakdown.hidden = true; validation = null; busy = false; submit.type = "submit"; submit.disabled = false; submit.textContent = "Validate transfer"; amountInput.value = ""; loadFinance(); }).catch(function (error) { showFeedback(error.message, false); busy = false; submit.disabled = false; submit.textContent = "Validate transfer"; validation = null; submit.type = "submit"; });
+  }
+  function loadFinance() { fetch("/dashboard/api/transfers/options", { credentials: "same-origin" }).then(function (response) { return response.json(); }).then(function (data) { var grid = document.getElementById("dash-finance-grid"); grid.innerHTML = (data.sources || []).map(function (item) { return '<div class="dash-finance-card"><div class="dash-finance-card-top"><span>' + (item.kind === "wallet" ? "Wallet" : "Trading account") + '</span><b>' + item.currency + '</b></div><strong>' + Number(item.balance || 0).toFixed(2) + '</strong><small>' + item.label + '</small></div>'; }).join("") || '<div class="dash-finance-placeholder">No eligible accounts found.</div>'; }).catch(function () { document.getElementById("dash-finance-grid").innerHTML = '<div class="dash-finance-placeholder">Wallet balances are temporarily unavailable.</div>'; }); }
+  function initLiveChart() {
+    var canvas = document.getElementById("dash-live-chart");
+    var status = document.getElementById("dash-chart-status");
+    var price = document.getElementById("dash-chart-price");
+    if (!canvas) return;
+    var context = canvas.getContext("2d");
+    var values = [];
+    function draw() {
+      var ratio = window.devicePixelRatio || 1;
+      var width = canvas.clientWidth || 600;
+      var height = canvas.clientHeight || 260;
+      canvas.width = width * ratio; canvas.height = height * ratio; context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, width, height);
+      context.strokeStyle = "rgba(128,145,162,.18)"; context.lineWidth = 1;
+      for (var y = 1; y < 5; y++) { context.beginPath(); context.moveTo(0, y * height / 5); context.lineTo(width, y * height / 5); context.stroke(); }
+      if (values.length < 2) return;
+      var min = Math.min.apply(null, values), max = Math.max.apply(null, values), span = max - min || 1;
+      context.beginPath(); values.forEach(function (value, index) { var x = index * width / (values.length - 1); var y = height - ((value - min) / span) * (height - 18) - 9; index ? context.lineTo(x, y) : context.moveTo(x, y); });
+      context.strokeStyle = "#00e5a0"; context.lineWidth = 2; context.stroke();
+    }
+    fetch("/dashboard/api/live-chart", { credentials: "same-origin" }).then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.error || "Market unavailable"); return data; }); }).then(function (config) {
+      var socket = new WebSocket(config.websocketUrl);
+      socket.onopen = function () { status.textContent = "LIVE · receiving real-time ticks"; socket.send(JSON.stringify({ ticks: config.symbol, subscribe: 1 })); };
+      socket.onmessage = function (event) { var message = JSON.parse(event.data); if (!message.tick) return; var latest = Number(message.tick.quote); if (!Number.isFinite(latest)) return; values.push(latest); if (values.length > 80) values.shift(); price.textContent = latest.toFixed(4); draw(); };
+      socket.onerror = function () { status.textContent = "Live market data is temporarily unavailable."; };
+      socket.onclose = function () { status.textContent = "Market data connection closed."; };
+      window.addEventListener("resize", draw);
+    }).catch(function (error) { status.textContent = error.message; price.textContent = "—"; });
+  }
+  loadFinance();
+  initLiveChart();
+})();
 </script>
 {% endblock %}

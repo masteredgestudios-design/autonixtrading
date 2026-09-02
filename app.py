@@ -1076,13 +1076,16 @@ def terms():
 @app.route("/dashboard")
 def dashboard():
     user = session.get("user")
-    return render_template(
+    response = make_response(render_template(
         "dashboard.html",
         deriv_app_id=DERIV_APP_ID,
         ws_app_id=DERIV_WS_APP_ID,
         redirect_url=REDIRECT_URL,
         session_data=_safe_for_template(user),
-    )
+    ))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @app.route("/journal")
@@ -1280,110 +1283,255 @@ def _wallet_rows(payload):
     return [row for row in rows if isinstance(row, dict)]
 
 
-@app.route("/api/transfers/options", methods=["GET"])
-def transfer_options():
-    auth, error_response = _transfer_user()
-    if error_response:
-        return error_response
-    user, token = auth
+def _wallet_record(wallets, wallet_id):
+    return next(
+        (
+            wallet for wallet in wallets
+            if str(wallet.get("wallet_id") or wallet.get("id") or "") == str(wallet_id)
+        ),
+        None,
+    )
+
+
+def _real_session_accounts(user):
+    return {
+        str(account.get("account")): account
+        for account in user.get("accounts", [])
+        if account.get("account")
+        and not account.get("isVirtual")
+        and account.get("accountType") == "real"
+    }
+
+
+def _refresh_session_account_balances(user, token):
+    rows = _fetch_rest_accounts(token)
+    if not rows:
+        return
+    refreshed = {}
+    for row in rows:
+        account_id = row.get("account_id") or row.get("account") or row.get("loginid")
+        if account_id:
+            refreshed[str(account_id)] = row
+    for account in user.get("accounts", []):
+        current = refreshed.get(str(account.get("account")))
+        if current is not None and current.get("balance") is not None:
+            account["balance"] = current["balance"]
+            if current.get("currency"):
+                account["currency"] = str(current["currency"]).upper()
+    active = user.get("activeAccount") or {}
+    active_refreshed = refreshed.get(str(active.get("account")))
+    if active_refreshed is not None and active_refreshed.get("balance") is not None:
+        active["balance"] = active_refreshed["balance"]
+        if active_refreshed.get("currency"):
+            active["currency"] = str(active_refreshed["currency"]).upper()
+    user["activeAccount"] = active
+    session["user"] = user
+    session.modified = True
+
+
+def _wallet_transfer_options(token, user):
     status, payload = _wallet_api_request("GET", "/wallets", token)
     if status != 200:
-        return jsonify({"error": "wallet_lookup_failed", "detail": payload}), status
-
+        return status, {"error": "wallet_lookup_failed", "detail": payload}
     wallets = []
     for wallet in _wallet_rows(payload):
         wallet_id = wallet.get("wallet_id") or wallet.get("id")
         currency = str(wallet.get("currency") or "").upper()
         if wallet_id and currency:
             wallets.append({
-                "wallet_id": str(wallet_id),
+                "id": str(wallet_id),
+                "kind": "wallet",
+                "label": wallet.get("name") or f"Deriv Wallet ({currency})",
                 "currency": currency,
                 "balance": wallet.get("balance", 0),
-                "wallet_currency": wallet.get("wallet_currency"),
-                "exchange_rate": wallet.get("exchange_rate"),
-                "rate_token": wallet.get("rate_token"),
             })
-
     accounts = [
         {
-            "account_id": account.get("account"),
+            "id": account_id,
+            "kind": "platform",
+            "label": f"Options account ({account.get('currency', '')})",
             "currency": str(account.get("currency") or "").upper(),
             "balance": account.get("balance", 0),
             "platform_name": "options",
         }
-        for account in user.get("accounts", [])
-        if account.get("account") and not account.get("isVirtual") and account.get("accountType") == "real"
+        for account_id, account in _real_session_accounts(user).items()
     ]
-    return jsonify({"wallets": wallets, "accounts": accounts})
+    return 200, {"sources": wallets + accounts, "destinations": wallets + accounts}
 
 
-@app.route("/api/transfers", methods=["POST"])
-def create_transfer():
+def _transfer_selection(token, user, source_id, destination_id):
+    status, payload = _wallet_api_request("GET", "/wallets", token)
+    if status != 200:
+        return None, None, (status, {"error": "wallet_lookup_failed", "detail": payload})
+    wallets = _wallet_rows(payload)
+    accounts = _real_session_accounts(user)
+    source = _wallet_record(wallets, source_id) or accounts.get(str(source_id))
+    destination = _wallet_record(wallets, destination_id) or accounts.get(str(destination_id))
+    if not source or not destination or source is destination:
+        return None, None, (403, {"error": "account_not_owned_or_not_eligible"})
+    return source, destination, None
+
+
+def _transfer_amount(value):
+    try:
+        amount = Decimal(str(value).strip())
+        if not amount.is_finite() or amount <= 0 or amount.as_tuple().exponent < -2:
+            raise InvalidOperation
+        return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
+def _transfer_error_message(status, payload):
+    if status == 401:
+        return "Your session has expired. Please sign in again."
+    if status == 403:
+        return "This account is not eligible for the requested transfer."
+    if status == 429:
+        return "Transfer rate limit reached. Please wait and try again."
+    if status in {500, 503, 504}:
+        return "The Deriv transfer service is temporarily unavailable. Please try again."
+    detail = payload.get("detail") if isinstance(payload, dict) else None
+    if isinstance(detail, dict):
+        detail = detail.get("message") or detail.get("error")
+    if isinstance(detail, str) and detail.strip():
+        return detail.strip()
+    if isinstance(payload, dict) and isinstance(payload.get("error"), str):
+        return payload["error"]
+    return "The transfer request was rejected."
+
+
+def _transfer_payload(body, source, destination, amount, request_id):
+    source_wallet_id = source.get("wallet_id") or source.get("id")
+    destination_wallet_id = destination.get("wallet_id") or destination.get("id")
+    source_is_wallet = bool(source_wallet_id)
+    destination_is_wallet = bool(destination_wallet_id)
+    if source_is_wallet and not destination_is_wallet:
+        return {
+            "wallet_id": str(source_wallet_id),
+            "amount": format(amount, ".2f"),
+            "currency": str(source.get("currency") or "").upper(),
+            "direction": "from_wallet",
+            "platform_name": "options",
+            "platform_account_id": str(destination.get("account")),
+            "request_id": request_id,
+        }, "/transfers/platforms"
+    if not source_is_wallet and destination_is_wallet:
+        return {
+            "wallet_id": str(destination_wallet_id),
+            "amount": format(amount, ".2f"),
+            "currency": str(source.get("currency") or "").upper(),
+            "direction": "to_wallet",
+            "platform_name": "options",
+            "platform_account_id": str(source.get("account")),
+            "request_id": request_id,
+        }, "/transfers/platforms"
+    if source_is_wallet and destination_is_wallet:
+        return {
+            "source_wallet_id": str(source_wallet_id),
+            "destination_wallet_id": str(destination_wallet_id),
+            "amount": format(amount, ".2f"),
+            "currency": str(source.get("currency") or "").upper(),
+            "request_id": request_id,
+        }, "/transfers" if source.get("currency") == destination.get("currency") else "/transfers/exchange"
+    return None, None
+
+
+def _add_wallet_exchange_fields(payload, source, destination):
+    source_currency = str(source.get("currency") or "").upper()
+    destination_currency = str(destination.get("currency") or "").upper()
+    if source_currency == destination_currency:
+        return payload
+    fields = {
+        "wallet_currency": source.get("wallet_currency") or destination.get("wallet_currency"),
+        "exchange_rate": source.get("exchange_rate") or destination.get("exchange_rate"),
+        "rate_token": source.get("rate_token") or destination.get("rate_token"),
+    }
+    if not all(fields.values()):
+        raise ValueError("Deriv did not provide a complete exchange-rate quote.")
+    payload.update(fields)
+    return payload
+
+
+@app.route("/dashboard/api/transfers/options", methods=["GET"])
+def dashboard_transfer_options():
+    auth, error_response = _transfer_user()
+    if error_response:
+        return error_response
+    user, token = auth
+    status, payload = _wallet_transfer_options(token, user)
+    return jsonify(payload), status
+
+
+@app.route("/dashboard/api/transfers/validate", methods=["POST"])
+def dashboard_transfer_validate():
     auth, error_response = _transfer_user()
     if error_response:
         return error_response
     user, token = auth
     body = request.get_json(silent=True) or {}
-    direction = body.get("direction")
-    platform_name = body.get("platform_name")
-    wallet_id = body.get("wallet_id")
-    platform_account_id = body.get("platform_account_id")
-    amount_text = str(body.get("amount", "")).strip()
-    if direction not in TRANSFER_DIRECTIONS or platform_name not in TRANSFER_PLATFORMS:
-        return jsonify({"error": "invalid_transfer_selection"}), 400
-    if not wallet_id or not platform_account_id:
-        return jsonify({"error": "missing_transfer_account"}), 400
-    real_accounts = {
-        str(account.get("account")): account
-        for account in user.get("accounts", [])
-        if account.get("account") and not account.get("isVirtual") and account.get("accountType") == "real"
-    }
-    account = real_accounts.get(str(platform_account_id))
-    if not account:
-        return jsonify({"error": "account_not_owned_or_not_real"}), 403
+    amount = _transfer_amount(body.get("amount"))
+    if not amount:
+        return jsonify({"error": "Enter a valid amount greater than zero with no more than two decimal places."}), 400
+    source, destination, selection_error = _transfer_selection(token, user, body.get("source_id"), body.get("destination_id"))
+    if selection_error:
+        status, payload = selection_error
+        return jsonify(payload), status
+    source_balance = Decimal(str(source.get("balance", 0)))
+    if amount > source_balance:
+        return jsonify({"error": "The amount exceeds the available source balance."}), 400
+    payload, path = _transfer_payload(body, source, destination, amount, str(uuid.uuid4()))
+    if not payload:
+        return jsonify({"error": "The selected accounts cannot be used for transfers."}), 400
     try:
-        amount = Decimal(amount_text)
-        if not amount.is_finite() or amount <= 0 or amount.as_tuple().exponent < -2:
-            raise InvalidOperation
-        amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    except (InvalidOperation, ValueError):
-        return jsonify({"error": "invalid_amount"}), 400
+        _add_wallet_exchange_fields(payload, source, destination)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    status, response = _wallet_api_request("POST", "/transfers/validate", token, payload)
+    if status >= 400:
+        return jsonify({"error": _transfer_error_message(status, response), "detail": response}), status
+    return jsonify({"validation": response, "source": source.get("currency"), "destination": destination.get("currency")})
 
-    # Re-read wallet ownership immediately before submitting. Never trust a wallet ID
-    # supplied by the browser, even when it came from an earlier options response.
-    wallet_status, wallet_payload = _wallet_api_request("GET", "/wallets", token)
-    wallet = next((row for row in _wallet_rows(wallet_payload) if str(row.get("wallet_id") or row.get("id")) == str(wallet_id)), None)
-    if wallet_status != 200 or not wallet:
-        return jsonify({"error": "wallet_not_owned_or_unavailable"}), 403 if wallet_status == 200 else wallet_status
 
-    account_currency = str(account.get("currency") or "").upper()
-    wallet_currency = str(wallet.get("currency") or "").upper()
-    currency = wallet_currency if direction == "from_wallet" else account_currency
-    transfer = {
-        "wallet_id": str(wallet_id),
+@app.route("/dashboard/api/transfers", methods=["POST"])
+def dashboard_transfer_execute():
+    auth, error_response = _transfer_user()
+    if error_response:
+        return error_response
+    user, token = auth
+    body = request.get_json(silent=True) or {}
+    amount = _transfer_amount(body.get("amount"))
+    if not amount:
+        return jsonify({"error": "Enter a valid amount greater than zero with no more than two decimal places."}), 400
+    source, destination, selection_error = _transfer_selection(token, user, body.get("source_id"), body.get("destination_id"))
+    if selection_error:
+        status, payload = selection_error
+        return jsonify(payload), status
+    if amount > Decimal(str(source.get("balance", 0))):
+        return jsonify({"error": "The amount exceeds the available source balance."}), 400
+    payload, path = _transfer_payload(body, source, destination, amount, str(uuid.uuid4()))
+    if not payload:
+        return jsonify({"error": "The selected accounts cannot be used for transfers."}), 400
+    try:
+        _add_wallet_exchange_fields(payload, source, destination)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    # A fresh request_id is generated here, never reused from validation.
+    status, response = _wallet_api_request("POST", path, token, payload)
+    if status >= 400:
+        return jsonify({"error": _transfer_error_message(status, response), "detail": response}), status
+    _refresh_session_account_balances(user, token)
+    user.setdefault("transfer_activity", []).insert(0, {
         "amount": format(amount, ".2f"),
-        "currency": currency,
-        "direction": direction,
-        "platform_name": platform_name,
-        "platform_account_id": str(platform_account_id),
-        "request_id": str(uuid.uuid4()),
-    }
-    description = str(body.get("description", "")).strip()
-    if description:
-        transfer["description"] = description[:240]
-    cross_currency = wallet_currency != account_currency
-    rate_fields = {key: body.get(key) for key in ("wallet_currency", "exchange_rate", "rate_token")}
-    if cross_currency:
-        if not all(rate_fields.values()):
-            return jsonify({"error": "cross_currency_rate_required"}), 400
-        transfer.update(rate_fields)
-    elif any(value is not None for value in rate_fields.values()):
-        return jsonify({"error": "unexpected_exchange_fields"}), 400
-
-    status, payload = _wallet_api_request("POST", "/transfers/platforms", token, transfer)
-    if status < 400:
-        return jsonify({"success": True, "transfer": payload, "request_id": transfer["request_id"]}), status
-    return jsonify({"error": "transfer_failed", "detail": payload}), status
+        "currency": payload.get("currency"),
+        "from": source.get("name") or source.get("account") or "Deriv Wallet",
+        "to": destination.get("name") or destination.get("account") or "Deriv Wallet",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    user["transfer_activity"] = user["transfer_activity"][:10]
+    session["user"] = user
+    session.modified = True
+    return jsonify({"success": True, "amount": format(amount, ".2f"), "currency": payload.get("currency"), "transfer": response})
 
 
 @app.route("/api/exchange-rate", methods=["GET"])
@@ -1608,9 +1756,12 @@ def switch_account_get(account_id):
     if target:
         user["activeAccount"] = target
         user["_accessToken"] = target.get("token", user.get("_accessToken", ""))
+        user.pop("transfer_activity", None)
+        if user.get("_accessToken"):
+            _refresh_session_account_balances(user, user["_accessToken"])
         session["user"] = user
         session.modified = True
-    resp = make_response(redirect("/"))
+    resp = make_response(redirect("/dashboard"))
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     resp.headers["Pragma"] = "no-cache"
     return resp
@@ -1630,6 +1781,9 @@ def switch_account():
         return jsonify({"error": "not_found"}), 404
     user["activeAccount"] = target
     user["_accessToken"] = target.get("token", user.get("_accessToken", ""))
+    user.pop("transfer_activity", None)
+    if user.get("_accessToken"):
+        _refresh_session_account_balances(user, user["_accessToken"])
     session["user"] = user
     session.modified = True
     resp = jsonify({"success": True, "activeAccount": target, "accounts": accounts})
@@ -1878,6 +2032,31 @@ def market_pulse():
             }
         )
     return jsonify({"items": pulse})
+
+
+@app.route("/dashboard/api/live-chart", methods=["GET"])
+def dashboard_live_chart():
+    """Return a verified active Deriv symbol for the dashboard chart."""
+    instruments = [
+        instrument
+        for category in load_markets().get("categories", [])
+        for instrument in category.get("instruments", [])
+    ]
+    symbol = next(
+        (
+            instrument
+            for instrument in instruments
+            if instrument.get("symbol") == "1HZ100V" and not instrument.get("isClosed")
+        ),
+        None,
+    )
+    if not symbol:
+        return jsonify({"error": "requested_market_unavailable"}), 503
+    return jsonify({
+        "symbol": symbol["symbol"],
+        "displayName": symbol["displayName"],
+        "websocketUrl": f"wss://ws.derivws.com/websockets/v3?app_id={DERIV_WS_APP_ID}",
+    })
 
 
 # ─── Static file shortcuts ────────────────────────────────────────────────────

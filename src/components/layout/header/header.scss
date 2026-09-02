@@ -1,6 +1,5 @@
 @use 'components/shared/styles/constants' as *;
 @use 'components/shared/styles/mixins' as *;
-@use '../../transfer/transfer';
 
 .app-header {
     &__account-settings {

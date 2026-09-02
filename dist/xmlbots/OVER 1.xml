@@ -67,7 +67,7 @@
             <field name="VAR" id="ck^@burIyZ9u(1V$FidS">target profit</field>
             <value name="VALUE">
               <block type="math_number" id=";t-WSD43hM[B6x8Pf?2T">
-                <field name="NUM">2</field>
+                <field name="NUM">10</field>
               </block>
             </value>
             <next>
@@ -75,7 +75,7 @@
                 <field name="VAR" id="f2P8`vtxCDRx#ylHEUNE">Win Stake</field>
                 <value name="VALUE">
                   <block type="math_number" id="M(e#}O_m;LC6LQK~xd,X">
-                    <field name="NUM">2</field>
+                    <field name="NUM">20</field>
                   </block>
                 </value>
                 <next>
@@ -83,7 +83,7 @@
                     <field name="VAR" id="K1#(Yp``RbnrOixGup+3">stake</field>
                     <value name="VALUE">
                       <block type="math_number" id="u!T$3,uy0!GOZA6:)8Nu">
-                        <field name="NUM">2</field>
+                        <field name="NUM">20</field>
                       </block>
                     </value>
                     <next>
@@ -91,7 +91,7 @@
                         <field name="VAR" id="A(@*yZ~?v$$!4Sg3QJ:S">Martingale</field>
                         <value name="VALUE">
                           <block type="math_number" id="$a1{f35IYtJll@+V_C}K">
-                            <field name="NUM">1</field>
+                            <field name="NUM">5</field>
                           </block>
                         </value>
                         <next>
@@ -99,7 +99,7 @@
                             <field name="VAR" id="uv4*+g.1,J!MV`7(|aNZ">Ticks</field>
                             <value name="VALUE">
                               <block type="math_number" id="Sz3?t^#%=v~tpKQUYeA.">
-                                <field name="NUM">2</field>
+                                <field name="NUM">1</field>
                               </block>
                             </value>
                             <next>
