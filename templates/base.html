@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="google-site-verification" content="eT_GDsu5O5k9yFgq_pk_nmQGj7nak0OC4MQCll8_1u0" />
@@ -30,7 +30,7 @@
   <script>
     (function(){
       var stored = localStorage.getItem('at_theme');
-      var t = stored || 'light';
+      var t = stored || 'dark';
       document.documentElement.setAttribute('data-theme', t);
       if (!stored) localStorage.setItem('at_theme', t);
       document.documentElement.classList.add('theme-ready');
