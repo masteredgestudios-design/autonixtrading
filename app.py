@@ -2144,8 +2144,6 @@ def auth_test():
         "currency": user.get("activeAccount", {}).get("currency"),
     })
 
-# ─── Run ──────────────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     debug = os.getenv("FLASK_ENV", "production") == "development"
