@@ -2,7 +2,6 @@ import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import BulkTradeConfiguration from './bulk-trade-configuration';
-import ConfirmationDialog from './confirmation-dialog';
 import DigitMonitor from './digit-monitor';
 import './bulk-trade.scss';
 
@@ -18,7 +17,6 @@ const BulkTrade = observer(() => {
                     <div className='bulk-trade-progress__grid'><span>Requested <b>{stats.requested}</b></span><span>Submitted <b>{stats.submitted}</b></span><span>Completed <b>{stats.completed}</b></span><span>Pending <b>{stats.pending}</b></span><span>Wins <b>{stats.wins}</b></span><span>Losses <b>{stats.losses}</b></span><span>Failed <b>{stats.failed}</b></span></div>
                 </div>}</section><DigitMonitor symbol={bulk_trade.config.symbol} /></div>
         </main>
-        {bulk_trade.is_confirmation_open && <ConfirmationDialog />}
     </div>;
 });
 

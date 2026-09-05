@@ -10,11 +10,10 @@ export type BulkBatch = { id: string; config: BulkConfig; contracts: BulkContrac
 
 export default class BulkTradeStore {
     constructor(public readonly root_store: RootStore) {
-        makeObservable(this, { config: observable, batch: observable, is_confirmation_open: observable, is_executing: observable, statistics: computed, setConfig: action.bound, setTradeType: action.bound, openConfirmation: action.bound, closeConfirmation: action.bound, startBatch: action.bound, updateContract: action.bound, finishBatch: action.bound });
+        makeObservable(this, { config: observable, batch: observable, is_executing: observable, statistics: computed, setConfig: action.bound, setTradeType: action.bound, startBatch: action.bound, updateContract: action.bound, finishBatch: action.bound });
     }
     config: BulkConfig = { symbol: '', trade_type: 'over_under', direction: 'over', digit: 1, duration: '', stake_usd: 1, number_of_trades: 10 };
     batch: BulkBatch | null = null;
-    is_confirmation_open = false;
     is_executing = false;
     get statistics() {
         const contracts = this.batch?.contracts ?? [];
@@ -26,14 +25,11 @@ export default class BulkTradeStore {
         const defaults: Record<BulkTradeType, Partial<BulkConfig>> = { even_odd: { direction: 'even', digit: undefined }, over_under: { direction: 'over', digit: 1 }, rise_fall: { direction: 'rise', digit: undefined }, differs: { direction: 'differs', digit: 5 } };
         this.config = { ...this.config, trade_type, ...defaults[trade_type] };
     }
-    openConfirmation() { this.is_confirmation_open = true; }
-    closeConfirmation() { this.is_confirmation_open = false; }
     startBatch(): BulkBatch | null {
         if (this.is_executing) return null;
         const id = `BULK-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
         this.batch = { id, config: { ...this.config }, contracts: Array.from({ length: this.config.number_of_trades }, (_, i) => ({ index: i + 1, status: 'pending' })) };
         this.is_executing = true;
-        this.is_confirmation_open = false;
         return this.batch;
     }
     updateContract(index: number, update: Partial<BulkContract>) { const contract = this.batch?.contracts.find(c => c.index === index); if (contract) Object.assign(contract, update); }

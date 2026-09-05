@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
-import { initiateFlaskLogin, logoutFromFlask } from '@/services/flask-auth.service';
+import { initiateFlaskLogin, initiateFlaskSignup, logoutFromFlask } from '@/services/flask-auth.service';
 import Button from '@/components/shared_ui/button';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useApiBase } from '@/hooks/useApiBase';
@@ -85,8 +85,7 @@ const AppHeader = observer(() => {
     const handleSignup = useCallback(async () => {
         try {
             setIsAuthorizing(true);
-            // Use Flask's login endpoint for signup - Deriv OAuth handles both flows
-            initiateFlaskLogin();
+            initiateFlaskSignup();
         } catch (error) {
             console.error('Signup redirection failed:', error);
             setIsAuthorizing(false);

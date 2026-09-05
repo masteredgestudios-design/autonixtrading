@@ -73,8 +73,7 @@ export function initiateFlaskLogin(): void {
  * Similar to login but may have different Deriv OAuth prompt settings
  */
 export function initiateFlaskSignup(): void {
-    // Use the same login endpoint - Deriv handles signup in the OAuth flow
-    window.location.href = '/auth/login';
+    window.location.href = 'https://t.deriv.link?t=99THF5S5V9K8';
 }
 
 /**

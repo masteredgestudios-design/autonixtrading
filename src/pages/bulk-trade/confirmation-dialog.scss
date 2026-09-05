@@ -1,9 +1,0 @@
-.bulk-confirmation__overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / 45%); }
-.bulk-confirmation { width: min(28rem, 100%); padding: 1.5rem; border-radius: 6px; background: var(--general-section-1); color: var(--text-general); box-shadow: 0 1rem 3rem rgb(0 0 0 / 25%); }
-.bulk-confirmation h2 { margin: 0 0 1.25rem; }
-.bulk-confirmation dl { display: grid; grid-template-columns: 1fr auto; gap: .75rem; margin: 0; }
-.bulk-confirmation dt { color: var(--text-less-prominent); }
-.bulk-confirmation dd { margin: 0; font-weight: 600; text-align: right; }
-.bulk-confirmation__actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.5rem; }
-.bulk-confirmation__actions button { min-height: 2.5rem; padding: .5rem 1rem; border: 1px solid var(--border-normal); border-radius: 4px; background: transparent; color: inherit; font-weight: 600; cursor: pointer; }
-.bulk-confirmation__actions button:last-child { border-color: var(--brand-red-coral); background: var(--brand-red-coral); color: #fff; }

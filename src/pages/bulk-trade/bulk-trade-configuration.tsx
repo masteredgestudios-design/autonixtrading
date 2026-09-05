@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { ApiHelpers } from '@/external/bot-skeleton';
 import { useCurrency } from '@/contexts/currency-context';
 import { useStore } from '@/hooks/useStore';
+import BulkTradeExecutor from '@/services/bulk-trade-executor';
 import { localize } from '@deriv-com/translations';
 import './bulk-trade-configuration.scss';
 
@@ -15,6 +16,7 @@ const BulkTradeConfiguration = observer(() => {
     const [symbols, setSymbols] = useState<{ text: string; value: string }[]>([]);
     const [durations, setDurations] = useState<string[]>([]);
     const [stake, setStake] = useState(String(currency === 'USD' ? bulk_trade.config.stake_usd : formatMoney(bulk_trade.config.stake_usd)));
+    const executor = useRef<BulkTradeExecutor | null>(null);
     const config = bulk_trade.config;
     const needsDigit = config.trade_type === 'over_under' || config.trade_type === 'differs';
 
@@ -22,7 +24,27 @@ const BulkTradeConfiguration = observer(() => {
     useEffect(() => { let active = true; const load = async () => { if (!config.symbol) return; try { const next = await (ApiHelpers as any).instance?.contracts_for?.getDurations?.(config.symbol, config.trade_type); if (active) { const values = (next || []).map((item: any) => typeof item === 'string' ? item : `${item.min || 1}${item.unit || 't'}`); setDurations(values); if (!values.includes(config.duration)) bulk_trade.setConfig({ duration: values[0] || '' }); } } catch { if (active) setDurations([]); } }; void load(); return () => { active = false; }; }, [config.symbol, config.trade_type]);
     useEffect(() => { setStake(currency === 'USD' ? String(config.stake_usd) : formatMoney(config.stake_usd)); }, [currency, rate]);
 
-    const submit = () => { if (!config.symbol || !config.duration || config.stake_usd <= 0 || config.number_of_trades < 1 || (needsDigit && config.digit === undefined)) { alert(localize('Complete the required fields before continuing.')); return; } bulk_trade.openConfirmation(); };
+    const submit = async () => {
+        if (!config.symbol || !config.duration || config.stake_usd <= 0 || config.number_of_trades < 1 || (needsDigit && config.digit === undefined)) {
+            alert(localize('Complete the required fields before continuing.'));
+            return;
+        }
+
+        const batch = bulk_trade.startBatch();
+        if (!batch) return;
+
+        run_panel.toggleDrawer(true);
+        executor.current = new BulkTradeExecutor(bulk_trade);
+        try {
+            await executor.current.execute(batch);
+        } catch (error: any) {
+            bulk_trade.finishBatch();
+            alert(error?.message || 'Unable to start bulk trade.');
+        }
+    };
+
+    useEffect(() => () => executor.current?.cleanup(), []);
+
     return <div className='bulk-trade-form'>
         <div className='bulk-trade-form__grid'>
             <label>Symbol<select value={config.symbol} onChange={e => bulk_trade.setConfig({ symbol: e.target.value })}><option value=''>Select active market</option>{symbols.map(symbol => <option key={symbol.value} value={symbol.value}>{symbol.text} ({symbol.value})</option>)}</select></label>
