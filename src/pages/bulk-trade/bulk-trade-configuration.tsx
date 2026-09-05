@@ -11,7 +11,7 @@ const TYPES = { even_odd: ['even', 'odd'], over_under: ['over', 'under'], rise_f
 const labels: Record<string, string> = { even_odd: 'Even / Odd', over_under: 'Over / Under', rise_fall: 'Rise / Fall', differs: 'Differs', even: 'Even', odd: 'Odd', over: 'Over', under: 'Under', rise: 'Rise', fall: 'Fall', differs: 'Differs' };
 
 const BulkTradeConfiguration = observer(() => {
-    const { bulk_trade } = useStore();
+    const { bulk_trade, run_panel } = useStore();
     const { currency, rate, formatMoney, toUsd } = useCurrency();
     const [symbols, setSymbols] = useState<{ text: string; value: string }[]>([]);
     const [durations, setDurations] = useState<string[]>([]);
@@ -33,9 +33,9 @@ const BulkTradeConfiguration = observer(() => {
         const batch = bulk_trade.startBatch();
         if (!batch) return;
 
-        run_panel.toggleDrawer(true);
         executor.current = new BulkTradeExecutor(bulk_trade);
         try {
+            run_panel.toggleDrawer(true);
             await executor.current.execute(batch);
         } catch (error: any) {
             bulk_trade.finishBatch();
