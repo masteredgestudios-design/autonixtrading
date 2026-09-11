@@ -16,6 +16,7 @@ const BulkTradeConfiguration = observer(() => {
     const [symbols, setSymbols] = useState<{ text: string; value: string }[]>([]);
     const [durations, setDurations] = useState<string[]>([]);
     const [stake, setStake] = useState(String(currency === 'USD' ? bulk_trade.config.stake_usd : formatMoney(bulk_trade.config.stake_usd)));
+    const [numberOfTrades, setNumberOfTrades] = useState(String(bulk_trade.config.number_of_trades));
     const executor = useRef<BulkTradeExecutor | null>(null);
     const config = bulk_trade.config;
     const needsDigit = config.trade_type === 'over_under' || config.trade_type === 'differs';
@@ -25,7 +26,12 @@ const BulkTradeConfiguration = observer(() => {
     useEffect(() => { setStake(currency === 'USD' ? String(config.stake_usd) : formatMoney(config.stake_usd)); }, [currency, rate]);
 
     const submit = async () => {
-        if (!config.symbol || !config.duration || config.stake_usd <= 0 || config.number_of_trades < 1 || (needsDigit && config.digit === undefined)) {
+        const parsedNumberOfTrades = Number(numberOfTrades);
+        if (Number.isInteger(parsedNumberOfTrades) && parsedNumberOfTrades >= 1 && parsedNumberOfTrades <= 100) {
+            bulk_trade.setConfig({ number_of_trades: parsedNumberOfTrades });
+        }
+
+        if (!config.symbol || !config.duration || config.stake_usd <= 0 || !Number.isInteger(parsedNumberOfTrades) || parsedNumberOfTrades < 1 || parsedNumberOfTrades > 100 || (needsDigit && config.digit === undefined)) {
             alert(localize('Complete the required fields before continuing.'));
             return;
         }
@@ -53,7 +59,7 @@ const BulkTradeConfiguration = observer(() => {
             {needsDigit && <label>Digit<select value={config.digit} onChange={e => bulk_trade.setConfig({ digit: Number(e.target.value) })}>{Array.from({ length: 10 }, (_, digit) => <option key={digit} value={digit}>{digit}</option>)}</select></label>}
             <label>Duration<select value={config.duration} onChange={e => bulk_trade.setConfig({ duration: e.target.value })}>{durations.map(duration => <option key={duration} value={duration}>{duration === '1t' ? '1 Tick' : duration}</option>)}</select></label>
             <label>Stake ({currency})<input value={stake} inputMode='decimal' onChange={e => { setStake(e.target.value); const value = Number(e.target.value.replace(/[^0-9.]/g, '')); if (Number.isFinite(value)) bulk_trade.setConfig({ stake_usd: toUsd(value) }); }} /></label>
-            <label>Number of Trades<input type='number' min='1' max='100' value={config.number_of_trades} onChange={e => bulk_trade.setConfig({ number_of_trades: Math.max(1, Math.floor(Number(e.target.value) || 1)) })} /></label>
+            <label>Number of Trades<input type='number' min='1' max='100' value={numberOfTrades} onChange={e => setNumberOfTrades(e.target.value)} onBlur={() => { const value = Number(numberOfTrades); if (Number.isInteger(value) && value >= 1 && value <= 100) bulk_trade.setConfig({ number_of_trades: value }); }} /></label>
         </div>
         <button type='button' disabled={bulk_trade.is_executing} onClick={submit}>{bulk_trade.is_executing ? 'Bulk Trade Running' : 'Submit Trades'}</button>
     </div>;
