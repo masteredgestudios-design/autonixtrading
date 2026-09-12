@@ -1,7 +1,7 @@
 {
-  "name": "Autonix Trader",
+  "name": "Autonix Trading",
   "short_name": "Autonix",
-  "description": "AI-driven automated trading on Deriv markets.",
+  "description": "AI-powered automated trading technology on Deriv markets.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

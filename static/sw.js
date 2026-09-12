@@ -6,6 +6,7 @@ const PRECACHE = [
   "/invest",
   "/terms",
   "/bots",
+  "/download-app",
   "/static/css/styles.css",
   "/static/css/tokens.css",
   "/static/css/autonix.css",

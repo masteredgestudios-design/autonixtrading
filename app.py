@@ -53,6 +53,17 @@ app.config["SESSION_COOKIE_SECURE"] = (
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
 
+
+@app.before_request
+def redirect_production_http_to_https():
+    """Keep the public production hostname on its HTTPS origin."""
+    forwarded_proto = request.headers.get("X-Forwarded-Proto", "").split(",", 1)[0].strip()
+    is_http = request.scheme == "http" or forwarded_proto == "http"
+    if is_http and request.host.split(":", 1)[0].lower() == "autonixtrading.online":
+        target = f"https://autonixtrading.online{request.full_path.rstrip('?')}"
+        return redirect(target, code=308)
+    return None
+
 _ALLOWED_ORIGINS = {
     o.rstrip("/")
     for o in filter(None, [
@@ -115,6 +126,11 @@ def _get_usd_kes_rate():
 DATA_DIR = BASE_DIR / "data"
 DERIV_APP_ID = os.getenv("DERIV_APP_ID") or os.getenv("NEXT_PUBLIC_DERIV_APP_ID")
 REDIRECT_URL = os.getenv("REDIRECT_URL", "").rstrip("/")
+APK_DOWNLOAD_PATH = os.getenv("APK_DOWNLOAD_PATH", "Autonix.apk")
+APK_FILE = (BASE_DIR / APK_DOWNLOAD_PATH).resolve()
+
+if BASE_DIR not in APK_FILE.parents:
+    raise RuntimeError("APK_DOWNLOAD_PATH must point to a file inside the project directory")
 
 # Fail fast at startup if DERIV_APP_ID is missing (required for both flows)
 if not os.getenv("DERIV_APP_ID"):
@@ -969,8 +985,8 @@ def autonix():
     return redirect("/", 301)
 
 
-@app.route("/ATDbot", defaults={"path": ""})
-@app.route("/ATDbot/<path:path>")
+@app.route("/atdbot", defaults={"path": ""})
+@app.route("/atdbot/<path:path>")
 def atd_bot(path):
     """Serve the production React build under the Flask application."""
     requested_file = REACT_DIST_DIR / path
@@ -979,10 +995,16 @@ def atd_bot(path):
     return send_from_directory(REACT_DIST_DIR, "index.html")
 
 
+@app.route("/ATDbot", defaults={"path": ""})
+@app.route("/ATDbot/<path:path>")
+def legacy_atd_bot(path):
+    return redirect(f"/atdbot/{path}" if path else "/atdbot", 301)
+
+
 @app.route("/reactbotapp", defaults={"path": ""})
 @app.route("/reactbotapp/<path:path>")
 def reactbotapp(path):
-    return redirect(f"/ATDbot/{path}" if path else "/ATDbot")
+    return redirect(f"/atdbot/{path}" if path else "/atdbot")
 
 
 @app.route("/assets/<path:path>")
@@ -1056,7 +1078,7 @@ def bots():
 
 @app.route("/dbot")
 def dbot():
-    return redirect("/ATDbot")
+    return redirect("/atdbot", 301)
 
 
 @app.route("/terms")
@@ -1097,6 +1119,33 @@ def journal():
         ws_app_id=DERIV_WS_APP_ID,
         redirect_url=REDIRECT_URL,
         session_data=_safe_for_template(user),
+    )
+
+
+@app.route("/download-app")
+def download_app():
+    apk_size = APK_FILE.stat().st_size if APK_FILE.is_file() else None
+    return render_template(
+        "download_app.html",
+        deriv_app_id=DERIV_APP_ID,
+        ws_app_id=DERIV_WS_APP_ID,
+        redirect_url=REDIRECT_URL,
+        session_data=_safe_for_template(session.get("user")),
+        apk_available=APK_FILE.is_file(),
+        apk_size=apk_size,
+    )
+
+
+@app.route("/download-app/apk")
+def download_android_apk():
+    if not APK_FILE.is_file():
+        return jsonify({"error": "android_app_unavailable"}), 404
+    return send_file(
+        APK_FILE,
+        mimetype="application/vnd.android.package-archive",
+        as_attachment=True,
+        download_name="Autonix.apk",
+        max_age=0,
     )
 # ─── OAuth 2.0 + PKCE auth routes ─────────────────────────────────────────────
 

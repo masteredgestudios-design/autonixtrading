@@ -4,10 +4,37 @@
   <meta charset="UTF-8" />
   <meta name="google-site-verification" content="eT_GDsu5O5k9yFgq_pk_nmQGj7nak0OC4MQCll8_1u0" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}Autonix Trader - Automated Trading Platform{% endblock %}</title>
-  <meta name="description" content="{% block meta_description %}Automated trading platform with AI-powered bots on Deriv. Set stakes, targets & risk management. Trade smarter with Autonix.{% endblock %}" />
+  <title>{% block title %}Autonix Trading | AI-Powered Trading Platform{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Autonix Trading is an AI-powered trading technology platform for automated strategies, risk controls, and smarter execution on Deriv markets.{% endblock %}" />
   <meta name="robots" content="index, follow" />
   <meta name="language" content="English" />
+  {% block seo_metadata %}{% endblock %}
+  {% if request.path == '/' %}
+  <link rel="canonical" href="https://autonixtrading.online/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Autonix Trading" />
+  <meta property="og:title" content="Autonix Trading | AI-Powered Trading Platform" />
+  <meta property="og:description" content="AI-powered trading technology for automated strategies, risk controls, and smarter execution on Deriv markets." />
+  <meta property="og:url" content="https://autonixtrading.online/" />
+  <meta property="og:image" content="https://autonixtrading.online/static/icons/icon-512x512.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Autonix Trading | AI-Powered Trading Platform" />
+  <meta name="twitter:description" content="AI-powered trading technology for automated strategies, risk controls, and smarter execution on Deriv markets." />
+  <meta name="twitter:image" content="https://autonixtrading.online/static/icons/icon-512x512.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": "https://autonixtrading.online/#organization",
+    "name": "Autonix Trading",
+    "url": "https://autonixtrading.online/",
+    "sameAs": [
+      "https://www.facebook.com/autonixtrading",
+      "https://www.tiktok.com/@autonix.trading"
+    ]
+  }
+  </script>
+  {% endif %}
   <link rel="icon" href="{{ url_for('static', filename='icons/favicon-32.png') }}" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="theme-color" content="#FF0000" />
@@ -21,7 +48,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}?v=15" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=14" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/autonix.css') }}?v=15" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/redesign.css') }}?v=9" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/redesign.css') }}?v=10" />
   <style>
     /* Anti-flash: apply saved theme before CSS loads */
     html { visibility: hidden; }
@@ -59,7 +86,10 @@
         <h2 id="installAppTitle">Install Autonix</h2>
         <p id="installAppMessage">Install the app for the best trading experience, faster access, and a cleaner full-screen workspace.</p>
       </div>
-      <button id="installAppBtn" class="install-app-action" type="button">Install</button>
+      <div class="install-app-actions">
+        <button id="installAppBtn" class="install-app-action" type="button">Install Web App</button>
+        <a id="installAppDownloadBtn" class="install-app-download" href="/download-app">Download Android App</a>
+      </div>
     </div>
   </div>
 

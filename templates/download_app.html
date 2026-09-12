@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Download Autonix App | Autonix Trading{% endblock %}
+{% block meta_description %}Download the Autonix Android APK or install the Autonix web app for a convenient trading experience on your device.{% endblock %}
+
+{% block seo_metadata %}
+  <link rel="canonical" href="https://autonixtrading.online/download-app" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Autonix Trading" />
+  <meta property="og:title" content="Download Autonix App | Autonix Trading" />
+  <meta property="og:description" content="Download the Autonix Android APK or install the Autonix web app for a convenient trading experience on your device." />
+  <meta property="og:url" content="https://autonixtrading.online/download-app" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Download Autonix App | Autonix Trading" />
+  <meta name="twitter:description" content="Download the Autonix Android APK or install the Autonix web app for a convenient trading experience on your device." />
+{% endblock %}
+
+{% block body %}
+<div class="autonix-page-wrapper download-app-page">
+  {% include "partials/marketing_navbar.html" %}
+
+  <main class="download-app-main">
+    <section class="download-app-hero" aria-labelledby="download-app-title">
+      <div class="download-app-copy">
+        <div class="hero-eyebrow"><span class="hero-eyebrow-dot"></span>Autonix App</div>
+        <h1 id="download-app-title">Access Autonix on your device</h1>
+        <p>Choose the experience that fits your device. Use the web app directly in your browser, or download the Android APK.</p>
+      </div>
+
+      <div class="download-app-options">
+        <article class="download-app-card">
+          <div class="download-app-card-icon" aria-hidden="true">&#8599;</div>
+          <div>
+            <p class="download-app-card-kicker">Web App / PWA</p>
+            <h2>Install the web app</h2>
+            <p>Works directly in supported browsers and does not require an APK. On Android Chrome, use the browser install prompt.</p>
+            <a class="cta-secondary" href="/">Open Autonix Web App</a>
+          </div>
+        </article>
+
+        <article class="download-app-card download-app-card-primary">
+          <div class="download-app-card-icon" aria-hidden="true">&#8595;</div>
+          <div>
+            <p class="download-app-card-kicker">Android</p>
+            <h2>Autonix Android App</h2>
+            <p>Download the official Autonix APK for a compatible Android device.</p>
+            {% if apk_available %}
+            <a class="cta-primary" href="{{ url_for('download_android_apk') }}" download="Autonix.apk">Download App</a>
+            <dl class="download-app-details">
+              <div><dt>Platform</dt><dd>Android</dd></div>
+              <div><dt>File type</dt><dd>APK</dd></div>
+              <div><dt>File name</dt><dd>Autonix.apk</dd></div>
+              {% if apk_size %}<div><dt>Approx. size</dt><dd>{{ (apk_size / 1048576)|round(1) }} MB</dd></div>{% endif %}
+            </dl>
+            {% else %}
+            <p class="download-app-unavailable">The Android download is temporarily unavailable.</p>
+            {% endif %}
+          </div>
+        </article>
+      </div>
+
+      <section class="download-app-ios" aria-labelledby="ios-title">
+        <div>
+          <p class="download-app-card-kicker">iOS</p>
+          <h2 id="ios-title">Use the Autonix web app</h2>
+          <p>No native iOS app is available. On iPhone or iPad, open Autonix in Safari and use Add to Home Screen if you want an app-like experience.</p>
+        </div>
+        <a class="cta-secondary" href="/">Open Web App</a>
+      </section>
+    </section>
+  </main>
+</div>
+
+<style>
+  .download-app-main { min-height: calc(100vh - 80px); padding: 72px 24px 96px; }
+  .download-app-hero { max-width: 1100px; margin: 0 auto; }
+  .download-app-copy { max-width: 680px; margin-bottom: 42px; }
+  .download-app-copy h1 { margin: 14px 0 16px; font-size: clamp(2.2rem, 5vw, 4.5rem); line-height: 1.05; }
+  .download-app-copy > p { color: var(--text-secondary); font-size: 1.08rem; line-height: 1.7; max-width: 600px; }
+  .download-app-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .download-app-card, .download-app-ios { border: 1px solid var(--border); background: var(--bg-panel); border-radius: 6px; padding: 28px; display: flex; gap: 18px; }
+  .download-app-card-primary { border-color: var(--brand-color); box-shadow: 0 0 24px var(--brand-glow); }
+  .download-app-card-icon { width: 42px; height: 42px; flex: 0 0 42px; display: grid; place-items: center; border: 1px solid var(--brand-color); color: var(--brand-color); border-radius: 50%; font-size: 1.4rem; }
+  .download-app-card-kicker { margin: 0 0 8px; color: var(--brand-color); font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .download-app-card h2, .download-app-ios h2 { margin: 0 0 10px; font-size: 1.35rem; }
+  .download-app-card p, .download-app-ios p { color: var(--text-secondary); line-height: 1.6; }
+  .download-app-card .cta-primary, .download-app-card .cta-secondary, .download-app-ios .cta-secondary { display: inline-flex; margin-top: 12px; align-items: center; justify-content: center; text-decoration: none; }
+  .download-app-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; margin: 22px 0 0; }
+  .download-app-details div { display: flex; flex-direction: column; gap: 3px; }
+  .download-app-details dt { color: var(--text-secondary); font-size: .75rem; }
+  .download-app-details dd { margin: 0; font-size: .9rem; }
+  .download-app-unavailable { color: var(--color-red) !important; }
+  .download-app-ios { margin-top: 20px; align-items: center; justify-content: space-between; }
+  @media (max-width: 760px) { .download-app-main { padding: 48px 16px 72px; } .download-app-options { grid-template-columns: 1fr; } .download-app-card, .download-app-ios { padding: 22px; } .download-app-ios { display: block; } .download-app-ios .cta-secondary { margin-top: 8px; } }
+</style>
+{% endblock %}

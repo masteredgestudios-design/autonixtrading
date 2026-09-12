@@ -12,6 +12,7 @@
   var promptEl = document.getElementById("installAppPrompt");
   var installBtn = document.getElementById("installAppBtn");
   var closeBtn = document.getElementById("installAppClose");
+  var downloadBtn = document.getElementById("installAppDownloadBtn");
   var legacyInstallBtn = document.querySelector(".install-app-btn");
 
   if (legacyInstallBtn) {
@@ -136,6 +137,12 @@
 
       deferredPrompt = null;
       scheduleRepeatPrompt();
+    });
+  }
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener("click", function () {
+      hidePrompt();
     });
   }
 
