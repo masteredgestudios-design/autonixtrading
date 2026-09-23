@@ -1810,6 +1810,7 @@
 
   function renderSummary() {
     var active = 0, total = 0;
+    var totalBots = BOT_DEFS.length;
     BOT_DEFS.forEach(function (d) {
       var s = states[d.id];
       if (s.running) active++;
@@ -1819,13 +1820,14 @@
       Object.keys(window.AutonixSuite.systems).forEach(function (id) {
         var system = window.AutonixSuite.systems[id];
         if (!BOT_DEFS.some(function (d) { return d.id === id; })) {
+          totalBots++;
           if (system.running) active++;
           total += Number(system.sessionPL) || 0;
         }
       });
     }
     var ac = document.getElementById("bots-active-count");
-    if (ac) ac.textContent = active + " / " + BOT_DEFS.length;
+    if (ac) ac.textContent = active + " / " + totalBots;
     var tp = document.getElementById("bots-total-pl");
     if (tp) {
       tp.textContent = displaySignedMoney(total);
