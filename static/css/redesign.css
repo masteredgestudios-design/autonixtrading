@@ -3617,19 +3617,38 @@ textarea,
   min-width: 0;
 }
 
+.bots-render-target { display: contents; }
+.bots-grid > .bot-card-aux.bulk-trader-section {
+  margin: 0;
+  width: auto;
+  min-width: 0;
+}
+.bots-grid > #ai-trader-section { order: 4; }
+.bots-render-target > #card-freeBot { order: 1; }
+.bots-render-target > #card-basicBot { order: 2; }
+.bots-render-target > #card-expertBot { order: 3; }
+.bots-render-target > #card-over1AiPredictor { order: 5; }
+.bots-grid > #bulk-trader-section { order: 6; }
+
 @media (min-width: 769px) {
-  .bots-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .bots-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+  .bots-grid > .bot-card-aux.bulk-trader-section {
+    display: flex;
+    flex-direction: column;
+    align-self: start;
+    height: auto !important;
+  }
 }
 
-/* Keep the bot page sequence explicit: AI, free, paid, then bulk. */
-.bots-workspace > #ai-trader-section { order: 1; }
+/* Keep the shared six-card grid ahead of the history and page footnote. */
 .bots-workspace > #bots-grid { order: 2; }
-.bots-workspace > #bulk-trader-section { order: 3; }
 .bots-workspace > #bots-history-card { order: 4; }
 .bots-workspace > .bots-footnote { order: 5; }
 
-.bots-workspace > #ai-trader-section,
-.bots-workspace > #bulk-trader-section,
+.bots-workspace > #bots-grid,
 .bots-workspace > #bots-history-card,
 .bots-workspace > .bots-footnote {
   width: 100%;
@@ -4156,6 +4175,139 @@ textarea,
 
   .ai-log-time {
     min-width: 44px;
+  }
+}
+
+.bot-card-aux.bulk-trader-section {
+  flex: 0 0 auto;
+  overflow: visible;
+  gap: 16px;
+  padding: 22px;
+  border-radius: 16px;
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+.bot-card-aux .bulk-header {
+  align-items: flex-start;
+  gap: 14px;
+}
+.bot-card-aux .bulk-header-left {
+  gap: 14px;
+}
+.bot-card-aux .bulk-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+.bot-card-aux .bulk-eyebrow {
+  font-size: 10px;
+}
+.bot-card-aux .bulk-title {
+  font-size: 17px;
+  letter-spacing: 0;
+}
+.bot-card-aux .bulk-subtitle {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.bot-card-aux .bulk-config-grid {
+  gap: 10px;
+}
+.bot-card-aux .bulk-input,
+.bot-card-aux .bot-select {
+  min-height: 36px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+.bot-card-aux .bulk-actions-row {
+  gap: 8px;
+}
+.bot-card-aux .bulk-actions-row button {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 40px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.bot-card-aux .bulk-execute-btn {
+  flex: 1;
+  width: auto;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-green) 0%, var(--color-green-dim) 100%);
+  box-shadow: 0 0 18px var(--color-green-glow);
+}
+.bot-card-aux .bulk-stop-btn {
+  border-radius: 10px;
+}
+.bot-card-aux .ai-summary-card,
+.bot-card-aux .ai-stats-card,
+.bot-card-aux .ai-analysis-card,
+.bot-card-aux .ai-log-card,
+.bot-card-aux .bulk-analysis-summary,
+.bot-card-aux .bulk-live-summary,
+.bot-card-aux .bulk-history-wrap {
+  border-radius: 10px;
+  box-shadow: none;
+}
+.bot-card-aux .ai-stats-card {
+  padding: 14px;
+}
+.bot-card-aux .ai-stat-card,
+.bot-card-aux .ai-pill,
+.bot-card-aux .ai-analysis-item {
+  border-radius: 8px;
+}
+.bot-card-aux .ai-log-card {
+  max-height: 320px;
+}
+
+@media (min-width: 900px) {
+  .bots-grid > .bot-card-aux.bulk-trader-section {
+    display: flex;
+    flex-direction: column;
+  }
+  .bot-card-aux.bulk-trader-section {
+    align-items: stretch;
+  }
+  .bot-card-aux .bulk-header,
+  .bot-card-aux .bulk-actions-row,
+  .bot-card-aux .bulk-analysis-summary,
+  .bot-card-aux .bulk-live-summary,
+  .bot-card-aux .bulk-history-wrap {
+    grid-column: 1 / -1;
+  }
+  .bot-card-aux .bulk-config-grid {
+    grid-column: 1;
+    align-self: stretch;
+  }
+  .bot-card-aux .ai-summary-card,
+  .bot-card-aux .ai-stats-card {
+    grid-column: 2;
+  }
+  .bot-card-aux.ai-trader-section .bulk-actions-row {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .bot-card-aux .ai-summary-card { grid-row: 2; }
+  .bot-card-aux .ai-stats-card { grid-row: 3; }
+  .bot-card-aux .ai-analysis-card,
+  .bot-card-aux .ai-log-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .bot-card-aux.bulk-trader-section {
+    padding: 16px 12px;
+  }
+  .bot-card-aux .bulk-header-left {
+    width: 100%;
+  }
+  .bot-card-aux .bulk-status-pill {
+    margin-left: 54px;
   }
 }
 

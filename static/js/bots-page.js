@@ -153,6 +153,18 @@
       price: 100,
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
     },
+    {
+      id: "over1AiPredictor",
+      name: "Over 1 AI Predictor",
+      tier: "ai",
+      duration: 1,
+      tradeType: "over-under",
+      martingale: 4.5,
+      defaults: { stake: 10, tp: 5, sl: 50 },
+      accent: "#8b5cf6",
+      requiresActivation: false,
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16M7 15l3-5 3 3 4-7"/><path d="M19 5h2v2"/></svg>',
+    },
   ];
 
   /* ─── Activation state (session-only, no localStorage) ───────── */
@@ -199,8 +211,29 @@
       latencySafeguard: true,
       currentSignal: null,
       tickWindow: 100,
-      tradeMode: "over-under",    // freeBot only: "over-under" | "differs"
+      tradeMode: "over-under",
       analysisStatus: "idle",
+      lossStopped: false,
+      takeProfitReached: false,
+      modelHistory: [],
+      predictionStats: {
+        totalPredictions: 0,
+        qualifiedSignals: 0,
+        tradesExecuted: 0,
+        wins: 0,
+        losses: 0,
+        probabilitySum: 0,
+        maxDrawdown: 0,
+        losingStreak: 0,
+        buckets: {},
+      },
+      predictionHistory: [],
+      predictionSequence: 0,
+      peakSessionPL: 0,
+      currentProbability: 0,
+      currentConfidence: 0,
+      activeTrade: false,
+      statusText: "Idle",
     };
   }
   var states = {};
@@ -687,6 +720,169 @@
     return null;
   }
 
+  function _clamp(v, min, max) {
+    return Math.min(max, Math.max(min, v));
+  }
+
+  function _safeProbability(value) {
+    if (!isFinite(value)) return 0;
+    return _clamp(Number(value), 0, 1);
+  }
+
+  function buildOver1FeatureAnalysis(buf) {
+    if (!buf || buf.length < 25) {
+      return { valid: false, probability: 0, confidence: 0, reason: "Collecting sufficient data..." };
+    }
+
+    var windows = [25, 50, 100, 200, 500];
+    var weightedProbability = 0;
+    var weightTotal = 0;
+    var windowProbabilities = [];
+    var recentDigitScore = 0;
+    var sequenceScore = 0;
+    var transitionScore = 0;
+    var priceTrendScore = 0;
+
+    windows.forEach(function (win) {
+      if (buf.length < win) return;
+      var counts = countDigits(buf, win);
+      var total = counts.reduce(function (sum, count) { return sum + count; }, 0);
+      var over = 0;
+      for (var d = 2; d <= 9; d++) over += counts[d];
+      var prob = total > 0 ? over / total : 0;
+      windowProbabilities.push({ window: win, probability: prob, sample: total });
+      var weight = win / 500;
+      weightedProbability += prob * weight;
+      weightTotal += weight;
+    });
+
+    var recent = buf.slice(-25);
+    var recentCounts = countDigits(recent, recent.length);
+    var recentOver = 0;
+    for (var d = 2; d <= 9; d++) recentOver += recentCounts[d];
+    recentDigitScore = recent.length ? recentOver / recent.length : 0;
+
+    var lastDigits = [];
+    for (var i = 0; i < Math.min(buf.length, 12); i++) {
+      lastDigits.push(lastDigit(buf[i].price));
+    }
+    var totalHigh = 0;
+    for (var i = 0; i < lastDigits.length; i++) {
+      if (lastDigits[i] >= 2 && lastDigits[i] <= 9) totalHigh++;
+    }
+    sequenceScore = lastDigits.length ? totalHigh / lastDigits.length : 0;
+
+    var transitions = 0;
+    var totalTransitions = 0;
+    for (var i = 1; i < Math.min(buf.length, 90); i++) {
+      var prev = lastDigit(buf[i - 1].price);
+      var curr = lastDigit(buf[i].price);
+      totalTransitions++;
+      if ((prev >= 2 && prev <= 9) || (curr >= 2 && curr <= 9)) transitions++;
+    }
+    transitionScore = totalTransitions ? transitions / totalTransitions : 0;
+
+    var priceChanges = [];
+    for (var i = 1; i < buf.length; i++) {
+      priceChanges.push(Math.abs(buf[i].price - buf[i - 1].price));
+    }
+    if (priceChanges.length) {
+      var avgSwing = 0;
+      for (var i = 0; i < priceChanges.length; i++) avgSwing += priceChanges[i];
+      avgSwing /= priceChanges.length;
+      var lastPrice = buf[buf.length - 1].price;
+      var prevPrice = buf[buf.length - 2] ? buf[buf.length - 2].price : lastPrice;
+      var directionalBias = (lastPrice - prevPrice) > 0 ? 1 : -1;
+      priceTrendScore = _clamp(avgSwing / 0.5, 0, 1) * 0.6 + (directionalBias > 0 ? 0.4 : 0.2);
+    }
+
+    var probability = weightedProbability / Math.max(weightTotal, 1e-6);
+    probability = _safeProbability(probability);
+    var windowConsistency = 1;
+    if (windowProbabilities.length > 1) {
+      var minWindowProbability = 1;
+      var maxWindowProbability = 0;
+      windowProbabilities.forEach(function (item) {
+        minWindowProbability = Math.min(minWindowProbability, item.probability);
+        maxWindowProbability = Math.max(maxWindowProbability, item.probability);
+      });
+      windowConsistency = _clamp(1 - (maxWindowProbability - minWindowProbability), 0, 1);
+    }
+    var transitionSample = 0;
+    var transitionProbability = 0;
+    var currentDigit = lastDigit(buf[buf.length - 1].price);
+    for (var ti = 1; ti < buf.length; ti++) {
+      if (lastDigit(buf[ti - 1].price) === currentDigit) {
+        transitionSample += 1;
+        if (lastDigit(buf[ti].price) >= 2) transitionProbability += 1;
+      }
+    }
+    if (transitionSample) transitionProbability /= transitionSample;
+    var transitionAgreement = transitionSample >= 8 ? transitionProbability : probability;
+    var confidence = _safeProbability(
+      probability * 0.48 +
+      recentDigitScore * 0.18 +
+      sequenceScore * 0.12 +
+      transitionScore * 0.12 +
+      (priceTrendScore > 0 ? priceTrendScore * 0.05 : 0) +
+      windowConsistency * 0.05
+    );
+
+    var modelAgreement = [probability, recentDigitScore, sequenceScore, transitionAgreement]
+      .filter(function (score) { return score >= 0.54; }).length;
+    var valid = buf.length >= 25 && probability >= 0.54 && confidence >= 0.45 &&
+      windowConsistency >= 0.72 && modelAgreement >= 3;
+    return {
+      valid: valid,
+      probability: probability,
+      confidence: confidence,
+      reason: valid
+        ? "Valid signal detected..."
+        : "Waiting for high-confidence signal...",
+      recentDigitScore: recentDigitScore,
+      sequenceScore: sequenceScore,
+      transitionScore: transitionScore,
+      priceTrendScore: priceTrendScore,
+      windowProbabilities: windowProbabilities,
+      windowConsistency: windowConsistency,
+      transitionProbability: transitionProbability,
+      transitionSample: transitionSample,
+      modelAgreement: modelAgreement,
+    };
+  }
+
+  function decideOver1AIPredictor(state) {
+    var buf = tickBuffers[state.symbol] || [];
+    if (!buf || buf.length < 25) {
+      state.currentSignal = "Collecting sufficient data...";
+      return null;
+    }
+
+    var analysis = buildOver1FeatureAnalysis(buf);
+    state.currentProbability = analysis.probability;
+    state.currentConfidence = analysis.confidence;
+    state.analysisStatus = analysis.valid ? "signal" : "analyzing";
+    state.statusText = analysis.valid ? "Valid signal detected" : "Analyzing market";
+
+    if (!analysis.valid) {
+      state.currentSignal = analysis.reason;
+      return null;
+    }
+
+    state.predictionStats.qualifiedSignals += 1;
+    state.predictionStats.probabilitySum += analysis.probability;
+    var signalText = "OVER 1 probability: " + (analysis.probability * 100).toFixed(1) + "%";
+    state.currentSignal = signalText;
+    return {
+      selection: "over",
+      digit: 1,
+      tradeType: "over-under",
+      probability: analysis.probability,
+      confidence: analysis.confidence,
+      reason: analysis.reason,
+    };
+  }
+
   /* ─── Strategy router ────────────────────────────────────────── */
   function getDecision(state) {
     var id = state.def.id;
@@ -695,6 +891,7 @@
     }
     if (id === "basicBot")  return decideBasicDiffers(state);
     if (id === "expertBot") return decideExpertOverUnder(state);
+    if (id === "over1AiPredictor") return decideOver1AIPredictor(state);
     return null;
   }
 
@@ -709,6 +906,12 @@
   function botTick(state) {
     if (!state.running || state.awaitingSettle) return;
     if (Date.now() < state.cooldownUntil) return;
+    if (state.sessionPL >= state.tp) { stopBot(state, "tp"); return; }
+    if (state.sl > 0 && state.sessionPL <= -state.sl) { stopBot(state, "sl"); return; }
+    if (state.def.id === "over1AiPredictor" && state.currentStake > state.sl + state.sessionPL) {
+      stopBot(state, "sl");
+      return;
+    }
 
     var sig = getDecision(state);
     if (!sig) {
@@ -747,6 +950,13 @@
   }
 
   function placeBotTrade(state, sig) {
+    if (!state.running || state.awaitingSettle) return;
+    if (state.sessionPL >= state.tp) { stopBot(state, "tp"); return; }
+    if (state.sl > 0 && state.sessionPL <= -state.sl) { stopBot(state, "sl"); return; }
+    if (state.def.id === "over1AiPredictor" && state.currentStake > state.sl + state.sessionPL) {
+      stopBot(state, "sl");
+      return;
+    }
     if (!isAuthed()) { stopBot(state, "auth"); return; }
     state.awaitingSettle = true;
 
@@ -761,6 +971,25 @@
     var sd = window.SESSION_DATA;
     var currency = (sd && sd.activeAccount && sd.activeAccount.currency) || "USD";
     var stake = Math.min(+state.currentStake.toFixed(2), 5000);
+
+    if (state.def.id === "over1AiPredictor") {
+      var probabilityBucket = Math.min(95, Math.floor((sig.probability || 0) * 100 / 5) * 5);
+      var prediction = {
+        id: ++state.predictionSequence,
+        timestamp: new Date().toISOString(),
+        symbol: state.symbol,
+        prediction: "OVER 1",
+        estimatedProbability: sig.probability,
+        confidence: sig.confidence,
+        modelAgreement: sig.modelAgreement,
+        stake: stake,
+        probabilityBucket: probabilityBucket,
+        result: "PENDING",
+      };
+      state.predictionHistory.push(prediction);
+      state.predictionStats.totalPredictions += 1;
+      sig.predictionId = prediction.id;
+    }
 
     var opts = {
       tradeType: sig.tradeType || state.def.tradeType || "over-under",
@@ -793,6 +1022,7 @@
     var pl  = parseFloat(result.pl) || 0;
 
     state.sessionPL = +(state.sessionPL + pl).toFixed(2);
+    state.peakSessionPL = Math.max(state.peakSessionPL, state.sessionPL);
     state.trades += 1;
     if (won) { state.wins += 1; playWinSound(); }
     else     { state.losses += 1; playLossSound(); }
@@ -800,57 +1030,119 @@
     state.lastResult = { won: won, pl: pl, selection: sig.selection, digit: sig.digit };
     var tradeTime = new Date().toLocaleTimeString();
 
-    pushGlobalHistory({
-      time: tradeTime,
-      botName: state.def.name,
-      botId: state.def.id,
-      tradeType: sig.selection.toUpperCase() + (sig.digit !== undefined ? " " + sig.digit : ""),
-      stake: stake,
-      pl: pl,
-      won: won,
-    });
-
-    window.showToast && window.showToast(
-      state.def.name + (won ? " WIN +" : " LOSS -") + "$" + Math.abs(pl).toFixed(2),
-      won ? "green" : "red", 2400
-    );
-
-    // Martingale logic
-    if (won) {
-      state.currentStake = state.stake;
-      state.martStep = 0;
-      state.consecutiveLosses = 0;
+    if (state.def.id === "over1AiPredictor") {
+      state.predictionStats.tradesExecuted += 1;
+      var settledPrediction = state.predictionHistory.find(function (entry) { return entry.id === sig.predictionId; });
+      if (settledPrediction) {
+        settledPrediction.result = won ? "WIN" : "LOSS";
+        settledPrediction.profitLoss = pl;
+        settledPrediction.actualDigit = state.lastResult && state.lastResult.digit;
+        var bucket = state.predictionStats.buckets[settledPrediction.probabilityBucket] || { predictions: 0, wins: 0 };
+        bucket.predictions += 1;
+        if (won) bucket.wins += 1;
+        state.predictionStats.buckets[settledPrediction.probabilityBucket] = bucket;
+      }
+      state.predictionStats.maxDrawdown = Math.max(state.predictionStats.maxDrawdown, state.peakSessionPL - state.sessionPL);
+      if (won) {
+        state.currentStake = state.stake;
+        state.martStep = 0;
+        state.consecutiveLosses = 0;
+        state.predictionStats.wins += 1;
+        state.predictionStats.losingStreak = 0;
+        state.modelHistory.push({
+          timestamp: tradeTime,
+          symbol: state.symbol,
+          price: state.currentSignal || "n/a",
+          lastDigit: state.lastResult && state.lastResult.digit,
+          prediction: "OVER 1",
+          predictedProbability: state.currentProbability,
+          confidence: state.currentConfidence,
+          stake: stake,
+          result: "WIN",
+          profitLoss: pl,
+        });
+      } else {
+        state.martStep += 1;
+        state.consecutiveLosses += 1;
+        state.currentStake = +(state.currentStake + state.martingale).toFixed(2);
+        state.predictionStats.losses += 1;
+        state.predictionStats.losingStreak = state.consecutiveLosses;
+        state.modelHistory.push({
+          timestamp: tradeTime,
+          symbol: state.symbol,
+          price: state.currentSignal || "n/a",
+          lastDigit: state.lastResult && state.lastResult.digit,
+          prediction: "OVER 1",
+          predictedProbability: state.currentProbability,
+          confidence: state.currentConfidence,
+          stake: stake,
+          result: "LOSS",
+          profitLoss: pl,
+        });
+        pushGlobalHistory({
+          time: tradeTime,
+          botName: state.def.name,
+          botId: state.def.id,
+          tradeType: "OVER 1",
+          stake: stake,
+          pl: pl,
+          won: won,
+        });
+        window.showToast && window.showToast("Over 1 AI Predictor: loss recorded — applying configured martingale", "red", 3500);
+      }
     } else {
-      state.consecutiveLosses += 1;
-      state.martStep += 1;
-      if (state.martStep >= state.maxMartSteps) {
-        stopBot(state, "martCap");
-        return;
-      }
-      state.currentStake = Math.min(+(state.currentStake * state.martingale).toFixed(2), 5000);
-    }
+      pushGlobalHistory({
+        time: tradeTime,
+        botName: state.def.name,
+        botId: state.def.id,
+        tradeType: sig.selection.toUpperCase() + (sig.digit !== undefined ? " " + sig.digit : ""),
+        stake: stake,
+        pl: pl,
+        won: won,
+      });
 
-    // Per-bot cooldowns — tiered by quality level:
-    //   Free Bot:   any loss → 5 s;  2+ consecutive losses → 10 s
-    //   Basic Bot:  any loss → 8 s;  2+ consecutive losses → 14 s; win → 2 s gap
-    //   Expert Bot: any loss → 12 s; 2+ consecutive losses → 20 s; win → 5 s gap
-    if (state.def.id === "freeBot") {
-      if (!won) {
-        state.cooldownUntil = Date.now() + (state.consecutiveLosses >= 2 ? 10000 : 5000);
-      }
-    }
-    if (state.def.id === "basicBot") {
-      if (!won) {
-        state.cooldownUntil = Date.now() + (state.consecutiveLosses >= 2 ? 14000 : 8000);
+      window.showToast && window.showToast(
+        state.def.name + (won ? " WIN +" : " LOSS -") + "$" + Math.abs(pl).toFixed(2),
+        won ? "green" : "red", 2400
+      );
+
+      // Martingale logic
+      if (won) {
+        state.currentStake = state.stake;
+        state.martStep = 0;
+        state.consecutiveLosses = 0;
       } else {
-        state.cooldownUntil = Math.max(state.cooldownUntil, Date.now() + 2000);
+        state.consecutiveLosses += 1;
+        state.martStep += 1;
+        if (state.martStep >= state.maxMartSteps) {
+          stopBot(state, "martCap");
+          return;
+        }
+        state.currentStake = Math.min(+(state.currentStake * state.martingale).toFixed(2), 5000);
       }
-    }
-    if (state.def.id === "expertBot") {
-      if (!won) {
-        state.cooldownUntil = Date.now() + (state.consecutiveLosses >= 2 ? 20000 : 12000);
-      } else {
-        state.cooldownUntil = Math.max(state.cooldownUntil, Date.now() + 5000);
+
+      // Per-bot cooldowns — tiered by quality level:
+      //   Free Bot:   any loss → 5 s;  2+ consecutive losses → 10 s
+      //   Basic Bot:  any loss → 8 s;  2+ consecutive losses → 14 s; win → 2 s gap
+      //   Expert Bot: any loss → 12 s; 2+ consecutive losses → 20 s; win → 5 s gap
+      if (state.def.id === "freeBot") {
+        if (!won) {
+          state.cooldownUntil = Date.now() + (state.consecutiveLosses >= 2 ? 10000 : 5000);
+        }
+      }
+      if (state.def.id === "basicBot") {
+        if (!won) {
+          state.cooldownUntil = Date.now() + (state.consecutiveLosses >= 2 ? 14000 : 8000);
+        } else {
+          state.cooldownUntil = Math.max(state.cooldownUntil, Date.now() + 2000);
+        }
+      }
+      if (state.def.id === "expertBot") {
+        if (!won) {
+          state.cooldownUntil = Date.now() + (state.consecutiveLosses >= 2 ? 20000 : 12000);
+        } else {
+          state.cooldownUntil = Math.max(state.cooldownUntil, Date.now() + 5000);
+        }
       }
     }
 
@@ -858,13 +1150,20 @@
     renderSummary();
 
     if (!state.running) return;
-    if (state.sessionPL >= state.tp)  { stopBot(state, "tp"); return; }
-    if (state.sessionPL <= -state.sl) { stopBot(state, "sl"); return; }
+    if (state.sessionPL >= state.tp) { stopBot(state, "tp"); return; }
+    if (state.sl > 0 && state.sessionPL <= -state.sl) { stopBot(state, "sl"); return; }
+    if (state.def.id === "over1AiPredictor" && state.currentStake > Math.max(0, state.sl + state.sessionPL)) {
+      stopBot(state, "sl");
+    }
   }
 
   /* ─── Start / Stop / Reset ───────────────────────────────────── */
   function startBot(state) {
     if (state.running) return;
+    if (state.def.id === "over1AiPredictor" && state.lossStopped) {
+      window.showToast && window.showToast("Over 1 AI Predictor: Manual restart required after the loss stop.", "red", 4000);
+      return;
+    }
     if (connState !== "connected") {
       window.showToast && window.showToast(
         connState === "connecting"
@@ -882,6 +1181,12 @@
     state.stake      = parseFloat(stakeEl && stakeEl.value) || state.def.defaults.stake;
     state.tp         = parseFloat(tpEl    && tpEl.value)    || state.def.defaults.tp;
     state.sl         = parseFloat(slEl    && slEl.value)    || state.def.defaults.sl;
+    if (state.def.id === "over1AiPredictor") {
+      state.stake = Math.max(0.35, parseFloat(stakeEl && stakeEl.value) || 10);
+      state.tp = Math.max(0.01, parseFloat(tpEl && tpEl.value) || 5);
+      state.martingale = Math.max(0, parseFloat(document.getElementById("input-martingale-" + state.def.id)?.value) || 4.5);
+      state.sl = Math.max(0.01, parseFloat(slEl && slEl.value) || 50);
+    }
     if (twEl) state.tickWindow = parseInt(twEl.value, 10)   || state.tickWindow || 100;
     if (state.stake < 0.35) state.stake = 0.35;
     state.currentStake = state.stake;
@@ -892,6 +1197,9 @@
     state.awaitingSettle = false;
     state.analysisStatus = "analyzing";
     state.currentSignal = null;
+    state.lossStopped = false;
+    state.takeProfitReached = false;
+    state.activeTrade = false;
 
     ensureSymbolStream(state.symbol);
     window.showToast && window.showToast(state.def.name + " started", "green", 2000);
@@ -911,11 +1219,25 @@
   }
 
   function stopBot(state, reason) {
-    if (!state.running) return;
+    if (!state.running && reason !== "loss") return;
     state.running = false;
     state.awaitingSettle = false;
     state.analysisStatus = "idle";
-    state.currentSignal = null;
+    state.currentSignal = state.currentSignal || null;
+    if (state.def.id === "over1AiPredictor" && !state.lossStopped && reason === "tp") {
+      state.takeProfitReached = true;
+      state.statusText = "Take profit reached";
+    }
+    if (state.def.id === "over1AiPredictor" && reason === "loss") {
+      state.lossStopped = true;
+      state.statusText = "SESSION STOPPED";
+      state.currentSignal = "LOSS DETECTED — MANUAL RESTART REQUIRED";
+    }
+    if (state.def.id === "over1AiPredictor" && reason === "sl") {
+      state.lossStopped = true;
+      state.statusText = "STOP LOSS REACHED";
+      state.currentSignal = "STOP LOSS REACHED — MANUAL RESET REQUIRED";
+    }
 
     var msgs = {
       tp: state.def.name + ": Take Profit reached \u2714",
@@ -924,6 +1246,7 @@
       martCap: state.def.name + ": Max recovery steps reached — bot halted",
       connection: state.def.name + ": Connection lost — bot halted",
       auth: state.def.name + ": Login required — bot halted",
+      loss: state.def.name + ": Session stopped after a loss",
     };
     var color = reason === "tp" ? "green" : reason === "manual" ? "neutral" : "red";
     window.showToast && window.showToast(msgs[reason] || msgs.manual, color, 3500);
@@ -955,6 +1278,30 @@
     state.consecutiveLosses = 0;
     state.cooldownUntil = 0;
     state.currentSignal = null;
+    state.lossStopped = false;
+    state.takeProfitReached = false;
+    state.modelHistory = [];
+    state.predictionHistory = [];
+    state.predictionSequence = 0;
+    state.predictionStats = {
+      totalPredictions: 0,
+      qualifiedSignals: 0,
+      tradesExecuted: 0,
+      wins: 0,
+      losses: 0,
+      probabilitySum: 0,
+      maxDrawdown: 0,
+      losingStreak: 0,
+      buckets: {},
+    };
+    state.peakSessionPL = 0;
+    state.currentProbability = 0;
+    state.currentConfidence = 0;
+    state.activeTrade = false;
+    if (state.def.id === "over1AiPredictor") {
+      state.statusText = "Analyzing";
+      state.analysisStatus = "analyzing";
+    }
     window.showToast && window.showToast(state.def.name + " session reset", "neutral", 1800);
     renderBot(state);
     renderSummary();
@@ -1103,9 +1450,11 @@
           '<input type="number" min="0.5" step="0.5" value="' + s.def.defaults.tp + '" id="input-tp-' + def.id + '" />' +
         '</label>' +
         '<label class="bot-input-field">' +
-          '<span class="bot-input-label">Stop Loss</span>' +
-          '<input type="number" min="0.5" step="0.5" value="' + s.def.defaults.sl + '" id="input-sl-' + def.id + '" />' +
+          '<span class="bot-input-label">' + (def.id === "over1AiPredictor" ? "Martingale" : "Stop Loss") + '</span>' +
+          '<input type="number" min="0" step="0.5" value="' + (def.id === "over1AiPredictor" ? (s.martingale || def.martingale) : s.def.defaults.sl || '0') + '" id="input-' + (def.id === "over1AiPredictor" ? 'martingale' : 'sl') + '-' + def.id + '" />' +
+          (def.id === "over1AiPredictor" ? '<span class="bot-input-hint">Amount added to stake after a loss</span>' : '') +
         '</label>' +
+        (def.id === "over1AiPredictor" ? '<label class="bot-input-field"><span class="bot-input-label">Stop Loss</span><input type="number" min="0.01" step="0.5" value="' + (s.sl || def.defaults.sl) + '" id="input-sl-' + def.id + '" /><span class="bot-input-hint">Maximum cumulative session loss</span></label>' : '') +
       '</div>';
 
     var actionsHTML =
@@ -1186,6 +1535,42 @@
         statsHTML +
         signalHTML +
         lastHTML +
+        digitFreqHTML
+      );
+    }
+
+    if (def.id === "over1AiPredictor") {
+      return (
+        '<div class="bot-card-header">' +
+          '<div class="bot-card-icon">' + def.icon + '</div>' +
+          '<div class="bot-card-title-wrap">' +
+            '<span class="bot-tier-badge bot-tier-ai">AI</span>' +
+            '<h2 class="bot-card-name">' + def.name + '</h2>' +
+            '<p class="bot-card-tagline">Selective Over 1 probability model with controlled risk</p>' +
+          '</div>' +
+          '<span class="bot-status-pill stopped" id="status-' + def.id + '">' +
+            '<span class="bot-status-dot"></span>' +
+            '<span class="bot-status-text">Stopped</span>' +
+          '</span>' +
+        '</div>' +
+        inputsHTML +
+        actionsHTML +
+        '<div class="bot-stats-grid">' +
+          '<div class="bot-stat"><span class="bot-stat-label">Current Stake</span><span class="bot-stat-val" id="current-stake-' + def.id + '">$' + Number(s.currentStake || s.stake).toFixed(2) + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Session P/L</span><span class="bot-stat-val" id="pl-' + def.id + '">' + displaySignedMoney(s.sessionPL) + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Trades</span><span class="bot-stat-val" id="wins-' + def.id + '">' + s.trades + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Last Result</span><span class="bot-stat-val" id="losses-' + def.id + '">' + (s.lastResult ? (s.lastResult.won ? 'WIN' : 'LOSS') : '—') + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Win Rate</span><span class="bot-stat-val" id="wr-' + def.id + '">' + (s.trades ? ((s.wins / s.trades) * 100).toFixed(1) + '%' : '—') + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Model Probability</span><span class="bot-stat-val" id="probability-' + def.id + '">' + (s.currentProbability ? (s.currentProbability * 100).toFixed(1) + '%' : '—') + '</span></div>' +
+        '</div>' +
+        '<div class="bot-signal-row" id="signal-row-' + def.id + '" style="display:block">' +
+          '<span class="bot-signal-label">Status</span>' +
+          '<span class="bot-signal-val" id="signal-' + def.id + '">' + (s.currentSignal || 'Collecting sufficient data...') + '</span>' +
+        '</div>' +
+        '<div class="bot-last-trade" id="last-' + def.id + '" style="display:block">' +
+          '<span class="bot-last-label">Model</span>' +
+          '<span class="bot-last-result" id="last-res-' + def.id + '">' + (s.currentConfidence ? ('Signal confidence ' + (s.currentConfidence * 100).toFixed(1) + '%') : 'Collecting market data...') + '</span>' +
+        '</div>' +
         digitFreqHTML
       );
     }
@@ -1379,11 +1764,15 @@
       plEl.textContent = displaySignedMoney(state.sessionPL);
       plEl.className = "bot-stat-val " + (state.sessionPL >= 0 ? "pos" : "neg");
     }
+    var currentStakeEl = document.getElementById("current-stake-" + def.id);
+    if (currentStakeEl) currentStakeEl.textContent = "$" + Number(state.currentStake || state.stake).toFixed(2);
     var trEl = document.getElementById("trades-"  + def.id); if (trEl) trEl.textContent = state.trades;
     var wiEl = document.getElementById("wins-"    + def.id); if (wiEl) wiEl.textContent = state.wins;
     var loEl = document.getElementById("losses-"  + def.id); if (loEl) loEl.textContent = state.losses;
     var wrEl = document.getElementById("wr-"      + def.id);
     if (wrEl) wrEl.textContent = state.trades ? ((state.wins / state.trades) * 100).toFixed(1) + "%" : "\u2014";
+    var probabilityEl = document.getElementById("probability-" + def.id);
+    if (probabilityEl) probabilityEl.textContent = state.currentProbability ? (state.currentProbability * 100).toFixed(1) + "%" : "\u2014";
 
     // Signal
     var sigRow = document.getElementById("signal-row-" + def.id);
@@ -1436,7 +1825,7 @@
       });
     }
     var ac = document.getElementById("bots-active-count");
-    if (ac) ac.textContent = active + " / 5";
+    if (ac) ac.textContent = active + " / " + BOT_DEFS.length;
     var tp = document.getElementById("bots-total-pl");
     if (tp) {
       tp.textContent = displaySignedMoney(total);
@@ -1537,7 +1926,7 @@
 
   /* ─── Initial render ─────────────────────────────────────────── */
   function renderAll() {
-    var grid = document.getElementById("bots-grid");
+    var grid = document.getElementById("bot-cards-render-target");
     if (!grid) return;
     grid.innerHTML = "";
     BOT_DEFS.forEach(function (def) {
@@ -1613,19 +2002,24 @@
   });
 
   /* ─── Main loop (1s) ─────────────────────────────────────────── */
-  setInterval(function () {
-    BOT_DEFS.forEach(function (d) {
-      var s = states[d.id];
-      if (s.running) botTick(s);
-      if (d.tier === "free") renderDigitFreq(s);
-    });
-  }, 1000);
+  var mainLoopTimerId = null;
+  function startMainLoop() {
+    if (mainLoopTimerId) return;
+    mainLoopTimerId = setInterval(function () {
+      BOT_DEFS.forEach(function (d) {
+        var s = states[d.id];
+        if (s.running) botTick(s);
+        if (d.tier === "free" || d.id === "over1AiPredictor") renderDigitFreq(s);
+      });
+    }, 1000);
+  }
 
   /* ─── Init ───────────────────────────────────────────────────── */
   document.addEventListener("DOMContentLoaded", function () {
     renderAll();
     ensureSymbolStream(DEFAULT_SYMBOL);
     watchConnection();
+    startMainLoop();
   });
 
   /* ─── Shared core for Bulk Trader ────────────────────────────── */
@@ -1637,5 +2031,75 @@
     SYMBOL_OPTIONS: SYMBOL_OPTIONS,
     TICK_WINDOW_OPTIONS: TICK_WINDOW_OPTIONS,
     DEFAULT_SYMBOL: DEFAULT_SYMBOL,
+  };
+
+  function evaluateOver1WindowData(ticks) {
+    var safeTicks = Array.isArray(ticks) ? ticks.filter(function (tick) { return tick && isFinite(Number(tick.price)); }) : [];
+    if (safeTicks.length < 25) {
+      return { valid: false, over1Probability: 0, confidence: 0, reason: "Collecting sufficient data..." };
+    }
+    var analysis = buildOver1FeatureAnalysis(safeTicks);
+    return {
+      valid: analysis.valid,
+      over1Probability: analysis.probability,
+      confidence: analysis.confidence,
+      reason: analysis.reason,
+    };
+  }
+
+  window.AutonixOver1Predictor = {
+    evaluateWindow: evaluateOver1WindowData,
+    createSession: function (options) {
+      var opts = options || {};
+      var baseStake = Math.max(0.35, Number(opts.stake) || 10);
+      return {
+        running: false,
+        stake: baseStake,
+        currentStake: baseStake,
+        takeProfit: Math.max(0.01, Number(opts.takeProfit) || 5),
+        stopLoss: Math.max(0.01, Number(opts.stopLoss) || 50),
+        martingale: Math.max(0, Number(opts.martingale) || 4.5),
+        initialStake: baseStake,
+        sessionProfit: 0,
+        lossStopped: false,
+        takeProfitReached: false,
+        tradeAllowed: true,
+        activeTrade: false,
+        predictionHistory: [],
+        losingStreak: 0,
+      };
+    },
+    nextStakeAfterSettlement: function (session, won) {
+      if (won) {
+        session.currentStake = session.stake;
+        session.losingStreak = 0;
+      } else {
+        session.losingStreak += 1;
+        session.currentStake = Number((session.currentStake + session.martingale).toFixed(2));
+      }
+      return session.currentStake;
+    },
+    handleTradeResult: function (session, trade) {
+      if (!session) return { running: false, lossStopped: false, tradeAllowed: false };
+      var result = trade || {};
+      var realizedProfit = Number(result.pl || 0);
+      session.sessionProfit = Number((Number(session.sessionProfit || 0) + realizedProfit).toFixed(2));
+      session.activeTrade = false;
+      this.nextStakeAfterSettlement(session, !!result.won);
+      if (session.sessionProfit >= session.takeProfit) {
+        session.running = false;
+        session.takeProfitReached = true;
+        session.tradeAllowed = false;
+        return { running: false, lossStopped: false, takeProfitReached: true, tradeAllowed: false, sessionProfit: session.sessionProfit, currentStake: session.currentStake };
+      }
+      if (session.sessionProfit <= -session.stopLoss) {
+        session.running = false;
+        session.lossStopped = true;
+        session.tradeAllowed = false;
+        return { running: false, lossStopped: true, takeProfitReached: false, tradeAllowed: false, sessionProfit: session.sessionProfit, currentStake: session.currentStake };
+      }
+      session.tradeAllowed = true;
+      return { running: session.running, lossStopped: false, takeProfitReached: false, tradeAllowed: true, sessionProfit: session.sessionProfit, currentStake: session.currentStake };
+    },
   };
 })();

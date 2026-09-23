@@ -7,6 +7,27 @@
   var refreshing = false;
   var threshold = 72;
   var indicator = null;
+  var owner = null;
+
+  function isScrollable(element) {
+    if (!element || element === document.body || element === document.documentElement) return false;
+    var style = window.getComputedStyle(element);
+    return /(auto|scroll|overlay)/.test(style.overflowY) && element.scrollHeight > element.clientHeight + 1;
+  }
+
+  function getMainScrollContainer() {
+    var workspace = document.querySelector(".bots-workspace");
+    return isScrollable(workspace) ? workspace : document.scrollingElement;
+  }
+
+  function getScrollableAncestor(target) {
+    var element = target && target.nodeType === 1 ? target : null;
+    while (element && element !== document.body) {
+      if (isScrollable(element)) return element;
+      element = element.parentElement;
+    }
+    return getMainScrollContainer();
+  }
 
   function getIndicator() {
     if (indicator) return indicator;
@@ -29,6 +50,7 @@
 
   function reset() {
     tracking = false;
+    owner = null;
     distance = 0;
     if (indicator) {
       indicator.classList.remove("is-visible", "is-ready", "is-refreshing");
@@ -37,18 +59,25 @@
   }
 
   document.addEventListener("touchstart", function (event) {
-    if (refreshing || event.touches.length !== 1 || window.scrollY > 0) return;
+    if (refreshing || event.touches.length !== 1) return;
     var target = event.target;
     if (target.closest && target.closest("input, select, textarea, button, a, [contenteditable=\"true\"]")) return;
+    var main = getMainScrollContainer();
+    owner = getScrollableAncestor(target);
+    if (!main || main.scrollTop > 1 || owner !== main) {
+      owner = null;
+      return;
+    }
     startY = event.touches[0].clientY;
     tracking = true;
   }, { passive: true });
 
   document.addEventListener("touchmove", function (event) {
     if (!tracking || refreshing || event.touches.length !== 1) return;
-    if (window.scrollY > 0) { reset(); return; }
+    var main = getMainScrollContainer();
+    if (!main || owner !== main || main.scrollTop > 1) { reset(); return; }
     distance = event.touches[0].clientY - startY;
-    if (distance <= 0) { reset(); return; }
+    if (distance <= 0) return;
     event.preventDefault();
     var element = getIndicator();
     element.classList.add("is-visible");

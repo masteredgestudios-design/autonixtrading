@@ -19,8 +19,7 @@
           <span class="bots-eyebrow">Automation Suite</span>
           <h1 class="bots-title">Trading Bots</h1>
           <p class="bots-subtitle">
-            Three intelligent bots with hidden strategy logic. Set your stake,
-            take profit, and stop loss — Autonix handles the rest.
+            Five trading systems with explicit controls, live analysis, and hard session risk limits.
           </p>
 
           <div class="bots-mode-row" id="bots-mode-row">
@@ -78,14 +77,15 @@
         </div>
       </header>
 
-      {% include "partials/ai_trader.html" %}
-
       <div class="bots-grid" id="bots-grid">
-        <!-- Bot cards rendered by bots-page.js -->
-      </div>
+        {% include "partials/ai_trader.html" %}
+
+        <div class="bots-render-target" id="bot-cards-render-target">
+          <!-- Bot cards rendered by bots-page.js -->
+        </div>
 
       <!-- ═══ Bulk Trader ═══ -->
-      <section class="bulk-trader-section" id="bulk-trader-section">
+      <section class="bot-card bot-card-aux bulk-trader-section" id="bulk-trader-section">
         <div class="bulk-header">
           <div class="bulk-header-left">
             <div class="bulk-header-icon">
@@ -181,6 +181,7 @@
           </div>
         </div>
       </section>
+      </div>
 
       <!-- ═══ Centralized Trade History Card ═══ -->
       <section class="bots-history-card" id="bots-history-card">
