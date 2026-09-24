@@ -3383,6 +3383,21 @@ textarea,
   border: 1px solid var(--border);
   border-radius: 10px;
 }
+.bot-live-analysis.state-analyzing { border-color: rgba(148,163,184,.45); background: rgba(100,116,139,.10); }
+.bot-live-analysis.state-waiting { border-color: rgba(245,158,11,.58); background: rgba(245,158,11,.10); }
+.bot-live-analysis.state-strengthening { border-color: rgba(45,212,191,.62); background: rgba(20,184,166,.11); }
+.bot-live-analysis.state-strong { border-color: rgba(34,197,94,.68); background: rgba(22,163,74,.13); }
+.bot-live-analysis.state-executing { border-color: rgba(251,146,60,.72); background: rgba(234,88,12,.14); }
+.bot-live-analysis.state-active { border-color: rgba(96,165,250,.72); background: rgba(37,99,235,.13); }
+.bot-live-analysis.state-won { border-color: rgba(34,197,94,.72); background: rgba(22,163,74,.15); }
+.bot-live-analysis.state-lost { border-color: rgba(248,113,113,.72); background: rgba(220,38,38,.14); }
+.bot-live-analysis.state-waiting .bot-live-analysis-head strong,
+.bot-live-analysis.state-strengthening .bot-live-analysis-head strong { color: #fbbf24; }
+.bot-live-analysis.state-strong .bot-live-analysis-head strong,
+.bot-live-analysis.state-won .bot-live-analysis-head strong { color: #4ade80; }
+.bot-live-analysis.state-executing .bot-live-analysis-head strong { color: #fb923c; }
+.bot-live-analysis.state-active .bot-live-analysis-head strong { color: #60a5fa; }
+.bot-live-analysis.state-lost .bot-live-analysis-head strong { color: #f87171; }
 .bot-live-analysis-head,
 .bot-live-analysis-foot,
 .bot-live-trade {
@@ -3822,11 +3837,11 @@ textarea,
   width: auto;
   min-width: 0;
 }
-.bots-grid > #ai-trader-section { order: 4; }
-.bots-render-target > #card-freeBot { order: 1; }
+.bots-grid > #ai-trader-section { order: 5; }
+.bots-render-target > #card-freeBot { order: 4; }
 .bots-render-target > #card-basicBot { order: 2; }
 .bots-render-target > #card-expertBot { order: 3; }
-.bots-render-target > #card-over1AiPredictor { order: 5; }
+.bots-render-target > #card-over1AiPredictor { order: 1; }
 .bots-grid > #bulk-trader-section { order: 6; }
 
 @media (min-width: 769px) {

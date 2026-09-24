@@ -910,9 +910,13 @@
     else if (analysis.recentOverRate >= 0.65 && analysis.frequencyShift > 0) status = "Over 1 signal strengthening...";
     else if (analysis.recentOverRate >= 0.55) status = "Over 1 pressure detected...";
     else status = "Signal currently too weak...";
+    var stateClass = analysis.valid ? "strong" : "analyzing";
+    if (reasons.indexOf("window-disagreement") !== -1 || reasons.indexOf("confidence-below-threshold") !== -1) stateClass = "waiting";
+    if (status.indexOf("strengthening") !== -1 || status.indexOf("pressure") !== -1) stateClass = "strengthening";
 
     return {
       status: status,
+      stateClass: stateClass,
       lastDigit: hasData ? lastDigit(buf[buf.length - 1].price) : "--",
       overRate: summary.overRate,
       underRate: summary.underRate,
@@ -1039,6 +1043,7 @@
       state.activeTrade = true;
       state.liveAnalysis = state.liveAnalysis || {};
       state.liveAnalysis.status = "Executing Over 1 trade...";
+      state.liveAnalysis.stateClass = "executing";
       state.liveAnalysis.entryStatus = "Executing Over 1...";
       state.liveAnalysis.contract = "Over 1";
       state.liveAnalysis.stake = stake;
@@ -1061,6 +1066,7 @@
     buyRequest.then(function () {
       if (state.def.id === "over1AiPredictor" && state.awaitingSettle) {
         state.liveAnalysis.status = "Trade active - waiting for settlement...";
+        state.liveAnalysis.stateClass = "active";
         state.liveAnalysis.entryStatus = "Trade active";
         renderBot(state);
       }
@@ -1072,6 +1078,7 @@
       state.activeTrade = false;
       if (state.def.id === "over1AiPredictor") {
         state.liveAnalysis.status = "Reassessing market...";
+        state.liveAnalysis.stateClass = "waiting";
         state.liveAnalysis.entryStatus = "Waiting";
         state.liveAnalysis.contract = "--";
         state.liveAnalysis.stake = 0;
@@ -1102,6 +1109,7 @@
     if (state.def.id === "over1AiPredictor") {
       state.liveAnalysis = state.liveAnalysis || {};
       state.liveAnalysis.status = won ? "Trade won - recalculating..." : "Trade lost - reassessing market...";
+      state.liveAnalysis.stateClass = won ? "won" : "lost";
       state.liveAnalysis.entryStatus = "Waiting";
       state.liveAnalysis.contract = "--";
       state.liveAnalysis.stake = 0;
@@ -1510,6 +1518,7 @@
   function buildCardHTML(def, s, isActivated) {
     var live = s.liveAnalysis || {
       status: "Start the predictor to begin live analysis...",
+      stateClass: "analyzing",
       lastDigit: "--",
       overRate: null,
       underRate: null,
@@ -1656,7 +1665,7 @@
           '<div class="bot-stat"><span class="bot-stat-label">Losses</span><span class="bot-stat-val" id="losses-' + def.id + '">' + s.losses + '</span></div>' +
           '<div class="bot-stat"><span class="bot-stat-label">Win Rate</span><span class="bot-stat-val" id="wr-' + def.id + '">' + (s.trades ? ((s.wins / s.trades) * 100).toFixed(1) + '%' : '—') + '</span></div>' +
         '</div>' +
-        '<div class="bot-live-analysis" id="live-analysis-' + def.id + '">' +
+        '<div class="bot-live-analysis state-' + (live.stateClass || 'analyzing') + '" id="live-analysis-' + def.id + '">' +
           '<div class="bot-live-analysis-head"><span>Live Analysis</span><strong id="live-status-' + def.id + '">' + live.status + '</strong></div>' +
           '<div class="bot-live-analysis-grid">' +
             '<div class="bot-live-value"><span>Last Digit</span><strong id="live-digit-' + def.id + '">' + live.lastDigit + '</strong></div>' +
@@ -1833,6 +1842,8 @@
     if (state.def.id !== "over1AiPredictor" || !state.liveAnalysis) return;
     var live = state.liveAnalysis;
     var id = state.def.id;
+    var panel = document.getElementById("live-analysis-" + id);
+    if (panel) panel.className = "bot-live-analysis state-" + (live.stateClass || "analyzing");
     var setText = function (suffix, value) {
       var el = document.getElementById("live-" + suffix + "-" + id);
       if (el) el.textContent = value;
