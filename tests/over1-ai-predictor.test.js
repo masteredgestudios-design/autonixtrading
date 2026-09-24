@@ -1,4 +1,6 @@
 describe('Over 1 AI Predictor model', () => {
+  const makeTicks = (digits) => digits.map((digit) => ({ price: Number(`1.0${digit}`) }));
+
   beforeEach(() => {
     document.body.innerHTML = '<div id="bots-grid"></div>';
     jest.resetModules();
@@ -8,16 +10,7 @@ describe('Over 1 AI Predictor model', () => {
   it('computes a probability from real tick data and uses controlled stake progression', () => {
     const predictor = window.AutonixOver1Predictor;
     expect(predictor).toBeDefined();
-    const tickSeries = [
-      { price: 1.12 }, { price: 1.14 }, { price: 1.16 }, { price: 1.17 },
-      { price: 1.18 }, { price: 1.19 }, { price: 1.20 }, { price: 1.21 },
-      { price: 1.22 }, { price: 1.24 }, { price: 1.25 }, { price: 1.26 },
-      { price: 1.27 }, { price: 1.29 }, { price: 1.21 }, { price: 1.19 },
-      { price: 1.20 }, { price: 1.22 }, { price: 1.24 }, { price: 1.25 },
-      { price: 1.26 }, { price: 1.28 }, { price: 1.32 }, { price: 1.34 },
-      { price: 1.35 }, { price: 1.37 }, { price: 1.39 }, { price: 1.41 },
-      { price: 1.42 }, { price: 1.45 }, { price: 1.46 }
-    ];
+    const tickSeries = makeTicks(Array.from({ length: 240 }, (_, index) => 2 + (index % 8)));
 
     const result = predictor.evaluateWindow(tickSeries);
     expect(result).toBeDefined();
@@ -31,6 +24,34 @@ describe('Over 1 AI Predictor model', () => {
     const win = predictor.handleTradeResult(session, { won: true, pl: 2.75 });
     expect(win.currentStake).toBeCloseTo(10, 2);
     expect(win.sessionProfit).toBeCloseTo(-7.25, 2);
+  });
+
+  it('rejects weak, unstable, and short-history setups', () => {
+    const predictor = window.AutonixOver1Predictor;
+    const balanced = makeTicks(Array.from({ length: 240 }, (_, index) => index % 10));
+    const result = predictor.evaluateWindow(balanced);
+
+    expect(result.valid).toBe(false);
+    expect(result.reason).toMatch(/Analyzing|Collecting/);
+  });
+
+  it('reports separate development and validation metrics', () => {
+    const predictor = window.AutonixOver1Predictor;
+    const historical = makeTicks(Array.from({ length: 260 }, (_, index) => 2 + (index % 8)));
+    const report = predictor.validateHistory({
+      developmentTicks: historical,
+      validationTicks: historical,
+    });
+
+    expect(report.development.samples).toBeGreaterThan(0);
+    expect(report.validation.samples).toBeGreaterThan(0);
+    expect(report.validation).toEqual(expect.objectContaining({
+      signalFrequency: expect.any(Number),
+      winRate: expect.any(Number),
+      falseSignalRate: expect.any(Number),
+      maxConsecutiveLosses: expect.any(Number),
+      performanceByWindow: expect.any(Object),
+    }));
   });
 
   it('stops only when the configured stop loss is reached', () => {

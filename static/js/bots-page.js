@@ -160,7 +160,7 @@
       duration: 1,
       tradeType: "over-under",
       martingale: 4.5,
-      defaults: { stake: 10, tp: 5, sl: 50 },
+      defaults: { stake: 10, tp: 5, sl: 100 },
       accent: "#8b5cf6",
       requiresActivation: false,
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16M7 15l3-5 3 3 4-7"/><path d="M19 5h2v2"/></svg>',
@@ -232,6 +232,7 @@
       peakSessionPL: 0,
       currentProbability: 0,
       currentConfidence: 0,
+      over1ConfidenceThreshold: 0.72,
       activeTrade: false,
       statusText: "Idle",
     };
@@ -729,136 +730,138 @@
     return _clamp(Number(value), 0, 1);
   }
 
-  function buildOver1FeatureAnalysis(buf) {
-    if (!buf || buf.length < 25) {
-      return { valid: false, probability: 0, confidence: 0, reason: "Collecting sufficient data..." };
-    }
-
-    var windows = [25, 50, 100, 200, 500];
-    var weightedProbability = 0;
-    var weightTotal = 0;
-    var windowProbabilities = [];
-    var recentDigitScore = 0;
-    var sequenceScore = 0;
-    var transitionScore = 0;
-    var priceTrendScore = 0;
-
-    windows.forEach(function (win) {
-      if (buf.length < win) return;
-      var counts = countDigits(buf, win);
-      var total = counts.reduce(function (sum, count) { return sum + count; }, 0);
-      var over = 0;
-      for (var d = 2; d <= 9; d++) over += counts[d];
-      var prob = total > 0 ? over / total : 0;
-      windowProbabilities.push({ window: win, probability: prob, sample: total });
-      var weight = win / 500;
-      weightedProbability += prob * weight;
-      weightTotal += weight;
-    });
-
-    var recent = buf.slice(-25);
-    var recentCounts = countDigits(recent, recent.length);
-    var recentOver = 0;
-    for (var d = 2; d <= 9; d++) recentOver += recentCounts[d];
-    recentDigitScore = recent.length ? recentOver / recent.length : 0;
-
-    var lastDigits = [];
-    for (var i = 0; i < Math.min(buf.length, 12); i++) {
-      lastDigits.push(lastDigit(buf[i].price));
-    }
-    var totalHigh = 0;
-    for (var i = 0; i < lastDigits.length; i++) {
-      if (lastDigits[i] >= 2 && lastDigits[i] <= 9) totalHigh++;
-    }
-    sequenceScore = lastDigits.length ? totalHigh / lastDigits.length : 0;
-
-    var transitions = 0;
-    var totalTransitions = 0;
-    for (var i = 1; i < Math.min(buf.length, 90); i++) {
-      var prev = lastDigit(buf[i - 1].price);
-      var curr = lastDigit(buf[i].price);
-      totalTransitions++;
-      if ((prev >= 2 && prev <= 9) || (curr >= 2 && curr <= 9)) transitions++;
-    }
-    transitionScore = totalTransitions ? transitions / totalTransitions : 0;
-
-    var priceChanges = [];
-    for (var i = 1; i < buf.length; i++) {
-      priceChanges.push(Math.abs(buf[i].price - buf[i - 1].price));
-    }
-    if (priceChanges.length) {
-      var avgSwing = 0;
-      for (var i = 0; i < priceChanges.length; i++) avgSwing += priceChanges[i];
-      avgSwing /= priceChanges.length;
-      var lastPrice = buf[buf.length - 1].price;
-      var prevPrice = buf[buf.length - 2] ? buf[buf.length - 2].price : lastPrice;
-      var directionalBias = (lastPrice - prevPrice) > 0 ? 1 : -1;
-      priceTrendScore = _clamp(avgSwing / 0.5, 0, 1) * 0.6 + (directionalBias > 0 ? 0.4 : 0.2);
-    }
-
-    var probability = weightedProbability / Math.max(weightTotal, 1e-6);
-    probability = _safeProbability(probability);
-    var windowConsistency = 1;
-    if (windowProbabilities.length > 1) {
-      var minWindowProbability = 1;
-      var maxWindowProbability = 0;
-      windowProbabilities.forEach(function (item) {
-        minWindowProbability = Math.min(minWindowProbability, item.probability);
-        maxWindowProbability = Math.max(maxWindowProbability, item.probability);
-      });
-      windowConsistency = _clamp(1 - (maxWindowProbability - minWindowProbability), 0, 1);
-    }
-    var transitionSample = 0;
-    var transitionProbability = 0;
-    var currentDigit = lastDigit(buf[buf.length - 1].price);
-    for (var ti = 1; ti < buf.length; ti++) {
-      if (lastDigit(buf[ti - 1].price) === currentDigit) {
-        transitionSample += 1;
-        if (lastDigit(buf[ti].price) >= 2) transitionProbability += 1;
+  function summarizeOver1Window(buf, window) {
+    var counts = countDigits(buf, window);
+    var total = Math.min(buf.length, window);
+    var overCount = 0;
+    var overDigitCount = 0;
+    var maxOverCount = 0;
+    var entropy = 0;
+    for (var d = 2; d <= 9; d++) overCount += counts[d];
+    for (var od = 2; od <= 9; od++) maxOverCount = Math.max(maxOverCount, counts[od]);
+    if (overCount > 0) {
+      for (var ed = 2; ed <= 9; ed++) {
+        if (!counts[ed]) continue;
+        var share = counts[ed] / overCount;
+        entropy -= share * Math.log(share) / Math.log(8);
       }
+      overDigitCount = maxOverCount / overCount;
     }
-    if (transitionSample) transitionProbability /= transitionSample;
-    var transitionAgreement = transitionSample >= 8 ? transitionProbability : probability;
-    var confidence = _safeProbability(
-      probability * 0.48 +
-      recentDigitScore * 0.18 +
-      sequenceScore * 0.12 +
-      transitionScore * 0.12 +
-      (priceTrendScore > 0 ? priceTrendScore * 0.05 : 0) +
-      windowConsistency * 0.05
-    );
+    return {
+      window: window,
+      counts: counts,
+      total: total,
+      overCount: overCount,
+      underCount: total - overCount,
+      overRate: total ? overCount / total : 0,
+      underRate: total ? (total - overCount) / total : 0,
+      overDigitEntropy: _clamp(entropy, 0, 1),
+      dominantOverShare: overDigitCount,
+    };
+  }
 
-    var modelAgreement = [probability, recentDigitScore, sequenceScore, transitionAgreement]
-      .filter(function (score) { return score >= 0.54; }).length;
-    var valid = buf.length >= 25 && probability >= 0.54 && confidence >= 0.45 &&
-      windowConsistency >= 0.72 && modelAgreement >= 3;
+  function consecutiveDigitClass(digits, isOver) {
+    var count = 0;
+    for (var i = digits.length - 1; i >= 0; i--) {
+      var over = digits[i] >= 2 && digits[i] <= 9;
+      if (over !== isOver) break;
+      count++;
+    }
+    return count;
+  }
+
+  function buildOver1FeatureAnalysis(buf, options) {
+    var confidenceThreshold = _clamp(Number(options && options.confidenceThreshold) || 0.72, 0.5, 0.95);
+    var windows = [25, 50, 100, 200];
+    if (!buf || buf.length < 200) {
+      return { valid: false, probability: 0, confidence: 0, score: 0, reason: "Collecting sufficient data..." };
+    }
+
+    var summaries = windows.map(function (window) { return summarizeOver1Window(buf, window); });
+    var shortWindow = summaries[0];
+    var midWindow = summaries[1];
+    var longWindow = summaries[2];
+    var broadWindow = summaries[3];
+    var recentDigits = buf.slice(-12).map(function (tick) { return lastDigit(tick.price); });
+    var recentOverRate = recentDigits.filter(function (digit) { return digit >= 2; }).length / recentDigits.length;
+    var recentUnderRate = 1 - recentOverRate;
+    var overStreak = consecutiveDigitClass(recentDigits, true);
+    var underStreak = consecutiveDigitClass(recentDigits, false);
+    var windowRates = summaries.map(function (summary) { return summary.overRate; });
+    var minimumRate = Math.min.apply(Math, windowRates);
+    var maximumRate = Math.max.apply(Math, windowRates);
+    var spread = maximumRate - minimumRate;
+    var longAgreement = Math.min(longWindow.overRate, broadWindow.overRate);
+    var shortAgreement = Math.min(shortWindow.overRate, midWindow.overRate);
+
+    // Each evidence group has equal influence. This avoids a hand-tuned feature
+    // dominating the decision and makes the score directly comparable in tests.
+    var contributions = {
+      digitDistribution: _clamp((shortWindow.overRate - 0.80) / 0.10, 0, 1) *
+        _clamp((0.42 - shortWindow.dominantOverShare) / 0.20, 0, 1),
+      shortTermMomentum: _clamp(((shortWindow.overRate - midWindow.overRate) +
+        (midWindow.overRate - longWindow.overRate) + 0.02) / 0.12, 0, 1),
+      longTermConfirmation: _clamp((longAgreement - 0.78) / 0.12, 0, 1),
+      frequencyShift: _clamp((shortWindow.overRate - broadWindow.overRate + 0.02) / 0.10, 0, 1),
+      sequenceAnalysis: _clamp((recentOverRate - 0.75) / 0.20, 0, 1) *
+        (underStreak >= 3 ? 0 : 1),
+      recentBehavior: _clamp((recentOverRate - recentUnderRate + 0.20) / 0.40, 0, 1) *
+        (underStreak >= 3 ? 0 : 1),
+      marketConsistency: _clamp(1 - spread / 0.12, 0, 1),
+    };
+    var contributionNames = Object.keys(contributions);
+    var score = contributionNames.reduce(function (total, name) {
+      return total + contributions[name];
+    }, 0) / contributionNames.length;
+    var probability = _safeProbability((shortWindow.overRate + midWindow.overRate +
+      longWindow.overRate + broadWindow.overRate) / summaries.length);
+    var enoughDistribution = shortWindow.overCount >= 18 && shortWindow.dominantOverShare <= 0.42;
+    var stableDistribution = spread <= 0.12;
+    var windowsAgree = shortAgreement >= 0.80 && longAgreement >= 0.78;
+    var meaningfulAdvantage = shortWindow.overRate >= 0.84 && broadWindow.overRate >= 0.78;
+    var recentSequenceIsSupportive = recentOverRate >= 0.75 && underStreak < 3;
+    var valid = score >= confidenceThreshold && meaningfulAdvantage && windowsAgree &&
+      enoughDistribution && stableDistribution && recentSequenceIsSupportive;
+
     return {
       valid: valid,
       probability: probability,
-      confidence: confidence,
-      reason: valid
-        ? "Valid signal detected..."
-        : "Waiting for high-confidence signal...",
-      recentDigitScore: recentDigitScore,
-      sequenceScore: sequenceScore,
-      transitionScore: transitionScore,
-      priceTrendScore: priceTrendScore,
-      windowProbabilities: windowProbabilities,
-      windowConsistency: windowConsistency,
-      transitionProbability: transitionProbability,
-      transitionSample: transitionSample,
-      modelAgreement: modelAgreement,
+      confidence: _safeProbability(score),
+      score: _safeProbability(score),
+      reason: valid ? "Strong Over 1 setup detected" : "Analyzing market for a strong setup...",
+      windows: summaries,
+      windowProbabilities: summaries.map(function (summary) {
+        return { window: summary.window, probability: summary.overRate, sample: summary.total };
+      }),
+      contributions: contributions,
+      shortTermMomentum: shortWindow.overRate - midWindow.overRate,
+      frequencyShift: shortWindow.overRate - broadWindow.overRate,
+      recentOverRate: recentOverRate,
+      recentUnderRate: recentUnderRate,
+      overStreak: overStreak,
+      underStreak: underStreak,
+      windowConsistency: _clamp(1 - spread, 0, 1),
+      modelAgreement: [shortWindow.overRate, midWindow.overRate, longWindow.overRate, broadWindow.overRate]
+        .filter(function (rate) { return rate >= 0.78; }).length,
+      rejectionReasons: [
+        !meaningfulAdvantage ? "advantage-too-small" : null,
+        !windowsAgree ? "window-disagreement" : null,
+        !enoughDistribution ? "single-digit-concentration" : null,
+        !stableDistribution ? "unstable-distribution" : null,
+        !recentSequenceIsSupportive ? "recent-sequence-risk" : null,
+        score < confidenceThreshold ? "confidence-below-threshold" : null,
+      ].filter(Boolean),
     };
   }
 
   function decideOver1AIPredictor(state) {
     var buf = tickBuffers[state.symbol] || [];
-    if (!buf || buf.length < 25) {
+    if (!buf || buf.length < 200) {
       state.currentSignal = "Collecting sufficient data...";
       return null;
     }
 
-    var analysis = buildOver1FeatureAnalysis(buf);
+    var analysis = buildOver1FeatureAnalysis(buf, { confidenceThreshold: state.over1ConfidenceThreshold });
     state.currentProbability = analysis.probability;
     state.currentConfidence = analysis.confidence;
     state.analysisStatus = analysis.valid ? "signal" : "analyzing";
@@ -1185,7 +1188,7 @@
       state.stake = Math.max(0.35, parseFloat(stakeEl && stakeEl.value) || 10);
       state.tp = Math.max(0.01, parseFloat(tpEl && tpEl.value) || 5);
       state.martingale = Math.max(1, parseFloat(document.getElementById("input-martingale-" + state.def.id)?.value) || 4.5);
-      state.sl = Math.max(0.01, parseFloat(slEl && slEl.value) || 50);
+      state.sl = Math.max(0.01, parseFloat(slEl && slEl.value) || 100);
     }
     if (twEl) state.tickWindow = parseInt(twEl.value, 10)   || state.tickWindow || 100;
     if (state.stake < 0.35) state.stake = 0.35;
@@ -2033,12 +2036,12 @@
     DEFAULT_SYMBOL: DEFAULT_SYMBOL,
   };
 
-  function evaluateOver1WindowData(ticks) {
+  function evaluateOver1WindowData(ticks, options) {
     var safeTicks = Array.isArray(ticks) ? ticks.filter(function (tick) { return tick && isFinite(Number(tick.price)); }) : [];
-    if (safeTicks.length < 25) {
+    if (safeTicks.length < 200) {
       return { valid: false, over1Probability: 0, confidence: 0, reason: "Collecting sufficient data..." };
     }
-    var analysis = buildOver1FeatureAnalysis(safeTicks);
+    var analysis = buildOver1FeatureAnalysis(safeTicks, options);
     return {
       valid: analysis.valid,
       over1Probability: analysis.probability,
@@ -2047,8 +2050,67 @@
     };
   }
 
+  function validateOver1History(ticks, options) {
+    var safeTicks = Array.isArray(ticks) ? ticks.filter(function (tick) {
+      return tick && isFinite(Number(tick.price));
+    }) : [];
+    var result = {
+      samples: Math.max(0, safeTicks.length - 200),
+      signals: 0,
+      signalFrequency: 0,
+      wins: 0,
+      losses: 0,
+      winRate: 0,
+      falseSignalRate: 0,
+      maxConsecutiveLosses: 0,
+      performanceByWindow: {},
+    };
+    var consecutiveLosses = 0;
+    [25, 50, 100, 200].forEach(function (window) {
+      result.performanceByWindow[window] = { samples: 0, overRate: 0 };
+    });
+    for (var index = 200; index < safeTicks.length - 1; index++) {
+      var analysis = buildOver1FeatureAnalysis(safeTicks.slice(0, index), options);
+      [25, 50, 100, 200].forEach(function (window) {
+        var windowData = analysis.windows && analysis.windows.find(function (item) { return item.window === window; });
+        if (windowData) {
+          result.performanceByWindow[window].samples++;
+          result.performanceByWindow[window].overRate += windowData.overRate;
+        }
+      });
+      if (!analysis.valid) continue;
+      result.signals++;
+      var won = lastDigit(safeTicks[index].price) >= 2;
+      if (won) {
+        result.wins++;
+        consecutiveLosses = 0;
+      } else {
+        result.losses++;
+        consecutiveLosses++;
+        result.maxConsecutiveLosses = Math.max(result.maxConsecutiveLosses, consecutiveLosses);
+      }
+    }
+    if (result.samples) result.signalFrequency = result.signals / result.samples;
+    if (result.signals) {
+      result.winRate = result.wins / result.signals;
+      result.falseSignalRate = result.losses / result.signals;
+    }
+    Object.keys(result.performanceByWindow).forEach(function (window) {
+      var data = result.performanceByWindow[window];
+      if (data.samples) data.overRate /= data.samples;
+    });
+    return result;
+  }
+
   window.AutonixOver1Predictor = {
     evaluateWindow: evaluateOver1WindowData,
+    validateHistory: function (options) {
+      var input = options || {};
+      return {
+        development: validateOver1History(input.developmentTicks || input.development, input),
+        validation: validateOver1History(input.validationTicks || input.validation, input),
+      };
+    },
     createSession: function (options) {
       var opts = options || {};
       var baseStake = Math.max(0.35, Number(opts.stake) || 10);
@@ -2057,7 +2119,7 @@
         stake: baseStake,
         currentStake: baseStake,
         takeProfit: Math.max(0.01, Number(opts.takeProfit) || 5),
-        stopLoss: Math.max(0.01, Number(opts.stopLoss) || 50),
+        stopLoss: Math.max(0.01, Number(opts.stopLoss) || 100),
         martingale: Math.max(1, Number(opts.martingale) || 4.5),
         initialStake: baseStake,
         sessionProfit: 0,
