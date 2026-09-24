@@ -1064,7 +1064,7 @@
       } else {
         state.martStep += 1;
         state.consecutiveLosses += 1;
-        state.currentStake = +(state.currentStake + state.martingale).toFixed(2);
+        state.currentStake = Math.min(+(state.currentStake * state.martingale).toFixed(2), 5000);
         state.predictionStats.losses += 1;
         state.predictionStats.losingStreak = state.consecutiveLosses;
         state.modelHistory.push({
@@ -1088,7 +1088,7 @@
           pl: pl,
           won: won,
         });
-        window.showToast && window.showToast("Over 1 AI Predictor: loss recorded — applying configured martingale", "red", 3500);
+        window.showToast && window.showToast("Over 1 AI Predictor: loss recorded", "red", 3500);
       }
     } else {
       pushGlobalHistory({
@@ -1184,7 +1184,7 @@
     if (state.def.id === "over1AiPredictor") {
       state.stake = Math.max(0.35, parseFloat(stakeEl && stakeEl.value) || 10);
       state.tp = Math.max(0.01, parseFloat(tpEl && tpEl.value) || 5);
-      state.martingale = Math.max(0, parseFloat(document.getElementById("input-martingale-" + state.def.id)?.value) || 4.5);
+      state.martingale = Math.max(1, parseFloat(document.getElementById("input-martingale-" + state.def.id)?.value) || 4.5);
       state.sl = Math.max(0.01, parseFloat(slEl && slEl.value) || 50);
     }
     if (twEl) state.tickWindow = parseInt(twEl.value, 10)   || state.tickWindow || 100;
@@ -1450,9 +1450,8 @@
           '<input type="number" min="0.5" step="0.5" value="' + s.def.defaults.tp + '" id="input-tp-' + def.id + '" />' +
         '</label>' +
         '<label class="bot-input-field">' +
-          '<span class="bot-input-label">' + (def.id === "over1AiPredictor" ? "Martingale" : "Stop Loss") + '</span>' +
-          '<input type="number" min="0" step="0.5" value="' + (def.id === "over1AiPredictor" ? (s.martingale || def.martingale) : s.def.defaults.sl || '0') + '" id="input-' + (def.id === "over1AiPredictor" ? 'martingale' : 'sl') + '-' + def.id + '" />' +
-          (def.id === "over1AiPredictor" ? '<span class="bot-input-hint">Amount added to stake after a loss</span>' : '') +
+          '<span class="bot-input-label">' + (def.id === "over1AiPredictor" ? "Martingale Multiplier" : "Stop Loss") + '</span>' +
+          '<input type="number" min="' + (def.id === "over1AiPredictor" ? "1" : "0") + '" step="' + (def.id === "over1AiPredictor" ? "0.1" : "0.5") + '" value="' + (def.id === "over1AiPredictor" ? (s.martingale || def.martingale) : s.def.defaults.sl || '0') + '" id="input-' + (def.id === "over1AiPredictor" ? 'martingale' : 'sl') + '-' + def.id + '" />' +
         '</label>' +
         (def.id === "over1AiPredictor" ? '<label class="bot-input-field"><span class="bot-input-label">Stop Loss</span><input type="number" min="0.01" step="0.5" value="' + (s.sl || def.defaults.sl) + '" id="input-sl-' + def.id + '" /><span class="bot-input-hint">Maximum cumulative session loss</span></label>' : '') +
       '</div>';
@@ -1556,12 +1555,11 @@
         inputsHTML +
         actionsHTML +
         '<div class="bot-stats-grid">' +
-          '<div class="bot-stat"><span class="bot-stat-label">Current Stake</span><span class="bot-stat-val" id="current-stake-' + def.id + '">$' + Number(s.currentStake || s.stake).toFixed(2) + '</span></div>' +
-          '<div class="bot-stat"><span class="bot-stat-label">Session P/L</span><span class="bot-stat-val" id="pl-' + def.id + '">' + displaySignedMoney(s.sessionPL) + '</span></div>' +
-          '<div class="bot-stat"><span class="bot-stat-label">Trades</span><span class="bot-stat-val" id="wins-' + def.id + '">' + s.trades + '</span></div>' +
-          '<div class="bot-stat"><span class="bot-stat-label">Last Result</span><span class="bot-stat-val" id="losses-' + def.id + '">' + (s.lastResult ? (s.lastResult.won ? 'WIN' : 'LOSS') : '—') + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">P / L</span><span class="bot-stat-val" id="pl-' + def.id + '">' + displaySignedMoney(s.sessionPL) + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Trades</span><span class="bot-stat-val" id="trades-' + def.id + '">' + s.trades + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Wins</span><span class="bot-stat-val" id="wins-' + def.id + '">' + s.wins + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Losses</span><span class="bot-stat-val" id="losses-' + def.id + '">' + s.losses + '</span></div>' +
           '<div class="bot-stat"><span class="bot-stat-label">Win Rate</span><span class="bot-stat-val" id="wr-' + def.id + '">' + (s.trades ? ((s.wins / s.trades) * 100).toFixed(1) + '%' : '—') + '</span></div>' +
-          '<div class="bot-stat"><span class="bot-stat-label">Model Probability</span><span class="bot-stat-val" id="probability-' + def.id + '">' + (s.currentProbability ? (s.currentProbability * 100).toFixed(1) + '%' : '—') + '</span></div>' +
         '</div>' +
         '<div class="bot-signal-row" id="signal-row-' + def.id + '" style="display:block">' +
           '<span class="bot-signal-label">Status</span>' +
@@ -2060,7 +2058,7 @@
         currentStake: baseStake,
         takeProfit: Math.max(0.01, Number(opts.takeProfit) || 5),
         stopLoss: Math.max(0.01, Number(opts.stopLoss) || 50),
-        martingale: Math.max(0, Number(opts.martingale) || 4.5),
+        martingale: Math.max(1, Number(opts.martingale) || 4.5),
         initialStake: baseStake,
         sessionProfit: 0,
         lossStopped: false,
@@ -2077,7 +2075,7 @@
         session.losingStreak = 0;
       } else {
         session.losingStreak += 1;
-        session.currentStake = Number((session.currentStake + session.martingale).toFixed(2));
+        session.currentStake = Math.min(Number((session.currentStake * session.martingale).toFixed(2)), 5000);
       }
       return session.currentStake;
     },

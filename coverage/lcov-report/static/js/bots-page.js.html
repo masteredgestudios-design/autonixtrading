@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">26.45% </span>
+                <span class="strong">26.41% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>556/2102</span>
+                <span class='fraction'>556/2105</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">26.45% </span>
+                <span class="strong">26.41% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>556/2102</span>
+                <span class='fraction'>556/2105</span>
             </div>
         
             
@@ -2165,7 +2165,10 @@
 <a name='L2100'></a><a href='#L2100'>2100</a>
 <a name='L2101'></a><a href='#L2101'>2101</a>
 <a name='L2102'></a><a href='#L2102'>2102</a>
-<a name='L2103'></a><a href='#L2103'>2103</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L2103'></a><a href='#L2103'>2103</a>
+<a name='L2104'></a><a href='#L2104'>2104</a>
+<a name='L2105'></a><a href='#L2105'>2105</a>
+<a name='L2106'></a><a href='#L2106'>2106</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -3803,7 +3806,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
@@ -3971,8 +3973,12 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -5333,7 +5339,7 @@
 <span class="cstat-no" title="statement not covered" >      } else {</span>
 <span class="cstat-no" title="statement not covered" >        state.martStep += 1;</span>
 <span class="cstat-no" title="statement not covered" >        state.consecutiveLosses += 1;</span>
-<span class="cstat-no" title="statement not covered" >        state.currentStake = +(state.currentStake + state.martingale).toFixed(2);</span>
+<span class="cstat-no" title="statement not covered" >        state.currentStake = Math.min(+(state.currentStake * state.martingale).toFixed(2), 5000);</span>
 <span class="cstat-no" title="statement not covered" >        state.predictionStats.losses += 1;</span>
 <span class="cstat-no" title="statement not covered" >        state.predictionStats.losingStreak = state.consecutiveLosses;</span>
 <span class="cstat-no" title="statement not covered" >        state.modelHistory.push({</span>
@@ -5357,7 +5363,7 @@
 <span class="cstat-no" title="statement not covered" >          pl: pl,</span>
 <span class="cstat-no" title="statement not covered" >          won: won,</span>
 <span class="cstat-no" title="statement not covered" >        });</span>
-<span class="cstat-no" title="statement not covered" >        window.showToast &amp;&amp; window.showToast("Over 1 AI Predictor: loss recorded — applying configured martingale", "red", 3500);</span>
+<span class="cstat-no" title="statement not covered" >        window.showToast &amp;&amp; window.showToast("Over 1 AI Predictor: loss recorded", "red", 3500);</span>
 <span class="cstat-no" title="statement not covered" >      }</span>
 <span class="cstat-no" title="statement not covered" >    } else {</span>
 <span class="cstat-no" title="statement not covered" >      pushGlobalHistory({</span>
@@ -5453,7 +5459,7 @@
 <span class="cstat-no" title="statement not covered" >    if (state.def.id === "over1AiPredictor") {</span>
 <span class="cstat-no" title="statement not covered" >      state.stake = Math.max(0.35, parseFloat(stakeEl &amp;&amp; stakeEl.value) || 10);</span>
 <span class="cstat-no" title="statement not covered" >      state.tp = Math.max(0.01, parseFloat(tpEl &amp;&amp; tpEl.value) || 5);</span>
-<span class="cstat-no" title="statement not covered" >      state.martingale = Math.max(0, parseFloat(document.getElementById("input-martingale-" + state.def.id)?.value) || 4.5);</span>
+<span class="cstat-no" title="statement not covered" >      state.martingale = Math.max(1, parseFloat(document.getElementById("input-martingale-" + state.def.id)?.value) || 4.5);</span>
 <span class="cstat-no" title="statement not covered" >      state.sl = Math.max(0.01, parseFloat(slEl &amp;&amp; slEl.value) || 50);</span>
 <span class="cstat-no" title="statement not covered" >    }</span>
 <span class="cstat-no" title="statement not covered" >    if (twEl) state.tickWindow = parseInt(twEl.value, 10)   || state.tickWindow || 100;</span>
@@ -5719,9 +5725,8 @@
 <span class="cstat-no" title="statement not covered" >          '&lt;input type="number" min="0.5" step="0.5" value="' + s.def.defaults.tp + '" id="input-tp-' + def.id + '" /&gt;' +</span>
 <span class="cstat-no" title="statement not covered" >        '&lt;/label&gt;' +</span>
 <span class="cstat-no" title="statement not covered" >        '&lt;label class="bot-input-field"&gt;' +</span>
-<span class="cstat-no" title="statement not covered" >          '&lt;span class="bot-input-label"&gt;' + (def.id === "over1AiPredictor" ? "Martingale" : "Stop Loss") + '&lt;/span&gt;' +</span>
-<span class="cstat-no" title="statement not covered" >          '&lt;input type="number" min="0" step="0.5" value="' + (def.id === "over1AiPredictor" ? (s.martingale || def.martingale) : s.def.defaults.sl || '0') + '" id="input-' + (def.id === "over1AiPredictor" ? 'martingale' : 'sl') + '-' + def.id + '" /&gt;' +</span>
-<span class="cstat-no" title="statement not covered" >          (def.id === "over1AiPredictor" ? '&lt;span class="bot-input-hint"&gt;Amount added to stake after a loss&lt;/span&gt;' : '') +</span>
+<span class="cstat-no" title="statement not covered" >          '&lt;span class="bot-input-label"&gt;' + (def.id === "over1AiPredictor" ? "Martingale Multiplier" : "Stop Loss") + '&lt;/span&gt;' +</span>
+<span class="cstat-no" title="statement not covered" >          '&lt;input type="number" min="' + (def.id === "over1AiPredictor" ? "1" : "0") + '" step="' + (def.id === "over1AiPredictor" ? "0.1" : "0.5") + '" value="' + (def.id === "over1AiPredictor" ? (s.martingale || def.martingale) : s.def.defaults.sl || '0') + '" id="input-' + (def.id === "over1AiPredictor" ? 'martingale' : 'sl') + '-' + def.id + '" /&gt;' +</span>
 <span class="cstat-no" title="statement not covered" >        '&lt;/label&gt;' +</span>
 <span class="cstat-no" title="statement not covered" >        (def.id === "over1AiPredictor" ? '&lt;label class="bot-input-field"&gt;&lt;span class="bot-input-label"&gt;Stop Loss&lt;/span&gt;&lt;input type="number" min="0.01" step="0.5" value="' + (s.sl || def.defaults.sl) + '" id="input-sl-' + def.id + '" /&gt;&lt;span class="bot-input-hint"&gt;Maximum cumulative session loss&lt;/span&gt;&lt;/label&gt;' : '') +</span>
 <span class="cstat-no" title="statement not covered" >      '&lt;/div&gt;';</span>
@@ -5825,11 +5830,11 @@
 <span class="cstat-no" title="statement not covered" >        inputsHTML +</span>
 <span class="cstat-no" title="statement not covered" >        actionsHTML +</span>
 <span class="cstat-no" title="statement not covered" >        '&lt;div class="bot-stats-grid"&gt;' +</span>
-<span class="cstat-no" title="statement not covered" >          '&lt;div class="bot-stat"&gt;&lt;span class="bot-stat-label"&gt;Current Stake&lt;/span&gt;&lt;span class="bot-stat-val" id="current-stake-' + def.id + '"&gt;$' + Number(s.currentStake || s.stake).toFixed(2) + '&lt;/span&gt;&lt;/div&gt;' +</span>
-<span class="cstat-no" title="statement not covered" >          '&lt;div class="bot-stat"&gt;&lt;span class="bot-stat-label"&gt;Session P/L&lt;/span&gt;&lt;span class="bot-stat-val" id="pl-' + def.id + '"&gt;' + displaySignedMoney(s.sessionPL) + '&lt;/span&gt;&lt;/div&gt;' +</span>
-<span class="cstat-no" title="statement not covered" >          '&lt;div class="bot-stat"&gt;&lt;span class="bot-stat-label"&gt;Trades&lt;/span&gt;&lt;span class="bot-stat-val" id="wins-' + def.id + '"&gt;' + s.trades + '&lt;/span&gt;&lt;/div&gt;' +</span>
-<span class="cstat-no" title="statement not covered" >          '&lt;div class="bot-stat"&gt;&lt;span class="bot-stat-label"&gt;Last Result&lt;/span&gt;&lt;span class="bot-stat-val" id="losses-' + def.id + '"&gt;' + (s.lastResult ? (s.lastResult.won ? 'WIN' : 'LOSS') : '—') + '&lt;/span&gt;&lt;/div&gt;' +</span>
-<span class="cstat-no" title="statement not covered" >          '&lt;div class="bot-stat"&gt;&lt;span class="bot-stat-label"&gt;Probability&lt;/span&gt;&lt;span class="bot-stat-val" id="wr-' + def.id + '"&gt;' + (s.currentProbability ? (s.currentProbability * 100).toFixed(1) + '%' : '—') + '&lt;/span&gt;&lt;/div&gt;' +</span>
+<span class="cstat-no" title="statement not covered" >          '&lt;div class="bot-stat"&gt;&lt;span class="bot-stat-label"&gt;P / L&lt;/span&gt;&lt;span class="bot-stat-val" id="pl-' + def.id + '"&gt;' + displaySignedMoney(s.sessionPL) + '&lt;/span&gt;&lt;/div&gt;' +</span>
+<span class="cstat-no" title="statement not covered" >          '&lt;div class="bot-stat"&gt;&lt;span class="bot-stat-label"&gt;Trades&lt;/span&gt;&lt;span class="bot-stat-val" id="trades-' + def.id + '"&gt;' + s.trades + '&lt;/span&gt;&lt;/div&gt;' +</span>
+<span class="cstat-no" title="statement not covered" >          '&lt;div class="bot-stat"&gt;&lt;span class="bot-stat-label"&gt;Wins&lt;/span&gt;&lt;span class="bot-stat-val" id="wins-' + def.id + '"&gt;' + s.wins + '&lt;/span&gt;&lt;/div&gt;' +</span>
+<span class="cstat-no" title="statement not covered" >          '&lt;div class="bot-stat"&gt;&lt;span class="bot-stat-label"&gt;Losses&lt;/span&gt;&lt;span class="bot-stat-val" id="losses-' + def.id + '"&gt;' + s.losses + '&lt;/span&gt;&lt;/div&gt;' +</span>
+<span class="cstat-no" title="statement not covered" >          '&lt;div class="bot-stat"&gt;&lt;span class="bot-stat-label"&gt;Win Rate&lt;/span&gt;&lt;span class="bot-stat-val" id="wr-' + def.id + '"&gt;' + (s.trades ? ((s.wins / s.trades) * 100).toFixed(1) + '%' : '—') + '&lt;/span&gt;&lt;/div&gt;' +</span>
 <span class="cstat-no" title="statement not covered" >        '&lt;/div&gt;' +</span>
 <span class="cstat-no" title="statement not covered" >        '&lt;div class="bot-signal-row" id="signal-row-' + def.id + '" style="display:block"&gt;' +</span>
 <span class="cstat-no" title="statement not covered" >          '&lt;span class="bot-signal-label"&gt;Status&lt;/span&gt;' +</span>
@@ -6039,6 +6044,8 @@
 <span class="cstat-no" title="statement not covered" >    var loEl = document.getElementById("losses-"  + def.id); if (loEl) loEl.textContent = state.losses;</span>
 <span class="cstat-no" title="statement not covered" >    var wrEl = document.getElementById("wr-"      + def.id);</span>
 <span class="cstat-no" title="statement not covered" >    if (wrEl) wrEl.textContent = state.trades ? ((state.wins / state.trades) * 100).toFixed(1) + "%" : "\u2014";</span>
+<span class="cstat-no" title="statement not covered" >    var probabilityEl = document.getElementById("probability-" + def.id);</span>
+<span class="cstat-no" title="statement not covered" >    if (probabilityEl) probabilityEl.textContent = state.currentProbability ? (state.currentProbability * 100).toFixed(1) + "%" : "\u2014";</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >    // Signal</span>
 <span class="cstat-no" title="statement not covered" >    var sigRow = document.getElementById("signal-row-" + def.id);</span>
@@ -6076,6 +6083,7 @@
 &nbsp;
 <span class="fstat-no" title="function not covered" >  function renderSummary() {</span>
 <span class="cstat-no" title="statement not covered" >    var active = 0, total = 0;</span>
+<span class="cstat-no" title="statement not covered" >    var totalBots = BOT_DEFS.length;</span>
 <span class="cstat-no" title="statement not covered" >    BOT_DEFS.forEach(function (d) {</span>
 <span class="cstat-no" title="statement not covered" >      var s = states[d.id];</span>
 <span class="cstat-no" title="statement not covered" >      if (s.running) active++;</span>
@@ -6085,13 +6093,14 @@
 <span class="cstat-no" title="statement not covered" >      Object.keys(window.AutonixSuite.systems).forEach(function (id) {</span>
 <span class="cstat-no" title="statement not covered" >        var system = window.AutonixSuite.systems[id];</span>
 <span class="cstat-no" title="statement not covered" >        if (!BOT_DEFS.some(function (d) { return d.id === id; })) {</span>
+<span class="cstat-no" title="statement not covered" >          totalBots++;</span>
 <span class="cstat-no" title="statement not covered" >          if (system.running) active++;</span>
 <span class="cstat-no" title="statement not covered" >          total += Number(system.sessionPL) || 0;</span>
 <span class="cstat-no" title="statement not covered" >        }</span>
 <span class="cstat-no" title="statement not covered" >      });</span>
 <span class="cstat-no" title="statement not covered" >    }</span>
 <span class="cstat-no" title="statement not covered" >    var ac = document.getElementById("bots-active-count");</span>
-<span class="cstat-no" title="statement not covered" >    if (ac) ac.textContent = active + " / " + BOT_DEFS.length;</span>
+<span class="cstat-no" title="statement not covered" >    if (ac) ac.textContent = active + " / " + totalBots;</span>
 <span class="cstat-no" title="statement not covered" >    var tp = document.getElementById("bots-total-pl");</span>
 <span class="cstat-no" title="statement not covered" >    if (tp) {</span>
 <span class="cstat-no" title="statement not covered" >      tp.textContent = displaySignedMoney(total);</span>
@@ -6192,7 +6201,7 @@
 &nbsp;
   /* ─── Initial render ─────────────────────────────────────────── */
 <span class="fstat-no" title="function not covered" >  function renderAll() {</span>
-<span class="cstat-no" title="statement not covered" >    var grid = document.getElementById("bots-grid");</span>
+<span class="cstat-no" title="statement not covered" >    var grid = document.getElementById("bot-cards-render-target");</span>
 <span class="cstat-no" title="statement not covered" >    if (!grid) return;</span>
 <span class="cstat-no" title="statement not covered" >    grid.innerHTML = "";</span>
 <span class="cstat-no" title="statement not covered" >    BOT_DEFS.forEach(function (def) {</span>
@@ -6324,7 +6333,7 @@
         currentStake: baseStake,
         takeProfit: Math.max(0.01, Number(opts.takeProfit)<span class="branch-0 cbranch-no" title="branch not covered" > || 5)</span>,
         stopLoss: Math.max(0.01, Number(opts.stopLoss)<span class="branch-0 cbranch-no" title="branch not covered" > || 50)</span>,
-        martingale: Math.max(0, Number(opts.martingale)<span class="branch-0 cbranch-no" title="branch not covered" > || 4.5)</span>,
+        martingale: Math.max(1, Number(opts.martingale)<span class="branch-0 cbranch-no" title="branch not covered" > || 4.5)</span>,
         initialStake: baseStake,
         sessionProfit: 0,
         lossStopped: false,
@@ -6341,7 +6350,7 @@
         session.losingStreak = 0;
       } else {
         session.losingStreak += 1;
-        session.currentStake = Number((session.currentStake + session.martingale).toFixed(2));
+        session.currentStake = Math.min(Number((session.currentStake * session.martingale).toFixed(2)), 5000);
       }
       return session.currentStake;
     },
@@ -6376,7 +6385,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-23T20:32:58.747Z
+                at 2026-09-24T13:49:56.508Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

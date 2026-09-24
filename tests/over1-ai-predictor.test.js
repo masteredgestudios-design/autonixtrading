@@ -26,7 +26,7 @@ describe('Over 1 AI Predictor model', () => {
     expect(result.valid).toBe(true);
     const session = predictor.createSession({ stake: 10, takeProfit: 5, martingale: 4.5, stopLoss: 50 });
     const firstLoss = predictor.handleTradeResult(session, { won: false, pl: -10 });
-    expect(firstLoss.currentStake).toBeCloseTo(14.5, 2);
+    expect(firstLoss.currentStake).toBeCloseTo(45, 2);
     expect(firstLoss.tradeAllowed).toBe(true);
     const win = predictor.handleTradeResult(session, { won: true, pl: 2.75 });
     expect(win.currentStake).toBeCloseTo(10, 2);
