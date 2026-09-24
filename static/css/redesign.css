@@ -2666,15 +2666,15 @@ select:disabled {
 
   .bot-digit-row,
   body:has(#trade-panel) .bot-digit-row {
-    grid-template-columns: repeat(5, minmax(44px, 1fr)) !important;
-    gap: 3px !important;
+    grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+    gap: 2px !important;
   }
 
   .bot-digit-btn,
   body:has(#trade-panel) .bot-digit-btn {
     width: 100% !important;
-    height: 44px !important;
-    min-height: 44px !important;
+    height: 32px !important;
+    min-height: 32px !important;
     font-size: 12px !important;
     border-radius: 7px !important;
   }
@@ -2693,8 +2693,8 @@ select:disabled {
   .bot-digit-btn,
   body:has(#trade-panel) .bot-digit-btn {
     width: 100% !important;
-    height: 44px !important;
-    min-height: 44px !important;
+    height: 32px !important;
+    min-height: 32px !important;
     font-size: 11px !important;
     border-radius: 6px !important;
   }
@@ -2703,6 +2703,116 @@ select:disabled {
 @media (min-width: 769px) {
   .manual-session-stats {
     display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  body:has(#trade-panel) .bot-panel-inner {
+    gap: 5px !important;
+    padding: 6px 7px 8px !important;
+  }
+
+  body:has(#trade-panel) .trading-mode-switcher {
+    gap: 3px !important;
+    padding-bottom: 5px !important;
+  }
+
+  body:has(#trade-panel) .trading-mode-btn {
+    min-height: 30px !important;
+    padding-block: 4px !important;
+  }
+
+  body:has(#trade-panel) .bot-header {
+    min-height: 36px !important;
+    margin: 0 !important;
+    padding-bottom: 4px !important;
+  }
+
+  body:has(#trade-panel) .bot-header-icon {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+  }
+
+  body:has(#trade-panel) .trade-type-selector-bar {
+    height: 36px !important;
+  }
+
+  body:has(#trade-panel) .trade-type-btn {
+    min-height: 36px !important;
+    padding-block: 4px !important;
+  }
+
+  body:has(#trade-panel) .bot-input-wrap {
+    min-height: 38px !important;
+  }
+
+  body:has(#trade-panel) .bot-input {
+    min-height: 36px !important;
+    padding-block: 4px !important;
+  }
+
+  body:has(#trade-panel) .bot-digit-btn {
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+
+  body:has(#trade-panel) .manual-action-btn {
+    min-height: 40px !important;
+  }
+
+  body:has(#trade-panel) .bot-session-stats {
+    padding: 5px !important;
+    gap: 4px !important;
+  }
+
+  body:has(#trade-panel) .trading-mode-label {
+    font-size: 9px !important;
+  }
+
+  body:has(#trade-panel) .trading-mode-btn {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+  }
+
+  body:has(#trade-panel) .bot-header-label {
+    font-size: 12px !important;
+  }
+
+  body:has(#trade-panel) .bot-label {
+    font-size: 10px !important;
+  }
+
+  body:has(#trade-panel) .bot-input {
+    font-size: 12px !important;
+  }
+
+  body:has(#trade-panel) .bot-stat-label {
+    font-size: 9px !important;
+  }
+
+  body:has(#trade-panel) .bot-stat-value {
+    font-size: 12px !important;
+  }
+
+  body:has(#trade-panel) .bot-stat-prominent .bot-stat-value {
+    font-size: 15px !important;
+  }
+
+  body:has(#trade-panel) .bot-seg-btn,
+  body:has(#trade-panel) .trade-type-btn {
+    font-size: 11px !important;
+  }
+
+  body:has(#trade-panel) .manual-action-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    text-align: center !important;
   }
 }
 
