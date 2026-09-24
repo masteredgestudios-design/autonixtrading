@@ -2701,9 +2701,7 @@ select:disabled {
 }
 
 @media (min-width: 769px) {
-  .manual-session-stats {
-    display: none !important;
-  }
+  .manual-trade-result { display: flex !important; }
 }
 
 @media (max-width: 768px) {
@@ -2764,6 +2762,15 @@ select:disabled {
   body:has(#trade-panel) .bot-session-stats {
     padding: 5px !important;
     gap: 4px !important;
+  }
+
+  body:has(#trade-panel) .manual-trade-result {
+    padding: 6px 8px !important;
+    gap: 2px !important;
+  }
+
+  body:has(#trade-panel) .manual-trade-result .bot-stat-value {
+    font-size: 15px !important;
   }
 
   body:has(#trade-panel) .trading-mode-label {

@@ -25,11 +25,11 @@
     if (digitGroup) digitGroup.style.display = (state.type === "match-differ" || state.type === "over-under") ? "" : "none";
     (selections[state.type] || []).forEach(function (item) { var button = document.createElement("button"); button.type = "button"; button.className = "manual-action-btn " + item[1]; button.textContent = item[0]; button.addEventListener("click", function () { submit(item[1], button); }); group.appendChild(button); });
   }
-  function updateStats() {
-    var session = window._botState; if (!session) return;
-    [id("manual-achieved-profit"), id("bot-achieved-profit")].forEach(function (el) { if (el) { el.textContent = money(session.sessionPL); el.className = "bot-stat-value " + (session.sessionPL >= 0 ? "profit" : "loss"); } });
-    var fields = { "manual-session-trades": session.sessionTrades, "manual-session-wins": session.sessionWins, "manual-session-losses": session.sessionTrades - session.sessionWins, "manual-session-wr": session.sessionTrades ? ((session.sessionWins / session.sessionTrades) * 100).toFixed(1) + "%" : "—" };
-    Object.keys(fields).forEach(function (key) { var el = id(key); if (el) el.textContent = fields[key]; });
+  function setLatestResult(value, status) {
+    var el = id("manual-achieved-profit");
+    if (!el) return;
+    el.textContent = status || money(value);
+    el.className = "bot-stat-value " + (status ? "pending" : (Number(value) >= 0 ? "profit" : "loss"));
   }
   function submit(selection, button) {
     if (state.busy) return;
@@ -38,21 +38,24 @@
     var stake = parseFloat(id("manual-stake").value) || 0; var duration = parseInt(id("manual-duration").value, 10) || 1;
     if (stake <= 0) return;
     state.busy = true; button.disabled = true;
+    setLatestResult(null, "Pending...");
     var symbol = window._selectedAssetSymbol || "1HZ100V"; var account = sd.activeAccount || {};
     var asset = id("selected-asset-name");
     var trade = { id: Date.now(), type: state.type, selection: selection, digit: state.digit, stake: stake, duration: duration, symbol: symbol, symbolName: asset ? asset.textContent : symbol, entry: 0, startTime: Date.now(), status: "active", pl: 0, source: "manual" };
     window._botState.activePositions.push(trade); window._botUpdatePositions && window._botUpdatePositions();
     window.DerivWS.buyContract({ tradeType: state.type, selection: selection, stake: stake, duration: duration, symbol: symbol, digit: state.digit, currency: account.currency || "USD" }, function (result) {
-      window._botResolveExternalTrade && window._botResolveExternalTrade(trade.id, 0, result); state.busy = false; button.disabled = false; updateStats();
+      window._botResolveExternalTrade && window._botResolveExternalTrade(trade.id, 0, result);
+      setLatestResult(result.pl);
+      state.busy = false; button.disabled = false;
     }).catch(function (error) {
       var index = window._botState.activePositions.findIndex(function (item) { return item.id === trade.id; }); if (index !== -1) window._botState.activePositions.splice(index, 1);
-      window._botUpdatePositions && window._botUpdatePositions(); state.busy = false; button.disabled = false; window.showToast && window.showToast("Trade error: " + (error.message || "request failed"), "red", 4000);
+      window._botUpdatePositions && window._botUpdatePositions(); setLatestResult(null, "Trade failed"); state.busy = false; button.disabled = false; window.showToast && window.showToast("Trade error: " + (error.message || "request failed"), "red", 4000);
     });
   }
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-trading-mode]").forEach(function (button) { button.addEventListener("click", function () { setMode(button.dataset.tradingMode); }); });
     document.querySelectorAll("#trade-type-buttons .trade-type-btn").forEach(function (button) { button.addEventListener("click", function () { state.type = button.dataset.type; renderActions(); }); });
     var digits = id("manual-digit-row"); if (digits) digits.addEventListener("click", function (event) { var button = event.target.closest("[data-digit]"); if (!button) return; state.digit = parseInt(button.dataset.digit, 10); digits.querySelectorAll(".bot-digit-btn").forEach(function (item) { item.classList.toggle("active", item === button); }); });
-    document.addEventListener("tradeResolved", updateStats); renderActions(); setMode("manual"); updateStats();
+    renderActions(); setMode("manual");
   });
 })();

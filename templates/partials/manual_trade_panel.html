@@ -22,12 +22,9 @@
       <div class="bot-field-group"><label class="bot-label" for="manual-stake">Stake (USD)</label><div class="bot-input-wrap"><input type="number" class="bot-input" id="manual-stake" value="10" min="0.35" max="50000" step="0.5"></div></div>
       <div class="bot-field-group"><label class="bot-label" for="manual-duration">Duration (ticks)</label><div class="bot-input-wrap"><input type="number" class="bot-input" id="manual-duration" value="1" min="1" max="10" step="1"></div></div>
     </div>
-    <div class="bot-session-stats manual-session-stats">
-      <div class="bot-stat bot-stat-prominent"><span class="bot-stat-label">Achieved Profit</span><span class="bot-stat-value" id="manual-achieved-profit">+$0.00</span></div>
-      <div class="bot-stat"><span class="bot-stat-label">Trades</span><span class="bot-stat-value" id="manual-session-trades">0</span></div>
-      <div class="bot-stat"><span class="bot-stat-label">Wins</span><span class="bot-stat-value" id="manual-session-wins">0</span></div>
-      <div class="bot-stat"><span class="bot-stat-label">Losses</span><span class="bot-stat-value" id="manual-session-losses">0</span></div>
-      <div class="bot-stat"><span class="bot-stat-label">Win Rate</span><span class="bot-stat-value" id="manual-session-wr">—</span></div>
+    <div class="manual-trade-result" id="manual-trade-result" aria-live="polite" style="display:none">
+      <span class="bot-stat-label">Achieved Profit</span>
+      <span class="bot-stat-value pending" id="manual-achieved-profit">Pending...</span>
     </div>
     <div class="manual-action-grid" id="manual-action-grid"></div>
     <div class="bot-last-trade" id="manual-last-trade" style="display:none"><span class="bot-last-label">Last trade</span><span class="bot-last-result" id="manual-last-result"></span></div>

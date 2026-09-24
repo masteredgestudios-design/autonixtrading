@@ -125,7 +125,16 @@ def _get_usd_kes_rate():
 
 DATA_DIR = BASE_DIR / "data"
 DERIV_APP_ID = os.getenv("DERIV_APP_ID") or os.getenv("NEXT_PUBLIC_DERIV_APP_ID")
+DERIV_PUBLIC_WS_URL = os.getenv(
+    "DERIV_PUBLIC_WS_URL",
+    "wss://api.derivws.com/trading/v1/options/ws/public",
+)
 REDIRECT_URL = os.getenv("REDIRECT_URL", "").rstrip("/")
+
+
+@app.context_processor
+def inject_public_ws_url():
+    return {"public_ws_url": DERIV_PUBLIC_WS_URL}
 APK_DOWNLOAD_PATH = os.getenv("APK_DOWNLOAD_PATH", "Autonix.apk")
 APK_FILE = (BASE_DIR / APK_DOWNLOAD_PATH).resolve()
 

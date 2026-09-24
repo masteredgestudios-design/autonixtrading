@@ -1575,8 +1575,23 @@ body.drawer-open {
   display: none;
 }
 
-.manual-session-stats {
-  display: none;
+.manual-trade-result {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.manual-trade-result .bot-stat-value {
+  font-size: 17px;
+}
+
+.manual-trade-result .bot-stat-value.pending {
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 #trade-panel {

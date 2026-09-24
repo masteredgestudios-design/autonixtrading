@@ -208,6 +208,7 @@
 
   <script>
     window.DERIV_APP_ID = "{{ ws_app_id }}";
+    window.DERIV_PUBLIC_WS_URL = "{{ public_ws_url or 'wss://api.derivws.com/trading/v1/options/ws/public' }}";
     window.SESSION_DATA = {{ (session_data | tojson) if session_data else 'null' }};
     window.REDIRECT_URL = "{{ redirect_url or '' }}" || window.location.origin;
   </script>

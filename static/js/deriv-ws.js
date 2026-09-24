@@ -286,7 +286,9 @@
       try { state.ws.close(); } catch (e) {}
     }
 
-    var url = wsUrl || WS_URL + appId;
+     /* Public chart/tick streaming uses the same Options endpoint as the
+       React chart. Authenticated accounts continue using their OTP URL. */
+     var url = wsUrl || window.DERIV_PUBLIC_WS_URL || WS_URL + appId;
     var ws = new WebSocket(url);
     state.ws = ws;
     state.connected = false;

@@ -523,17 +523,17 @@
     trade.status = won ? "won" : "lost";
     trade.resolvedTime = Date.now();
 
-    // Update session
-    botState.sessionPL += pl;
-    botState.sessionTrades += 1;
-    if (won) {
-      botState.sessionWins++;
-      botState.streak = Math.max(0, botState.streak) + 1;
-      if (trade.source !== "manual") botState.currentStake = botState.stake;
-      if (pl > botState.bestTrade) botState.bestTrade = pl;
-    } else {
-      botState.streak = Math.min(0, botState.streak) - 1;
-      if (trade.source !== "manual") {
+    // Only automated trades belong to bot session statistics.
+    if (trade.source !== "manual") {
+      botState.sessionPL += pl;
+      botState.sessionTrades += 1;
+      if (won) {
+        botState.sessionWins++;
+        botState.streak = Math.max(0, botState.streak) + 1;
+        botState.currentStake = botState.stake;
+        if (pl > botState.bestTrade) botState.bestTrade = pl;
+      } else {
+        botState.streak = Math.min(0, botState.streak) - 1;
         botState.currentStake = +(
           botState.currentStake * botState.martingale
         ).toFixed(2);
@@ -628,10 +628,9 @@
       return;
     }
 
-    // Chain next trade — small delay to avoid hammering the API
-    setTimeout(function () {
-      if (botState.running && trade.source !== "manual") placeTrade();
-    }, 600);
+    /* Continue immediately after settlement; the API/WebSocket is already
+       active and manual trades never enter this path. */
+    if (botState.running && trade.source !== "manual") placeTrade();
   }
 
   /* ══ Outcome determination (simulated) ══ */
