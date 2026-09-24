@@ -2666,14 +2666,15 @@ select:disabled {
 
   .bot-digit-row,
   body:has(#trade-panel) .bot-digit-row {
-    grid-template-columns: repeat(10, minmax(22px, 1fr)) !important;
+    grid-template-columns: repeat(5, minmax(44px, 1fr)) !important;
     gap: 3px !important;
   }
 
   .bot-digit-btn,
   body:has(#trade-panel) .bot-digit-btn {
-    height: 36px !important;
-    min-height: 36px !important;
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
     font-size: 12px !important;
     border-radius: 7px !important;
   }
@@ -2691,10 +2692,17 @@ select:disabled {
 
   .bot-digit-btn,
   body:has(#trade-panel) .bot-digit-btn {
-    height: 32px !important;
-    min-height: 32px !important;
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
     font-size: 11px !important;
     border-radius: 6px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .manual-session-stats {
+    display: none !important;
   }
 }
 

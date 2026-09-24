@@ -61,7 +61,7 @@
   document.addEventListener("touchstart", function (event) {
     if (refreshing || event.touches.length !== 1) return;
     var target = event.target;
-    if (target.closest && target.closest("input, select, textarea, button, a, [contenteditable=\"true\"]")) return;
+    if (target.closest && target.closest("input, select, textarea, button, a, [contenteditable=\"true\"], .chart-section, .bot-panel, .positions-panel, .markets-panel")) return;
     var main = getMainScrollContainer();
     owner = getScrollableAncestor(target);
     if (!main || main.scrollTop > 1 || owner !== main) {

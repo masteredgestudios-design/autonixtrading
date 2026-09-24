@@ -1,6 +1,14 @@
 <aside class="bot-panel" id="trade-panel">
   <div class="bot-panel-inner">
 
+    <div class="trading-mode-switcher" role="group" aria-label="Trading mode">
+      <span class="trading-mode-label">Trading Mode</span>
+      <div class="trading-mode-buttons">
+        <button class="trading-mode-btn" type="button" data-trading-mode="manual">Manual Trading</button>
+        <button class="trading-mode-btn active" type="button" data-trading-mode="bot">Bot Control</button>
+      </div>
+    </div>
+
     <!-- Header -->
     <div class="bot-header">
       <div class="bot-header-icon">
@@ -75,6 +83,10 @@
 
     <!-- Live session stats -->
     <div class="bot-session-stats" id="bot-session-stats">
+      <div class="bot-stat bot-stat-prominent">
+        <span class="bot-stat-label">Achieved Profit</span>
+        <span class="bot-stat-value" id="bot-achieved-profit">+$0.00</span>
+      </div>
       <div class="bot-stat">
         <span class="bot-stat-label">Session P&amp;L</span>
         <span class="bot-stat-value" id="bot-session-pl">$0.00</span>

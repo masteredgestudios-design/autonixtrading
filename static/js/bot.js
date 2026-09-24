@@ -120,7 +120,7 @@
 
   /* ══ Trade type tabs (single source of truth — above the chart) ══ */
   function initTypeTabs() {
-    var tabs = document.querySelectorAll(".trade-type-btn");
+    var tabs = document.querySelectorAll("#trade-type-buttons .trade-type-btn");
     tabs.forEach(function (tab) {
       tab.addEventListener("click", function () {
         if (botState.running) return; // don't change type while running
@@ -132,7 +132,7 @@
   function setTradeType(type) {
     if (!type || !typeDefaults[type]) return;
     botState.tradeType = type;
-    var tabs = document.querySelectorAll(".trade-type-btn");
+    var tabs = document.querySelectorAll("#trade-type-buttons .trade-type-btn");
     tabs.forEach(function (t) {
       var on = t.dataset.type === type;
       t.classList.toggle("active", on);
@@ -529,15 +529,17 @@
     if (won) {
       botState.sessionWins++;
       botState.streak = Math.max(0, botState.streak) + 1;
-      botState.currentStake = botState.stake; // reset stake
+      if (trade.source !== "manual") botState.currentStake = botState.stake;
       if (pl > botState.bestTrade) botState.bestTrade = pl;
     } else {
       botState.streak = Math.min(0, botState.streak) - 1;
-      botState.currentStake = +(
-        botState.currentStake * botState.martingale
-      ).toFixed(2);
-      // cap stake at $5000
-      if (botState.currentStake > 5000) botState.currentStake = 5000;
+      if (trade.source !== "manual") {
+        botState.currentStake = +(
+          botState.currentStake * botState.martingale
+        ).toFixed(2);
+        // cap stake at $5000
+        if (botState.currentStake > 5000) botState.currentStake = 5000;
+      }
     }
 
     // Add to history
@@ -628,7 +630,7 @@
 
     // Chain next trade — small delay to avoid hammering the API
     setTimeout(function () {
-      if (botState.running) placeTrade();
+      if (botState.running && trade.source !== "manual") placeTrade();
     }, 600);
   }
 
@@ -815,11 +817,17 @@
 
   /* ═══════════════════════════ SESSION STATS ═══════════════════════════ */
   function updateSessionStats() {
+    var achieved = $id("bot-achieved-profit");
     var pl = $id("bot-session-pl");
     var trds = $id("bot-session-trades");
     var wr = $id("bot-session-wr");
     var strk = $id("bot-session-streak");
 
+    if (achieved) {
+      achieved.textContent = displaySignedMoney(botState.sessionPL);
+      achieved.className =
+        "bot-stat-value " + (botState.sessionPL >= 0 ? "profit" : "loss");
+    }
     if (pl) {
       pl.textContent =
         displaySignedMoney(botState.sessionPL);
@@ -953,6 +961,7 @@
 
   /* Expose for positions live tick update */
   window._botUpdatePositions = updatePositionsPanel;
+  window._botResolveExternalTrade = resolveTrade;
   window._botState = botState;
 
   // Tick positions panel live P&L every 1.5s
