@@ -26,8 +26,14 @@
     (selections[state.type] || []).forEach(function (item) { var button = document.createElement("button"); button.type = "button"; button.className = "manual-action-btn " + item[1]; button.textContent = item[0]; button.addEventListener("click", function () { submit(item[1], button); }); group.appendChild(button); });
   }
   function setLatestResult(value, status) {
+    var result = id("manual-trade-result");
     var el = id("manual-achieved-profit");
-    if (!el) return;
+    if (!result || !el) return;
+    if (status === "Trade failed") {
+      result.style.display = "none";
+      return;
+    }
+    result.style.display = "flex";
     el.textContent = status || money(value);
     el.className = "bot-stat-value " + (status ? "pending" : (Number(value) >= 0 ? "profit" : "loss"));
   }

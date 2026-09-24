@@ -2700,10 +2700,6 @@ select:disabled {
   }
 }
 
-@media (min-width: 769px) {
-  .manual-trade-result { display: flex !important; }
-}
-
 @media (max-width: 768px) {
   body:has(#trade-panel) .bot-panel-inner {
     gap: 5px !important;
