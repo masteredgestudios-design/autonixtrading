@@ -210,6 +210,9 @@
       history: [],
       latencySafeguard: true,
       currentSignal: null,
+      riseFallAnalysis: null,
+      riseFallResult: "",
+      activeTradeSignal: null,
       tickWindow: 100,
       tradeMode: "over-under",
       analysisStatus: "idle",
@@ -613,9 +616,26 @@
     var safeTicks = Array.isArray(ticks) ? ticks.filter(function (tick) {
       return tick && isFinite(Number(tick.price)) && Number(tick.price) > 0;
     }) : [];
-    var windows = [5, 10, 25, 50, 100];
-    if (safeTicks.length < 100) {
-      return { valid: false, reason: "Collecting at least 100 ticks...", windows: [] };
+    var windows = [5, 10, 20, 35, 50];
+    var currentPrice = safeTicks.length ? Number(safeTicks[safeTicks.length - 1].price) : null;
+    var base = {
+      valid: false,
+      reason: "Collecting market ticks...",
+      setupStage: "collecting",
+      sampleSize: safeTicks.length,
+      requiredTicks: 50,
+      currentPrice: currentPrice,
+      marketDirection: null,
+      change5: null,
+      change10: null,
+      momentumPercent: null,
+      directionalRatio: 0,
+      alignedWindows: 0,
+      windows: [],
+    };
+    if (safeTicks.length < 50) {
+      base.reason = "Collecting tick data (" + safeTicks.length + "/50)...";
+      return base;
     }
 
     var measurements = windows.map(function (size) {
@@ -640,7 +660,7 @@
         direction: direction,
         directionalRatio: directionalRatio,
         efficiency: efficiency,
-        valid: !!direction && directionalRatio >= 0.65 && efficiency >= 0.25,
+        valid: !!direction && directionalRatio >= 0.60 && efficiency >= 0.20,
       };
     });
 
@@ -651,25 +671,50 @@
     var shortWindowsAgree = measurements[0].valid && measurements[1].valid &&
       measurements[0].direction === shortDirection;
     var valid = !!shortDirection && shortWindowsAgree && alignedWindows >= 4;
+    var shortSample = safeTicks.slice(-10);
+    var fiveTickSample = safeTicks.slice(-5);
+    var change5 = Number(fiveTickSample[fiveTickSample.length - 1].price) - Number(fiveTickSample[0].price);
+    var change10 = Number(shortSample[shortSample.length - 1].price) - Number(shortSample[0].price);
+    var setupStage = valid ? "ready" : alignedWindows >= 2 || shortWindowsAgree ? "forming" : "scanning";
+    var directionLabel = shortDirection === "rise" ? "Rise" : "Fall";
+    var reason = valid ? "Strong " + directionLabel + " setup — " + alignedWindows + "/5 windows aligned" :
+      setupStage === "forming" ? directionLabel + " setup forming — " + alignedWindows + "/4 windows confirmed" :
+        shortDirection ? "No strong " + directionLabel + " setup yet — monitoring momentum" :
+          "Market direction is mixed — scanning for momentum";
     return {
       valid: valid,
       selection: valid ? shortDirection : null,
       tradeType: "rise-fall",
-      reason: valid ? "Strong " + (shortDirection === "rise" ? "Rise" : "Fall") + " setup" :
-        "Waiting for aligned multi-window momentum...",
+      reason: reason,
+      setupStage: setupStage,
+      sampleSize: safeTicks.length,
+      requiredTicks: 50,
+      currentPrice: currentPrice,
+      marketDirection: shortDirection,
+      change5: change5,
+      change10: change10,
+      momentumPercent: shortSample.length > 1 && Number(shortSample[0].price) !== 0 ?
+        (change10 / Number(shortSample[0].price)) * 100 : 0,
+      directionalRatio: measurements[1].directionalRatio,
       alignedWindows: alignedWindows,
       windows: measurements,
     };
   }
 
-  function decideFreeRiseFall(state) {
+  function updateFreeRiseFallAnalysis(state) {
     var analysis = analyzeRiseFallTicks(tickBuffers[state.symbol] || []);
     state.riseFallAnalysis = analysis;
+    state.currentSignal = analysis.valid ?
+      analysis.selection.toUpperCase() + " \u2014 " + analysis.alignedWindows + "/5 windows aligned" : analysis.reason;
+    state.analysisStatus = analysis.valid ? "signal" : "analyzing";
+    return analysis;
+  }
+
+  function decideFreeRiseFall(state) {
+    var analysis = updateFreeRiseFallAnalysis(state);
     if (!analysis.valid) {
-      state.currentSignal = analysis.reason;
       return null;
     }
-    state.currentSignal = analysis.selection.toUpperCase() + " \u2014 " + analysis.alignedWindows + "/5 windows aligned";
     return {
       selection: analysis.selection,
       tradeType: "rise-fall",
