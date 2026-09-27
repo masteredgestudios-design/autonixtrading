@@ -618,27 +618,10 @@
     }) : [];
     var windows = [5, 10, 20, 35, 50];
     var currentPrice = safeTicks.length ? Number(safeTicks[safeTicks.length - 1].price) : null;
-    var base = {
-      valid: false,
-      reason: "Collecting market ticks...",
-      setupStage: "collecting",
-      sampleSize: safeTicks.length,
-      requiredTicks: 50,
-      currentPrice: currentPrice,
-      marketDirection: null,
-      change5: null,
-      change10: null,
-      momentumPercent: null,
-      directionalRatio: 0,
-      alignedWindows: 0,
-      windows: [],
-    };
-    if (safeTicks.length < 50) {
-      base.reason = "Collecting tick data (" + safeTicks.length + "/50)...";
-      return base;
-    }
-
     var measurements = windows.map(function (size) {
+      if (safeTicks.length < size) {
+        return { window: size, direction: null, directionalRatio: 0, efficiency: 0, valid: false };
+      }
       var sample = safeTicks.slice(-size);
       var netMove = Number(sample[sample.length - 1].price) - Number(sample[0].price);
       var pathLength = 0;
@@ -670,17 +653,21 @@
     }).length;
     var shortWindowsAgree = measurements[0].valid && measurements[1].valid &&
       measurements[0].direction === shortDirection;
-    var valid = !!shortDirection && shortWindowsAgree && alignedWindows >= 4;
+    var valid = safeTicks.length >= 50 && !!shortDirection && shortWindowsAgree && alignedWindows >= 4;
     var shortSample = safeTicks.slice(-10);
     var fiveTickSample = safeTicks.slice(-5);
-    var change5 = Number(fiveTickSample[fiveTickSample.length - 1].price) - Number(fiveTickSample[0].price);
-    var change10 = Number(shortSample[shortSample.length - 1].price) - Number(shortSample[0].price);
-    var setupStage = valid ? "ready" : alignedWindows >= 2 || shortWindowsAgree ? "forming" : "scanning";
-    var directionLabel = shortDirection === "rise" ? "Rise" : "Fall";
-    var reason = valid ? "Strong " + directionLabel + " setup — " + alignedWindows + "/5 windows aligned" :
-      setupStage === "forming" ? directionLabel + " setup forming — " + alignedWindows + "/4 windows confirmed" :
-        shortDirection ? "No strong " + directionLabel + " setup yet — monitoring momentum" :
-          "Market direction is mixed — scanning for momentum";
+    var change5 = fiveTickSample.length > 1 ?
+      Number(fiveTickSample[fiveTickSample.length - 1].price) - Number(fiveTickSample[0].price) : null;
+    var change10 = shortSample.length > 1 ?
+      Number(shortSample[shortSample.length - 1].price) - Number(shortSample[0].price) : null;
+    var setupStage = safeTicks.length < 50 ? "collecting" :
+      valid ? "ready" : alignedWindows >= 2 || shortWindowsAgree ? "forming" : "scanning";
+    var directionLabel = shortDirection === "rise" ? "Rise" : shortDirection === "fall" ? "Fall" : "Mixed";
+    var reason = valid ? "Strong " + directionLabel + " setup \u2014 " + alignedWindows + "/5 windows aligned" :
+      setupStage === "collecting" ? "Collecting ticks (" + safeTicks.length + "/50) \u2014 preliminary " + directionLabel + " trend" :
+        setupStage === "forming" ? directionLabel + " setup forming \u2014 " + alignedWindows + "/4 windows confirmed" :
+          shortDirection ? "No strong " + directionLabel + " setup yet \u2014 monitoring momentum" :
+            "Market direction is mixed — scanning for momentum";
     return {
       valid: valid,
       selection: valid ? shortDirection : null,
@@ -698,6 +685,21 @@
       directionalRatio: measurements[1].directionalRatio,
       alignedWindows: alignedWindows,
       windows: measurements,
+    };
+  }
+
+  function buildRiseFallTradeOptions(state, signal, stake, currency) {
+    if (!signal || signal.tradeType !== "rise-fall" || ["rise", "fall"].indexOf(signal.selection) === -1) {
+      throw new Error("A qualified Rise/Fall signal is required");
+    }
+    state.martingale = 2;
+    return {
+      tradeType: "rise-fall",
+      selection: signal.selection,
+      stake: stake,
+      duration: 5,
+      symbol: state.symbol,
+      currency: currency,
     };
   }
 
@@ -1124,6 +1126,11 @@
     }
     if (!isAuthed()) { stopBot(state, "auth"); return; }
     state.awaitingSettle = true;
+    if (state.def.id === "freeBot" && state.tradeMode === "rise-fall") {
+      state.martingale = 2;
+      state.activeTradeSignal = sig.selection;
+      state.riseFallResult = "Submitting " + sig.selection.toUpperCase() + " trade...";
+    }
 
     if (state._settleTimer) clearTimeout(state._settleTimer);
     state._settleTimer = setTimeout(function () {
@@ -1164,20 +1171,25 @@
       state.liveAnalysis.duration = "1 tick";
     }
 
-    var opts = {
-      tradeType: sig.tradeType || state.def.tradeType || "over-under",
-      selection: sig.selection,
-      stake: stake,
-      duration: state.def.id === "freeBot" && state.tradeMode === "rise-fall" ? 5 : state.def.duration,
-      symbol: state.symbol,
-      digit: sig.digit,
-      currency: currency,
-    };
-
-    var buyRequest = window.DerivWS.buyContract(opts, function (result) {
-      handleSettlement(state, sig, stake, result);
-    });
-    buyRequest.then(function () {
+    var buyRequest;
+    try {
+      var opts = state.def.id === "freeBot" && state.tradeMode === "rise-fall" ?
+        buildRiseFallTradeOptions(state, sig, stake, currency) : {
+          tradeType: sig.tradeType || state.def.tradeType || "over-under",
+          selection: sig.selection,
+          stake: stake,
+          duration: state.def.duration,
+          symbol: state.symbol,
+          digit: sig.digit,
+          currency: currency,
+        };
+      buyRequest = window.DerivWS.buyContract(opts, function (result) {
+        handleSettlement(state, sig, stake, result);
+      });
+    } catch (err) {
+      buyRequest = Promise.reject(err);
+    }
+    Promise.resolve(buyRequest).then(function () {
       if (state.def.id === "over1AiPredictor" && state.awaitingSettle) {
         state.liveAnalysis.status = "Trade active - waiting for settlement...";
         state.liveAnalysis.stateClass = "active";
@@ -1188,8 +1200,13 @@
       var msg = err && err.message ? err.message : "Trade failed";
       console.error("[Autonix] " + state.def.name + " trade error:", msg);
       window.showToast && window.showToast(state.def.name + ": " + msg, "red", 4500);
+      if (state._settleTimer) { clearTimeout(state._settleTimer); state._settleTimer = null; }
       state.awaitingSettle = false;
       state.activeTrade = false;
+      state.activeTradeSignal = null;
+      if (state.def.id === "freeBot" && sig.tradeType === "rise-fall") {
+        state.riseFallResult = "Order failed — scanning resumes";
+      }
       if (state.def.id === "over1AiPredictor") {
         state.liveAnalysis.status = "Reassessing market...";
         state.liveAnalysis.stateClass = "waiting";
@@ -1208,6 +1225,7 @@
   function handleSettlement(state, sig, stake, result) {
     state.awaitingSettle = false;
     state.activeTrade = false;
+    state.activeTradeSignal = null;
     if (state._settleTimer) { clearTimeout(state._settleTimer); state._settleTimer = null; }
 
     var won = !!result.won;
@@ -1220,6 +1238,9 @@
     else     { state.losses += 1; playLossSound(); }
 
     state.lastResult = { won: won, pl: pl, selection: sig.selection, digit: sig.digit };
+    if (state.def.id === "freeBot" && sig.tradeType === "rise-fall") {
+      state.riseFallResult = (won ? "WIN " : "LOSS ") + displaySignedMoney(pl);
+    }
     if (state.def.id === "over1AiPredictor") {
       state.liveAnalysis = state.liveAnalysis || {};
       state.liveAnalysis.status = won ? "Trade won - recalculating..." : "Trade lost - reassessing market...";
@@ -1400,6 +1421,8 @@
     state.awaitingSettle = false;
     state.analysisStatus = "analyzing";
     state.currentSignal = null;
+    state.riseFallResult = "";
+    state.activeTradeSignal = null;
     state.lossStopped = false;
     state.takeProfitReached = false;
     state.activeTrade = false;
@@ -1753,6 +1776,24 @@
         actionsHTML +
         statsHTML +
         signalHTML +
+          '<div class="bot-live-analysis state-analyzing" id="rf-analysis-' + def.id + '" style="display:none">' +
+            '<div class="bot-live-analysis-head"><span>Rise/Fall Live Analysis</span><strong id="rf-status-' + def.id + '">Collecting market ticks...</strong></div>' +
+            '<div class="bot-live-analysis-grid">' +
+              '<div class="bot-live-value"><span>Direction</span><strong id="rf-direction-' + def.id + '">--</strong></div>' +
+              '<div class="bot-live-value"><span>Last Price</span><strong id="rf-price-' + def.id + '">--</strong></div>' +
+              '<div class="bot-live-value"><span>5-Tick Move</span><strong id="rf-change5-' + def.id + '">--</strong></div>' +
+              '<div class="bot-live-value"><span>10-Tick Move</span><strong id="rf-change10-' + def.id + '">--</strong></div>' +
+              '<div class="bot-live-value"><span>Momentum</span><strong id="rf-momentum-' + def.id + '">--</strong></div>' +
+              '<div class="bot-live-value"><span>Setup</span><strong id="rf-setup-' + def.id + '">Scanning</strong></div>' +
+            '</div>' +
+            '<div class="bot-live-analysis-foot"><span id="rf-market-' + def.id + '">Market: --</span><span id="rf-entry-' + def.id + '">Entry: scanner paused</span></div>' +
+            '<div class="bot-live-trade">' +
+              '<span id="rf-contract-' + def.id + '">Contract: Rise/Fall \u00b7 5 ticks</span>' +
+              '<span id="rf-stake-' + def.id + '">Next stake: --</span>' +
+              '<span>Martingale: 2x</span>' +
+              '<strong id="rf-result-' + def.id + '"></strong>' +
+            '</div>' +
+          '</div>' +
         lastHTML +
         digitFreqHTML
       );
@@ -1911,6 +1952,8 @@
           s.maxMartSteps = def.maxMartStepsOverUnder || 6;
         }
         if (s.running) stopBot(s, "manual");
+        if (s.tradeMode === "rise-fall") updateFreeRiseFallAnalysis(s);
+        renderBot(s);
       });
     }
 
@@ -1982,6 +2025,51 @@
     setText("result", live.result || "");
   }
 
+  function formatAnalysisPrice(value) {
+    if (value === null || !isFinite(Number(value))) return "--";
+    var text = String(value);
+    var precision = text.indexOf(".") === -1 ? 2 : Math.min(6, Math.max(2, text.split(".")[1].length));
+    return Number(value).toFixed(precision);
+  }
+
+  function renderFreeRiseFallAnalysis(state) {
+    if (state.def.id !== "freeBot") return;
+    var panel = document.getElementById("rf-analysis-" + state.def.id);
+    if (!panel) return;
+    var visible = state.tradeMode === "rise-fall";
+    panel.style.display = visible ? "" : "none";
+    if (!visible) return;
+
+    var analysis = state.riseFallAnalysis || analyzeRiseFallTicks(tickBuffers[state.symbol] || []);
+    state.riseFallAnalysis = analysis;
+    var setText = function (id, value) {
+      var element = document.getElementById("rf-" + id + "-" + state.def.id);
+      if (element) element.textContent = value;
+    };
+    var direction = analysis.marketDirection ? analysis.marketDirection.toUpperCase() : "MIXED";
+    var setup = analysis.setupStage === "ready" ? "READY \u00b7 " + analysis.alignedWindows + "/5" :
+      analysis.setupStage === "forming" ? "FORMING \u00b7 " + analysis.alignedWindows + "/5" :
+        analysis.setupStage === "collecting" ? "COLLECTING \u00b7 " + analysis.sampleSize + "/50" : "SCANNING";
+    var entryStatus = state.awaitingSettle ? "Trade active" : state.running ?
+      analysis.valid ? "Valid signal · placing trade" : "Auto-entry on strong setup" : "Scanner paused";
+    var activeSignal = state.activeTradeSignal ? state.activeTradeSignal.toUpperCase() : "Rise/Fall";
+    panel.className = "bot-live-analysis state-" + (state.awaitingSettle ? "active" : analysis.setupStage === "ready" ? "strong" :
+      analysis.setupStage === "forming" ? "strengthening" : analysis.setupStage === "collecting" ? "analyzing" : "waiting");
+    setText("status", state.awaitingSettle ? activeSignal + " trade active · 5 ticks" : analysis.reason);
+    setText("direction", direction);
+    setText("price", formatAnalysisPrice(analysis.currentPrice));
+    setText("change5", analysis.change5 === null ? "--" : (analysis.change5 >= 0 ? "+" : "") + formatAnalysisPrice(analysis.change5));
+    setText("change10", analysis.change10 === null ? "--" : (analysis.change10 >= 0 ? "+" : "") + formatAnalysisPrice(analysis.change10));
+    setText("momentum", analysis.momentumPercent === null ? "--" :
+      (analysis.momentumPercent >= 0 ? "+" : "") + analysis.momentumPercent.toFixed(3) + "%");
+    setText("setup", setup);
+    setText("market", "Market: " + direction + " \u00b7 " + analysis.sampleSize + "/50 ticks");
+    setText("entry", "Entry: " + entryStatus);
+    setText("contract", state.awaitingSettle ? "Contract: " + activeSignal + " \u00b7 5 ticks" : "Contract: Rise/Fall \u00b7 5 ticks");
+    setText("stake", "Next stake: " + displayMoney(state.awaitingSettle ? state.currentStake : state.currentStake || state.stake));
+    setText("result", state.riseFallResult || "");
+  }
+
   /* ─── Render bot live state ──────────────────────────────────── */
   function renderBot(state) {
     var def = state.def;
@@ -2030,6 +2118,7 @@
     var probabilityEl = document.getElementById("probability-" + def.id);
     if (probabilityEl) probabilityEl.textContent = state.currentProbability ? (state.currentProbability * 100).toFixed(1) + "%" : "\u2014";
     renderOver1LiveAnalysis(state);
+    renderFreeRiseFallAnalysis(state);
 
     // Signal
     var sigRow = document.getElementById("signal-row-" + def.id);
@@ -2268,6 +2357,10 @@
       BOT_DEFS.forEach(function (d) {
         var s = states[d.id];
         if (s.running) botTick(s);
+        if (d.id === "freeBot" && s.tradeMode === "rise-fall") {
+          updateFreeRiseFallAnalysis(s);
+          renderFreeRiseFallAnalysis(s);
+        }
         if (d.tier === "free" || d.id === "over1AiPredictor") renderDigitFreq(s);
       });
     }, 1000);
@@ -2423,5 +2516,6 @@
 
   window.AutonixFreeBotStrategy = {
     analyzeRiseFall: analyzeRiseFallTicks,
+    buildTradeOptions: buildRiseFallTradeOptions,
   };
 })();
