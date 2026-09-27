@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">37.5% </span>
+                <span class="strong">36.36% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>15/40</span>
+                <span class='fraction'>16/44</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">37.5% </span>
+                <span class="strong">36.36% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>15/40</span>
+                <span class='fraction'>16/44</span>
             </div>
         
             
@@ -103,7 +103,11 @@
 <a name='L38'></a><a href='#L38'>38</a>
 <a name='L39'></a><a href='#L39'>39</a>
 <a name='L40'></a><a href='#L40'>40</a>
-<a name='L41'></a><a href='#L41'>41</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -116,6 +120,10 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -144,7 +152,8 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React from 'react';
-import { formatMoney, getCurrencyDisplayCode } from '@/components/shared';
+import { getCurrencyDisplayCode } from '@/components/shared';
+import { useCurrency } from '@/contexts/currency-context';
 &nbsp;
 type TMoneyProps = {
     amount: number | string;
@@ -163,6 +172,7 @@ const Money = <span class="fstat-no" title="function not covered" >({</span>
 <span class="cstat-no" title="statement not covered" >    should_format = true,</span>
 <span class="cstat-no" title="statement not covered" >    show_currency = false,</span>
 <span class="cstat-no" title="statement not covered" >}: Partial&lt;TMoneyProps&gt;) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const { formatMoney: formatDisplayMoney, currency: displayCurrency } = useCurrency();</span>
 <span class="cstat-no" title="statement not covered" >    let sign = '';</span>
 <span class="cstat-no" title="statement not covered" >    if (Number(amount) &amp;&amp; (Number(amount) &lt; 0 || has_sign)) {</span>
 <span class="cstat-no" title="statement not covered" >        sign = Number(amount) &gt; 0 ? '+' : '-';</span>
@@ -170,13 +180,15 @@ const Money = <span class="fstat-no" title="function not covered" >({</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >    // if it's formatted already then don't make any changes unless we should remove extra -/+ signs</span>
 <span class="cstat-no" title="statement not covered" >    const value = has_sign || should_format ? Math.abs(Number(amount)) : amount;</span>
-<span class="cstat-no" title="statement not covered" >    const final_amount = should_format ? formatMoney(currency, value, true, 0, 0) : value;</span>
+<span class="cstat-no" title="statement not covered" >    const final_amount = should_format</span>
+<span class="cstat-no" title="statement not covered" >        ? formatDisplayMoney(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })</span>
+<span class="cstat-no" title="statement not covered" >        : value;</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >    return (</span>
 <span class="cstat-no" title="statement not covered" >        &lt;React.Fragment&gt;</span>
 <span class="cstat-no" title="statement not covered" >            &lt;span&gt;{has_sign &amp;&amp; sign}&lt;/span&gt;</span>
 <span class="cstat-no" title="statement not covered" >            &lt;span data-testid='dt_span' className={className}&gt;</span>
-<span class="cstat-no" title="statement not covered" >                {final_amount} {show_currency &amp;&amp; getCurrencyDisplayCode(currency)}</span>
+<span class="cstat-no" title="statement not covered" >                {final_amount} {show_currency &amp;&amp; !should_format &amp;&amp; getCurrencyDisplayCode(displayCurrency)}</span>
 <span class="cstat-no" title="statement not covered" >            &lt;/span&gt;</span>
 <span class="cstat-no" title="statement not covered" >        &lt;/React.Fragment&gt;</span>
 <span class="cstat-no" title="statement not covered" >    );</span>
@@ -190,7 +202,7 @@ export default React.memo(Money);
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-26T14:29:47.692Z
+                at 2026-09-27T15:40:45.266Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

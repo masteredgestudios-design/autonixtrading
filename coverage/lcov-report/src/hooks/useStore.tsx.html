@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">91.66% </span>
+                <span class="strong">81.63% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>44/48</span>
+                <span class='fraction'>40/49</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">55.55% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>7/8</span>
+                <span class='fraction'>5/9</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">91.66% </span>
+                <span class="strong">81.63% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>44/48</span>
+                <span class='fraction'>40/49</span>
             </div>
         
             
@@ -111,7 +111,8 @@
 <a name='L46'></a><a href='#L46'>46</a>
 <a name='L47'></a><a href='#L47'>47</a>
 <a name='L48'></a><a href='#L48'>48</a>
-<a name='L49'></a><a href='#L49'>49</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -125,27 +126,28 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
@@ -173,27 +175,28 @@ type TStoreProvider = {
 };
 &nbsp;
 const StoreProvider: React.FC&lt;TStoreProvider&gt; = ({ children, mockStore }) =&gt; {
-    const [store, setStore] = useState&lt;RootStore | null&gt;(null);
+    const [store, setStore] = useState&lt;RootStore | null&gt;(() =&gt; (mockStore ? mockStore <span class="branch-0 cbranch-no" title="branch not covered" >: null)</span>);
     const initializingStore = useRef(false);
 &nbsp;
     useEffect(() =&gt; {
-        const initializeStore = <span class="fstat-no" title="function not covered" >async () =&gt; {</span>
+        if (mockStore) {
+            setStore(mockStore);
+            initializingStore.current = true;
+            return;
+        }
+<span class="cstat-no" title="statement not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span>
+        if (store || initializingStore.current) <span class="branch-0 cbranch-no" title="branch not covered" >return;</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >        const initializeStore = <span class="fstat-no" title="function not covered" >async () =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >            initializingStore.current = true;</span>
 <span class="cstat-no" title="statement not covered" >            const rootStore = new RootStore(Bot);</span>
 <span class="cstat-no" title="statement not covered" >            setStore(rootStore);</span>
-        };
+<span class="cstat-no" title="statement not covered" >        };</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >        initializeStore();</span>
+    }, [mockStore, store]);
 &nbsp;
-        if (!store &amp;&amp; !initializingStore.current) {
-            initializingStore.current = true;
-            // If the store is mocked for testing purposes, then return the mocked value.
-            if (mockStore) {
-                setStore(mockStore);
-            }<span class="branch-0 cbranch-no" title="branch not covered" > else {</span>
-<span class="cstat-no" title="statement not covered" >                initializeStore();</span>
-<span class="cstat-no" title="statement not covered" >            }</span>
-        }
-    }, [store, mockStore]);
-&nbsp;
-    if (!store) return null;
+    if (!store) <span class="branch-0 cbranch-no" title="branch not covered" >return null;</span>
 &nbsp;
     return &lt;StoreContext.Provider value={store}&gt;{children}&lt;/StoreContext.Provider&gt;;
 };
@@ -214,7 +217,7 @@ export const mockStore = (ws: TWebSocket) =&gt; new RootStore(Bot, ws);
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-26T14:29:47.692Z
+                at 2026-09-27T15:40:45.266Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

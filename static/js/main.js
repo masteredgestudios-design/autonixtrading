@@ -144,6 +144,7 @@
 
   /* ── Initialize Deriv WebSocket connection ─────────────────── */
   var currentTickSymbol = null;
+  var currentTickUnsubscribe = null;
 
   function initDerivWS() {
     var sd = window.SESSION_DATA;
@@ -249,12 +250,10 @@
     if (currentTickSymbol === symbol) return;
 
     /* Immediately drop the previous symbol's stream so no stray ticks leak through */
-    if (currentTickSymbol) {
-      window.DerivWS.unsubscribeTicks(currentTickSymbol);
-    }
+    if (currentTickUnsubscribe) currentTickUnsubscribe();
     currentTickSymbol = symbol;
 
-    window.DerivWS.subscribeTicks(symbol, function (tick) {
+    currentTickUnsubscribe = window.DerivWS.subscribeTicks(symbol, function (tick) {
       if (
         !tick ||
         typeof tick !== "object" ||

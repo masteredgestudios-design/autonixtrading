@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
+function runAITraderRegression() {
 const chartHtml = fs.readFileSync(path.join(__dirname, '..', 'templates', 'partials', 'chart_area.html'), 'utf8');
 assert.ok(chartHtml.includes('data-type="over-under"'), 'Over/Under option should exist in the selector.');
 assert.ok(/class="trade-type-btn active"[\s\S]*data-type="over-under"/.test(chartHtml), 'The default selected trade type on page load should be Over/Under.');
@@ -89,3 +90,10 @@ const noTradeSignal = strategy.analyzeLastDigitFrequencies([
 assert.strictEqual(noTradeSignal.selection, null, 'Equal groups must produce no trade.');
 
 console.log('AI trader strategy regression test passed.');
+}
+
+if (typeof test === 'function') {
+  test('AI Trader startup and strategy regression', runAITraderRegression);
+} else {
+  runAITraderRegression();
+}

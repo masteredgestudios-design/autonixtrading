@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">95.16% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>66/66</span>
+                <span class='fraction'>59/62</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">85.71% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>11/11</span>
+                <span class='fraction'>6/7</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">95.16% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>66/66</span>
+                <span class='fraction'>59/62</span>
             </div>
         
             
@@ -125,11 +125,8 @@
 <a name='L60'></a><a href='#L60'>60</a>
 <a name='L61'></a><a href='#L61'>61</a>
 <a name='L62'></a><a href='#L62'>62</a>
-<a name='L63'></a><a href='#L63'>63</a>
-<a name='L64'></a><a href='#L64'>64</a>
-<a name='L65'></a><a href='#L65'>65</a>
-<a name='L66'></a><a href='#L66'>66</a>
-<a name='L67'></a><a href='#L67'>67</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L63'></a><a href='#L63'>63</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -159,21 +156,16 @@
 <span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">21x</span>
 <span class="cline-any cline-yes">21x</span>
 <span class="cline-any cline-yes">21x</span>
@@ -200,13 +192,14 @@ import { clearAuthInfo } from '@/external/deriv-core';
 import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
 import { ErrorLogger } from '@/utils/error-logger';
 import { reloadPage, replaceUrl } from '@/utils/navigation-utils';
+import { initiateFlaskLogin } from '@/services/flask-auth.service';
 &nbsp;
 /**
- * Hook to handle invalid token events by clearing auth data and redirecting to OAuth login
+ * Hook to handle invalid token events by clearing auth data and redirecting to Flask login
  *
  * This hook listens for 'InvalidToken' events emitted by the API base when
  * a token is invalid. When such an event is detected, it clears the invalid
- * authentication data and redirects to OAuth login to prevent infinite reload loops.
+ * authentication data and redirects to Flask login to prevent infinite reload loops.
  *
  * @returns {{ unregisterHandler: () =&gt; void }} An object containing a function to unregister the event handler
  */
@@ -223,18 +216,13 @@ export const useInvalidTokenHandler = (): { unregisterHandler: () =&gt; void } =
             // Clear sessionStorage completely to remove any stale auth data
             sessionStorage.clear();
 &nbsp;
-            // Redirect to OAuth login instead of reload to get fresh authentication
-            const { generateOAuthURL } = await import('@/components/shared');
-            const oauthUrl = await generateOAuthURL();
-&nbsp;
-            if (oauthUrl) {
-                // Use replace to prevent back button from returning to invalid state
-                replaceUrl(oauthUrl);
-            } else {
-                // Fallback: reload if OAuth URL generation fails
-                ErrorLogger.error('InvalidToken', 'Failed to generate OAuth URL, falling back to reload');
-                reloadPage();
-            }
+            // Redirect to Flask login which handles the OAuth flow
+            try {
+                initiateFlaskLogin();
+            } <span class="branch-0 cbranch-no" title="branch not covered" >catch (error) {</span>
+<span class="cstat-no" title="statement not covered" >                ErrorLogger.error('InvalidToken', 'Failed to initiate Flask login, falling back to reload');</span>
+<span class="cstat-no" title="statement not covered" >                reloadPage();</span>
+<span class="cstat-no" title="statement not covered" >            }</span>
         } catch (error) {
             ErrorLogger.error('InvalidToken', 'Error handling invalid token', error);
             // Last resort: reload the page
@@ -268,7 +256,7 @@ export default useInvalidTokenHandler;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-26T10:47:05.340Z
+                at 2026-09-27T15:40:45.266Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

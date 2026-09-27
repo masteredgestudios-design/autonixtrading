@@ -21,7 +21,7 @@
     authorized: false,
     reqId: 1,
     pendingReqs: {},    // reqId -> { resolve, reject }
-    tickSubs: {},       // symbol -> callback
+    tickSubs: {},       // symbol -> [{ id, callback }]
     balanceCb: null,
     contractCbs: {},    // contractId -> settleCallback
     pocBuffer: {},      // contractId -> [poc, …]  — buffers POC arriving before callback
@@ -29,6 +29,8 @@
     reconnectCount: 0,
     reconnectTimer: null,
     tickSubIds: {},     // symbol -> subscriptionId
+    tickSubPending: {}, // symbol -> subscription request in flight
+    tickListenerId: 1,
     balanceSubId: null,
     wsUrl: null,
   };
@@ -112,8 +114,11 @@
 
     if (type === "tick") {
       var tick = msg.tick;
-      if (tick && state.tickSubs[tick.symbol]) {
-        state.tickSubs[tick.symbol](tick);
+      var listeners = tick && state.tickSubs[tick.symbol];
+      if (listeners && listeners.length) {
+        listeners.slice().forEach(function (listener) {
+          try { listener.callback(tick); } catch (e) { console.error("[DerivWS] Tick listener failed:", e); }
+        });
       } else if (tick && window._onDerivTick) {
         window._onDerivTick(tick);
       }
@@ -254,12 +259,19 @@
 
   /* ── Tick subscription ──────────────────────────────────────── */
   function subscribeTicksInternal(symbol) {
+    if (state.tickSubIds[symbol] || state.tickSubPending[symbol]) return;
+    state.tickSubPending[symbol] = true;
     var id = nextReqId();
     state.pendingReqs[id] = {
       resolve: function (msg) {
-        if (msg.subscription) state.tickSubIds[symbol] = msg.subscription.id;
+        delete state.tickSubPending[symbol];
+        if (msg.subscription && state.tickSubs[symbol] && state.tickSubs[symbol].length) {
+          state.tickSubIds[symbol] = msg.subscription.id;
+        } else if (msg.subscription) {
+          send({ forget: msg.subscription.id });
+        }
       },
-      reject: function () {},
+      reject: function () { delete state.tickSubPending[symbol]; },
     };
     send({ ticks: symbol, subscribe: 1, req_id: id });
   }
@@ -271,6 +283,7 @@
       delete state.tickSubIds[symbol];
     }
     delete state.tickSubs[symbol];
+    delete state.tickSubPending[symbol];
   }
 
   /* ── Connect & (optionally) authorize ───────────────────────── */
@@ -334,6 +347,8 @@
     ws.onclose = function () {
       state.connected = false;
       state.authorized = false;
+      state.tickSubIds = {};
+      state.tickSubPending = {};
       scheduleReconnect();
     };
   }
@@ -363,8 +378,20 @@
 
   /* ── Public tick API ────────────────────────────────────────── */
   function subscribeTicks(symbol, cb) {
-    state.tickSubs[symbol] = cb;
+    if (!symbol || typeof cb !== "function") return function () {};
+    var listener = { id: state.tickListenerId++, callback: cb };
+    if (!state.tickSubs[symbol]) state.tickSubs[symbol] = [];
+    state.tickSubs[symbol].push(listener);
     if (state.connected) subscribeTicksInternal(symbol);
+    var active = true;
+    return function () {
+      if (!active) return;
+      active = false;
+      var listeners = state.tickSubs[symbol];
+      if (!listeners) return;
+      state.tickSubs[symbol] = listeners.filter(function (item) { return item.id !== listener.id; });
+      if (!state.tickSubs[symbol].length) unsubscribeTicksInternal(symbol);
+    };
   }
 
   function unsubscribeTicks(symbol) {

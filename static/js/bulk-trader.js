@@ -18,6 +18,10 @@
     stake:            10,
     numTrades:        10,
     takeProfit:       5,
+    stopLoss:         100,
+    duration:         1,
+    martingale:       1,
+    currentStake:     10,
     strategyMode:     "both",   // "differs" | "overunder" | "both"
 
     trades:           [],       // array of trade objects (pushed as submitted)
@@ -32,9 +36,11 @@
 
     analysisInterval: null,
     lastTickCount:    0,
+    lastTickKey:      "",
     cycleCount:       0,
 
     currentSignal:    null,     // latest valid signal object (or null)
+    lastSubmittedTickKey: "",
     prevSignalText:   null,     // signal text from the previous cycle (change detection)
 
     localBuf:         [],       // Bulk Trader's own tick buffer (owned subscription)
@@ -70,6 +76,10 @@
     if (bt.localBuf && bt.localBuf.length >= 10) return bt.localBuf;
     var core = window.AutonixCore;
     return (core && core.tickBuffers && core.tickBuffers[bt.symbol]) || bt.localBuf || [];
+  }
+
+  function getTickKey(tick) {
+    return tick ? String(tick.time || "") + "|" + String(tick.price) : "";
   }
 
   /* ════════════════════════════════════════════════════════════════
@@ -238,10 +248,6 @@
      If the signal is lost mid-session the pump parks itself and
      scanCycle() restarts it as soon as a signal reappears.
   ════════════════════════════════════════════════════════════════ */
-  function delay(ms) {
-    return new Promise(function (resolve) { setTimeout(resolve, ms); });
-  }
-
   function onSettled(trade, result) {
     trade.status = "settled";
     trade.result = result.won ? "win" : "loss";
@@ -255,7 +261,13 @@
     }
     bt.settledCount++;
     bt.totalPL = +(bt.totalPL + trade.pl).toFixed(2);
-    if (result.won) bt.wins++; else bt.losses++;
+    if (result.won) {
+      bt.wins++;
+      bt.currentStake = bt.stake;
+    } else {
+      bt.losses++;
+      bt.currentStake = Math.min(+(trade.stake * bt.martingale).toFixed(2), 5000);
+    }
     renderTable();
     renderLiveSummary();
     updateGlobalSummary();
@@ -263,7 +275,16 @@
       stop("tp");
       return;
     }
+    if (bt.running && bt.stopLoss > 0 &&
+        (bt.totalPL <= -bt.stopLoss || bt.currentStake > bt.stopLoss + bt.totalPL)) {
+      stop("sl");
+      return;
+    }
     checkBatchComplete();
+    if (bt.running && bt.submittedCount < bt.numTrades) {
+      bt.executionActive = false;
+      startExecutionPump();
+    }
   }
 
   function updateGlobalSummary() {
@@ -292,13 +313,13 @@
   function submitOne(trade) {
     var sd       = window.SESSION_DATA;
     var currency = (sd && sd.activeAccount && sd.activeAccount.currency) || "USD";
-    var stake    = Math.min(+(bt.stake).toFixed(2), 5000);
+    var stake    = Math.min(+(trade.stake).toFixed(2), 5000);
 
     return window.DerivWS.buyContract({
       tradeType: trade.tradeType,
       selection: trade.selection,
       stake:     stake,
-      duration:  1,
+      duration:  bt.duration,
       symbol:    bt.symbol,
       digit:     trade.digit,
       currency:  currency,
@@ -307,8 +328,10 @@
     })
     .then(function (buyData) {
       trade.contractId = buyData && buyData.contractId;
-      trade.status     = "in-trade";
-      if (trade.time === "-") trade.time = new Date().toLocaleTimeString();
+      if (trade.status === "pending") {
+        trade.status = "in-trade";
+        if (trade.time === "-") trade.time = new Date().toLocaleTimeString();
+      }
       renderTable();
       renderLiveSummary();
     });
@@ -318,6 +341,11 @@
   function processNext() {
     if (!bt.running) { bt.executionActive = false; return; }
     if (bt.submittedCount >= bt.numTrades) { bt.executionActive = false; return; }
+    if (bt.totalPL >= bt.takeProfit) { stop("tp"); return; }
+    if (bt.stopLoss > 0 && (bt.totalPL <= -bt.stopLoss || bt.currentStake > bt.stopLoss + bt.totalPL)) {
+      stop("sl");
+      return;
+    }
 
     var sig = bt.currentSignal;
     if (!sig) {
@@ -328,6 +356,12 @@
       setStatus("scanning", "Signal lost — rescanning... cycle #" + bt.cycleCount);
       return;
     }
+    if (sig.tickKey && sig.tickKey === bt.lastSubmittedTickKey) {
+      bt.executionActive = false;
+      setStatus("scanning", "Waiting for a fresh tick before the next trade");
+      return;
+    }
+    bt.lastSubmittedTickKey = sig.tickKey || "";
 
     /* Build a trade object stamped with the signal valid at this moment */
     var trade = {
@@ -337,6 +371,7 @@
       selection: sig.selection,
       digit:     sig.digit,
       tradeType: sig.tradeType,
+      stake: Math.min(+(bt.currentStake).toFixed(2), 5000),
       status: "pending", result: null, pl: 0,
       entryDigit: "-", exitDigit: "-", time: "-", contractId: null,
     };
@@ -348,28 +383,29 @@
     renderTable();
     renderLiveSummary();
 
-    /* Attempt 1 */
-    submitOne(trade)
+    var submission;
+    try {
+      submission = submitOne(trade);
+    } catch (error) {
+      submission = Promise.reject(error);
+    }
+    Promise.resolve(submission)
       .catch(function () {
-        /* Attempt 2 — retry after 500ms */
-        return delay(500).then(function () { return submitOne(trade); });
-      })
-      .catch(function () {
-        /* Both attempts failed — mark error and continue */
+        /* A rejected buy can be ambiguous; do not retry and risk a duplicate. */
         trade.status = "error";
         trade.result = "error";
         trade.time   = new Date().toLocaleTimeString();
         bt.settledCount++;
+        bt.executionActive = false;
+        bt.currentSignal = null;
         renderTable();
         renderLiveSummary();
         checkBatchComplete();
-      })
-      .then(function () {
-        /* 200ms breathing gap then next contract */
-        return delay(200);
-      })
-      .then(function () {
-        processNext();
+      }).then(function () {
+        if (trade.status === "in-trade") {
+          bt.executionActive = false;
+          setStatus("monitoring", "Monitoring contract " + trade.id + "...");
+        }
       });
   }
 
@@ -491,8 +527,8 @@
     var completed = bt.trades.filter(function (t) {
       return t.status === "settled" || t.status === "error";
     }).length;
-    var winRate = bt.settledCount > 0
-      ? Math.round(bt.wins / bt.settledCount * 100) : 0;
+    var resultCount = bt.wins + bt.losses;
+    var winRate = resultCount > 0 ? Math.round(bt.wins / resultCount * 100) : 0;
 
     el.innerHTML =
       "<span class='bulk-live-item'>Status: <strong class='bqa-status-txt'>" +
@@ -507,7 +543,10 @@
       "<span class='bulk-live-item'>Win Rate <strong>" + winRate + "%</strong></span>" +
       "<span class='bulk-live-divider'></span>" +
       "<span class='bulk-live-item'>P/L <strong class='" + (bt.totalPL >= 0 ? "pos" : "neg") + "'>" +
-        fmtPL(bt.totalPL) + "</strong></span>";
+        fmtPL(bt.totalPL) + "</strong></span>" +
+      "<span class='bulk-live-item'>Next stake <strong>" +
+        (window.AutonixCurrency ? window.AutonixCurrency.format(bt.currentStake) : "$" + Number(bt.currentStake).toFixed(2)) +
+        "</strong></span>";
   }
 
   /* ─── Trade history table ─────────────────────────────────────── */
@@ -543,7 +582,7 @@
         "<td class='bulk-td-num'>" + t.id + "</td>" +
         "<td>" + badge + "</td>" +
         "<td class='bulk-td-dir'>" + esc(t.signal) + "</td>" +
-        "<td>$" + (+bt.stake).toFixed(2) + "</td>" +
+        "<td>$" + (+t.stake).toFixed(2) + "</td>" +
         "<td><span class='bulk-row-status " + statusClass + "'>" + statusLabel + "</span></td>" +
         "<td class='" + plClass + "'>" + plStr + "</td>" +
         "<td class='bulk-td-digit'>" + t.entryDigit + "</td>" +
@@ -610,7 +649,8 @@
 
     var buf      = getBuf();
     var allSubmitted = bt.submittedCount >= bt.numTrades;
-    var hasNewTick   = buf.length !== bt.lastTickCount;
+    var tickKey = getTickKey(buf[buf.length - 1]);
+    var hasNewTick = !!tickKey && tickKey !== bt.lastTickKey;
 
     if (!hasNewTick) {
       /* No new tick yet — keep the status pill alive and return */
@@ -626,6 +666,7 @@
 
     /* New tick arrived — update buffer bookmark and reanalyse */
     bt.lastTickCount = buf.length;
+    bt.lastTickKey = tickKey;
 
     /* Run only the engines relevant to the selected strategy */
     var mode  = bt.strategyMode;
@@ -635,6 +676,7 @@
     /* Update current signal; remember previous for change detection */
     bt.prevSignalText = bt.currentSignal ? bt.currentSignal.signalText : null;
     bt.currentSignal  = pickBestSignal(dRes, ouRes);
+    if (bt.currentSignal) bt.currentSignal.tickKey = tickKey;
 
     var signalChanged = bt.currentSignal &&
                         bt.prevSignalText &&
@@ -679,7 +721,14 @@
     bt.symbol       = (symbolEl    && symbolEl.value)    || "1HZ100V";
     bt.stake        = Math.max(0.35, parseFloat((stakeEl && stakeEl.value) || "10") || 10);
     var takeProfitEl = $id("bulk-take-profit");
-    bt.takeProfit    = Math.max(5, parseFloat((takeProfitEl && takeProfitEl.value) || "5") || 5);
+    bt.takeProfit    = Math.max(0.01, parseFloat((takeProfitEl && takeProfitEl.value) || "5") || 5);
+    var stopLossEl = $id("bulk-stop-loss");
+    bt.stopLoss = Math.max(0, parseFloat((stopLossEl && stopLossEl.value) || "100") || 0);
+    var durationEl = $id("bulk-duration");
+    bt.duration = Math.max(1, parseInt((durationEl && durationEl.value) || "1", 10) || 1);
+    var martingaleEl = $id("bulk-martingale");
+    bt.martingale = Math.min(10, Math.max(1, parseFloat((martingaleEl && martingaleEl.value) || "1") || 1));
+    bt.currentStake = bt.stake;
     bt.numTrades    = Math.max(1, Math.min(500,
       parseInt((numTradesEl && numTradesEl.value) || "10", 10) || 10));
     bt.strategyMode = (stratEl && stratEl.value) || "both";
@@ -702,9 +751,11 @@
     bt.losses          = 0;
     bt.cycleCount      = 0;
     bt.lastTickCount   = 0;
+    bt.lastTickKey     = "";
     bt.submittedCount  = 0;
     bt.executionActive = false;
     bt.currentSignal   = null;
+    bt.lastSubmittedTickKey = "";
     bt.prevSignalText  = null;
     bt.tradeIdCounter  = 0;
     bt.localBuf        = [];
@@ -737,7 +788,7 @@
     if (window.DerivWS && window.DerivWS.subscribeTicks) {
       var MAX_LOCAL_BUF = 2000;
       var _sym = bt.symbol; // capture for closure
-      window.DerivWS.subscribeTicks(_sym, function (tick) {
+      bt.tickUnsub = window.DerivWS.subscribeTicks(_sym, function (tick) {
         /* Ignore ticks that arrive after we've stopped */
         if (!bt.running || bt.symbol !== _sym) return;
         var price = parseFloat(tick.quote);
@@ -745,16 +796,13 @@
         bt.localBuf.push({ price: price, time: tick.epoch * 1000 });
         if (bt.localBuf.length > MAX_LOCAL_BUF) bt.localBuf.shift();
       });
-      /* DerivWS.subscribeTicks may return an unsubscribe function or
-         a subscription key — store whichever is truthy for cleanup */
-      /* Note: if subscribeTicks returns the key synchronously we
-         capture it; otherwise cleanup falls back to stopping the
-         running flag check inside the callback above. */
+      /* Each subscriber owns a cleanup handle; other bots retain their feeds. */
     } else if (core && core.ensureSymbolStream) {
       /* Fallback: rely entirely on AutonixCore's shared stream */
     }
 
     /* Start the continuous scan loop — it never stops until done or user stops */
+    scanCycle();
     bt.analysisInterval = setInterval(scanCycle, 500);
   }
 
@@ -769,7 +817,8 @@
     var settled = bt.settledCount;
     var total   = bt.submittedCount;
     setStatus("stopped",
-      total ? "Stopped — " + settled + " / " + total + " settled" : "Stopped");
+      reason === "tp" ? "Take Profit reached" : reason === "sl" ? "Stop Loss reached" :
+        total ? "Stopped — " + settled + " / " + total + " settled" : "Stopped");
     updateBtn();
     renderLiveSummary();
     updateGlobalSummary();

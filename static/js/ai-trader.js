@@ -16,6 +16,7 @@
     symbol: "1HZ25V",
     tickBuffer: [],
     tickSubscription: null,
+    tickSubscriptionSymbol: null,
     tradeTimer: null,
     lastTradeId: 0,
     analysis: null,
@@ -154,7 +155,7 @@
       "<div class='ai-analysis-header'><span>Live Analysis</span><strong>" + esc(symbol) + "</strong></div>",
       "<div class='ai-analysis-grid'>",
       "<div class='ai-analysis-item'><span>Latest Digit</span><strong>" + latest + "</strong></div>",
-      "<div class='ai-analysis-item'><span>Ticks Checked</span><strong>" + ticks.length + " / 300</strong></div>",
+      "<div class='ai-analysis-item'><span>Ticks Checked</span><strong>" + ticks.length + " / 100</strong></div>",
       "<div class='ai-analysis-item'><span>Direction</span><strong class='" + (active ? "active" : "") + "'>" + direction + "</strong></div>",
       "</div>",
       "<div class='ai-analysis-reason'><span class='bot-signal-label'>Check</span><strong>" + esc(reason) + "</strong></div>"
@@ -251,7 +252,11 @@
     return matrix;
   }
   function updateTransitionState(tm, ticks, start) {
-    for (var i = start; i < ticks.length; i++) {
+    var latest = ticks[ticks.length - 1];
+    var latestKey = latest ? String(latest.time || "") + "|" + String(latest.price) : "";
+    if (!latestKey || latestKey === tm.lastTickKey) return;
+    var first = tm.processedLength >= ticks.length ? Math.max(1, ticks.length - 1) : start;
+    for (var i = first; i < ticks.length; i++) {
       if (i < 1) continue;
       var from = lastDigit(ticks[i - 1].price);
       var to = lastDigit(ticks[i].price);
@@ -265,6 +270,7 @@
       if (tm.ringFill < 300) tm.ringFill += 1;
     }
     tm.processedLength = ticks.length;
+    tm.lastTickKey = latestKey;
   }
   function initializeTransitionState(ticks) {
     var tm = {
@@ -274,7 +280,7 @@
       ringPos: 0,
       ringFill: 0,
       processedLength: 0,
-      confirmation: { direction: null, count: 0 }
+      confirmation: { direction: null, count: 0, tickKey: null }
     };
     updateTransitionState(tm, ticks, 0);
     return tm;
@@ -303,7 +309,7 @@
   }
   function getMarketContext() {
     var ticks = ai.tickBuffer || [];
-    if (ticks.length < 300) return { selection: null, reason: "Waiting for 300 ticks." };
+    if (ticks.length < 100) return { selection: null, reason: "Collecting tick data (" + ticks.length + "/100)..." };
     if (!ai.state._tm) ai.state._tm = initializeTransitionState(ticks);
     else updateTransitionState(ai.state._tm, ticks, ai.state._tm.processedLength);
     var tm = ai.state._tm;
@@ -311,7 +317,7 @@
     var previous = ticks.length > 1 ? lastDigit(ticks[ticks.length - 2].price) : -1;
     var rowTotal = 0;
     for (var digit = 0; digit <= 9; digit++) rowTotal += tm.matrix[current * 10 + digit];
-    if (rowTotal < 20) return { selection: null, reason: "Waiting for more transition data." };
+    if (rowTotal < 8) return { selection: null, reason: "Building recent transition history..." };
     var oneStep = weightedTransitionProbabilities(tm, current);
     if (!oneStep || Math.max.apply(null, oneStep) < 0.12) return { selection: null, reason: "No clear transition signal." };
     var overRisk1 = oneStep[0] + oneStep[1];
@@ -335,11 +341,17 @@
     var overRisk = bigramAvailable ? overRisk1 * 0.6 + overRisk2 * 0.4 : overRisk1;
     var underRisk = bigramAvailable ? underRisk1 * 0.6 + underRisk2 * 0.4 : underRisk1;
     var difference = Math.abs(overRisk - underRisk);
-    if (difference < 0.05) return { selection: null, reason: "Waiting for a stronger signal." };
+    if (difference < 0.04) return { selection: null, reason: "Comparing transition advantage..." };
     var direction = overRisk < underRisk ? "over" : "under";
-    if (tm.confirmation.direction !== direction) tm.confirmation = { direction: direction, count: 1 };
-    else tm.confirmation.count += 1;
-    if (tm.confirmation.count < 3) return { selection: null, reason: formatContractLabel(direction) + " confirming (" + tm.confirmation.count + "/3)" };
+    var latestTick = ticks[ticks.length - 1];
+    var currentTickKey = String(latestTick.time || "") + "|" + String(latestTick.price);
+    if (tm.confirmation.direction !== direction) {
+      tm.confirmation = { direction: direction, count: 1, tickKey: currentTickKey };
+    } else if (tm.confirmation.tickKey !== currentTickKey) {
+      tm.confirmation.count += 1;
+      tm.confirmation.tickKey = currentTickKey;
+    }
+    if (tm.confirmation.count < 2) return { selection: null, reason: formatContractLabel(direction) + " confirming (" + tm.confirmation.count + "/2 fresh ticks)" };
     return { selection: direction, reason: formatContractLabel(direction) + " transition edge " + (difference * 100).toFixed(1) + "%" };
   }
   function buildDecision(context) {
@@ -490,7 +502,7 @@
     if (ai.state.tradeInProgress) return;
     if (!window.DerivWS || !window.DerivWS.buyContract || !window.DerivWS.isAuthorized()) {
       setLiveStatus("Analyzing market...", true);
-      ai.tradeTimer = setTimeout(executeTrade, 1500);
+      ai.tradeTimer = setTimeout(executeTrade, 500);
       return;
     }
     if (ai.state.accumulatedProfit >= ai.state.takeProfit) {
@@ -499,12 +511,12 @@
       return;
     }
 
-    var context = ai.analysis || getMarketContext();
+    var context = getMarketContext();
     ai.analysis = context;
     renderAnalysis(context);
     var decision = buildDecision(context);
     if (!decision) {
-      setLiveStatus(context.reason || "Waiting for stronger signal...", true);
+      setLiveStatus("Analyzing — " + (context.reason || "no signal yet; checking next tick"), true);
       scheduleNextTrade();
       return;
     }
@@ -530,18 +542,25 @@
     setLiveStatus("Signal detected — " + decision.label, true);
     appendLog("info", "Trade submitted\n" + decision.label + " · Stake " + fmtMoney(effectiveStake));
 
-    window.DerivWS.buyContract(opts, function (result) {
-      updateStateFromSettlement(decision, result);
-    })
+    var buyRequest;
+    try {
+      buyRequest = window.DerivWS.buyContract(opts, function (result) {
+        updateStateFromSettlement(decision, result);
+      });
+    } catch (error) {
+      buyRequest = Promise.reject(error);
+    }
+    Promise.resolve(buyRequest)
       .then(function () {
         return undefined;
       })
       .catch(function (err) {
         ai.state.tradeInProgress = false;
-        ai.state.losses += 1;
-        ai.state.pendingRecovery = calculateRecoveryStake(effectiveStake, ai.state.payoutRate);
-        setLiveStatus("Recovery required — recalculating...", true);
-        appendLog("loss", "Trade failed to submit\nRecovery required · Recalculating");
+        ai.state.submissionFailures = (ai.state.submissionFailures || 0) + 1;
+        var message = err && err.message ? err.message : "Order was not accepted";
+        setLiveStatus("Submission failed — retrying scan", true);
+        appendLog("warning", "Trade was not submitted\n" + message + " · Market loss not recorded");
+        notify("Trade submission failed — scanning will resume", "warning", 2400);
         scheduleNextTrade();
       });
   }
@@ -550,7 +569,7 @@
     clearTimeout(ai.tradeTimer);
     ai.tradeTimer = setTimeout(function () {
       executeTrade();
-    }, 1500);
+    }, 500);
   }
   function stopWithReason(reason) {
     var reachedTakeProfit = !!(ai.state && ai.state.accumulatedProfit >= ai.state.takeProfit && /Take Profit reached/i.test(reason || ""));
@@ -644,7 +663,8 @@
       startedAt: Date.now(),
       symbol: ai.symbol,
       liveStatus: "AI Trader Started",
-      tradeInProgress: false
+      tradeInProgress: false,
+      submissionFailures: 0
     };
     ai.state.currentStake = ai.state.pendingRecovery > 0 ? calculateRecoveryStake(ai.state.pendingRecovery, ai.state.payoutRate) : ai.state.currentStake;
     ai.tickBuffer = [];
@@ -663,14 +683,16 @@
 
     if (!window.DerivWS || !window.DerivWS.isAuthorized()) {
       setLiveStatus("Analyzing market...", true);
-      ai.tradeTimer = setTimeout(executeTrade, 1500);
+      ai.tradeTimer = setTimeout(executeTrade, 500);
     } else {
       executeTrade();
     }
   }
   function ensureTickFeed() {
     if (!window.DerivWS || !window.DerivWS.subscribeTicks) return;
-    if (ai.tickSubscription) return;
+    if (ai.tickSubscription && ai.tickSubscriptionSymbol === ai.symbol) return;
+    if (typeof ai.tickSubscription === "function") ai.tickSubscription();
+    ai.tickSubscriptionSymbol = ai.symbol;
     ai.tickSubscription = window.DerivWS.subscribeTicks(ai.symbol, function (tick) {
       var price = parseFloat(tick && (tick.quote || tick.price));
       if (!isFinite(price)) return;
@@ -680,6 +702,10 @@
         ai.analysis = getMarketContext();
         renderAnalysis(ai.analysis);
         updateSummary();
+        if (ai.analysis.selection && ai.state && !ai.state.tradeInProgress) {
+          clearTimeout(ai.tradeTimer);
+          ai.tradeTimer = setTimeout(executeTrade, 0);
+        }
       }
     });
   }
@@ -688,7 +714,23 @@
     if (ai.tickBuffer.length >= 20) return;
     window.DerivWS.getHistory(ai.symbol, 300)
       .then(function (history) {
-        if (history && history.length) ai.tickBuffer = history.slice(-300);
+        if (history && history.length) {
+          var merged = history.slice(-300);
+          var knownTicks = {};
+          merged.forEach(function (tick) {
+            knownTicks[String(tick.time || "") + "|" + String(tick.price)] = true;
+          });
+          ai.tickBuffer.forEach(function (tick) {
+            var key = String(tick.time || "") + "|" + String(tick.price);
+            if (!knownTicks[key]) merged.push(tick);
+          });
+          ai.tickBuffer = merged.slice(-500);
+          if (ai.state) ai.state._tm = null;
+          if (ai.running) {
+            ai.analysis = getMarketContext();
+            renderAnalysis(ai.analysis);
+          }
+        }
       })
       .catch(function () {});
   }

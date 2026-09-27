@@ -129,6 +129,23 @@
             <span class="bot-input-label">Take Profit (USD)</span>
             <input type="number" id="bulk-take-profit" class="bulk-input" value="5" min="0" step="1" />
           </label>
+          <label class="bot-input-field">
+            <span class="bot-input-label">Stop Loss (USD)</span>
+            <input type="number" id="bulk-stop-loss" class="bulk-input" value="100" min="0" step="1" />
+          </label>
+          <label class="bot-input-field">
+            <span class="bot-input-label">Duration</span>
+            <select id="bulk-duration" class="bot-select">
+              <option value="1" selected>1 tick</option>
+              <option value="2">2 ticks</option>
+              <option value="5">5 ticks</option>
+              <option value="10">10 ticks</option>
+            </select>
+          </label>
+          <label class="bot-input-field">
+            <span class="bot-input-label">Martingale Multiplier</span>
+            <input type="number" id="bulk-martingale" class="bulk-input" value="1" min="1" max="10" step="0.1" />
+          </label>
         </div>
 
         <!-- Live analysis panel — updated every tick while scanning -->
@@ -240,7 +257,7 @@
 
 <div id="toast" class="toast" aria-live="polite"></div>
 {% endblock %} {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/bots-page.js') }}?v=34"></script>
-<script src="{{ url_for('static', filename='js/bulk-trader.js') }}?v=4"></script>
-<script src="{{ url_for('static', filename='js/ai-trader.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/bots-page.js') }}?v=35"></script>
+<script src="{{ url_for('static', filename='js/bulk-trader.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/ai-trader.js') }}?v=2"></script>
 {% endblock %}

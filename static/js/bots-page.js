@@ -210,6 +210,7 @@
       history: [],
       latencySafeguard: true,
       currentSignal: null,
+      lastEntryTickKey: "",
       riseFallAnalysis: null,
       riseFallResult: "",
       activeTradeSignal: null,
@@ -280,6 +281,10 @@
   function lastDigit(price) {
     var s = price.toFixed(2);
     return parseInt(s.charAt(s.length - 1), 10);
+  }
+
+  function tickKey(tick) {
+    return tick ? String(tick.time || "") + "|" + String(tick.price) : "";
   }
 
   function countDigits(buf, range) {
@@ -354,6 +359,7 @@
       ringPos:      0,
       ringFill:     0,                // how many slots are actually filled (max 300)
       processedLen: 0,                // how many ticks consumed from buf so far
+      lastTickKey: "",
       confirmBuf:   { dir: null, count: 0 },
     };
 
@@ -375,12 +381,16 @@
     tm.ringFill  = filled;
     tm.ringPos   = filled < 300 ? filled : (buf.length - 1) % 300;
     tm.processedLen = buf.length;
+    tm.lastTickKey = tickKey(buf[buf.length - 1]);
     return tm;
   }
 
   /* Incrementally update the tm state with any new ticks in buf */
   function _tmUpdate(tm, buf) {
-    for (var i = tm.processedLen; i < buf.length; i++) {
+    var latestKey = tickKey(buf[buf.length - 1]);
+    if (!latestKey || latestKey === tm.lastTickKey) return;
+    var start = tm.processedLen < buf.length ? tm.processedLen : Math.max(1, buf.length - 1);
+    for (var i = start; i < buf.length; i++) {
       if (i < 1) continue;
       var f = lastDigit(buf[i - 1].price);
       var t = lastDigit(buf[i].price);
@@ -400,6 +410,7 @@
       if (tm.ringFill < 300) tm.ringFill++;
     }
     tm.processedLen = buf.length;
+    tm.lastTickKey = latestKey;
   }
 
   /* Compute weighted risk for one digit (row) from ring + lifetime matrix.
@@ -448,8 +459,8 @@
   function decideFreeOverUnder(state) {
     var buf = tickBuffers[state.symbol] || [];
 
-    // Minimum 300 ticks required
-    if (buf.length < 300) { state.currentSignal = null; return null; }
+    // A shorter sample speeds entry while retaining enough transitions to compare.
+    if (buf.length < 100) { state.currentSignal = null; return null; }
 
     /* ── Initialise / update persistent transition state ───────── */
     if (!state._tm || state._tm.symbol !== state.symbol) {
@@ -466,7 +477,7 @@
     /* ── Gate: current digit must have at least 20 transitions ─── */
     var lifetimeRowTotal = 0;
     for (var d = 0; d <= 9; d++) lifetimeRowTotal += _tmGet(tm.matrix, curDigit, d);
-    if (lifetimeRowTotal < 20) { state.currentSignal = null; return null; }
+    if (lifetimeRowTotal < 8) { state.currentSignal = null; return null; }
 
     /* ── 1-STEP: weighted probability from current digit ────────── */
     var probs1 = _tmWeightedProbs(tm, curDigit);
@@ -517,22 +528,25 @@
     /* ── Signal validation ──────────────────────────────────────── */
     var riskDiff = Math.abs(overRiskFinal - underRiskFinal);
     // Require at least 5 % risk difference for a clear advantage
-    if (riskDiff < 0.05) { state.currentSignal = null; return null; }
+    if (riskDiff < 0.04) { state.currentSignal = null; return null; }
 
     var direction = overRiskFinal < underRiskFinal ? "over" : "under";
 
     // Require 3 consecutive analysis cycles in the same direction
     if (!tm.confirmBuf) tm.confirmBuf = { dir: null, count: 0 };
+    var currentTickKey = tickKey(buf[buf.length - 1]);
     if (tm.confirmBuf.dir !== direction) {
       tm.confirmBuf.dir   = direction;
       tm.confirmBuf.count = 1;
-    } else {
+      tm.confirmBuf.tickKey = currentTickKey;
+    } else if (tm.confirmBuf.tickKey !== currentTickKey) {
       tm.confirmBuf.count++;
+      tm.confirmBuf.tickKey = currentTickKey;
     }
 
-    if (tm.confirmBuf.count < 3) {
+    if (tm.confirmBuf.count < 2) {
       state.currentSignal = (direction === "over" ? "OVER 1" : "UNDER 8") +
-        " \u2014 confirming (" + tm.confirmBuf.count + "/3)";
+        " \u2014 confirming (" + tm.confirmBuf.count + "/2 ticks)";
       return null;
     }
 
@@ -886,9 +900,9 @@
 
   function buildOver1FeatureAnalysis(buf, options) {
     var confidenceThreshold = _clamp(Number(options && options.confidenceThreshold) || 0.72, 0.5, 0.95);
-    var windows = [25, 50, 100, 200];
-    if (!buf || buf.length < 200) {
-      return { valid: false, probability: 0, confidence: 0, score: 0, reason: "Collecting sufficient data..." };
+    var windows = [20, 40, 60, 100];
+    if (!buf || buf.length < 100) {
+      return { valid: false, probability: 0, confidence: 0, score: 0, reason: "Collecting tick data (" + (buf ? buf.length : 0) + "/100)..." };
     }
 
     var summaries = windows.map(function (window) { return summarizeOver1Window(buf, window); });
@@ -911,17 +925,10 @@
     // Each evidence group has equal influence. This avoids a hand-tuned feature
     // dominating the decision and makes the score directly comparable in tests.
     var contributions = {
-      digitDistribution: _clamp((shortWindow.overRate - 0.80) / 0.10, 0, 1) *
-        _clamp((0.42 - shortWindow.dominantOverShare) / 0.20, 0, 1),
-      shortTermMomentum: _clamp(((shortWindow.overRate - midWindow.overRate) +
-        (midWindow.overRate - longWindow.overRate) + 0.02) / 0.12, 0, 1),
-      longTermConfirmation: _clamp((longAgreement - 0.78) / 0.12, 0, 1),
-      frequencyShift: _clamp((shortWindow.overRate - broadWindow.overRate + 0.02) / 0.10, 0, 1),
-      sequenceAnalysis: _clamp((recentOverRate - 0.75) / 0.20, 0, 1) *
-        (underStreak >= 3 ? 0 : 1),
-      recentBehavior: _clamp((recentOverRate - recentUnderRate + 0.20) / 0.40, 0, 1) *
-        (underStreak >= 3 ? 0 : 1),
-      marketConsistency: _clamp(1 - spread / 0.12, 0, 1),
+      recentDigits: _clamp((shortWindow.overRate - 0.72) / 0.25, 0, 1),
+      recentSequence: _clamp((recentOverRate - 0.55) / 0.40, 0, 1) * (underStreak >= 4 ? 0 : 1),
+      broadConfirmation: _clamp((broadWindow.overRate - 0.68) / 0.25, 0, 1),
+      consistency: _clamp(1 - spread / 0.28, 0, 1),
     };
     var contributionNames = Object.keys(contributions);
     var score = contributionNames.reduce(function (total, name) {
@@ -929,11 +936,11 @@
     }, 0) / contributionNames.length;
     var probability = _safeProbability((shortWindow.overRate + midWindow.overRate +
       longWindow.overRate + broadWindow.overRate) / summaries.length);
-    var enoughDistribution = shortWindow.overCount >= 18 && shortWindow.dominantOverShare <= 0.42;
-    var stableDistribution = spread <= 0.12;
-    var windowsAgree = shortAgreement >= 0.80 && longAgreement >= 0.78;
-    var meaningfulAdvantage = shortWindow.overRate >= 0.84 && broadWindow.overRate >= 0.78;
-    var recentSequenceIsSupportive = recentOverRate >= 0.75 && underStreak < 3;
+    var enoughDistribution = shortWindow.overCount >= 15 && shortWindow.dominantOverShare <= 0.62;
+    var stableDistribution = spread <= 0.28;
+    var windowsAgree = shortAgreement >= 0.72 && longAgreement >= 0.68;
+    var meaningfulAdvantage = shortWindow.overRate >= 0.80 && broadWindow.overRate >= 0.72;
+    var recentSequenceIsSupportive = recentOverRate >= 0.60 && underStreak < 4;
     var valid = score >= confidenceThreshold && meaningfulAdvantage && windowsAgree &&
       enoughDistribution && stableDistribution && recentSequenceIsSupportive;
 
@@ -970,7 +977,7 @@
 
   function decideOver1AIPredictor(state) {
     var buf = tickBuffers[state.symbol] || [];
-    if (!buf || buf.length < 200) {
+    if (!buf || buf.length < 50) {
       state.currentSignal = "Collecting sufficient data...";
       state.liveAnalysis = buildOver1LiveAnalysis(state, buf, {
         valid: false,
@@ -1017,7 +1024,7 @@
     var status = analysis.reason || "Analyzing market...";
     if (!hasData) status = "Collecting tick data...";
     else if (buf.length < 25) status = "Building digit distribution...";
-    else if (buf.length < 200) status = "Building multi-window analysis...";
+    else if (buf.length < 100) status = "Building multi-window analysis...";
     else if (analysis.valid) status = "Strong Over 1 setup detected...";
     else if (reasons.indexOf("window-disagreement") !== -1) status = "Comparing short-term and long-term patterns...";
     else if (reasons.indexOf("unstable-distribution") !== -1) status = "Market condition is unstable...";
@@ -1081,6 +1088,14 @@
     }
 
     var sig = getDecision(state);
+    var currentTicks = tickBuffers[state.symbol] || [];
+    var latestTickKey = currentTicks.length ? state.symbol + "|" + tickKey(currentTicks[currentTicks.length - 1]) : "";
+    if (sig && latestTickKey && latestTickKey === state.lastEntryTickKey) {
+      state.currentSignal = "Signal found — waiting for a fresh market tick";
+      state.analysisStatus = "analyzing";
+      renderBot(state);
+      return;
+    }
     if (!sig) {
       // Clear the confirmation buffer whenever the signal disappears
       state._sigConfirmBuf = [];
@@ -1125,6 +1140,9 @@
       return;
     }
     if (!isAuthed()) { stopBot(state, "auth"); return; }
+    var entryTicks = tickBuffers[state.symbol] || [];
+    state.lastEntryTickKey = entryTicks.length ?
+      state.symbol + "|" + tickKey(entryTicks[entryTicks.length - 1]) : "";
     state.awaitingSettle = true;
     if (state.def.id === "freeBot" && state.tradeMode === "rise-fall") {
       state.martingale = 2;
@@ -1432,16 +1450,7 @@
     renderBot(state);
     renderSummary();
 
-    var _attempts = 0;
-    var _poll = setInterval(function () {
-      _attempts++;
-      if (!state.running) { clearInterval(_poll); return; }
-      var buf = tickBuffers[state.symbol] || [];
-      if (buf.length >= 10 || _attempts > 25) {
-        clearInterval(_poll);
-        if (state.running && !state.awaitingSettle) botTick(state);
-      }
-    }, 200);
+    botTick(state);
   }
 
   function stopBot(state, reason) {
@@ -2404,7 +2413,7 @@
       return tick && isFinite(Number(tick.price));
     }) : [];
     var result = {
-      samples: Math.max(0, safeTicks.length - 200),
+      samples: Math.max(0, safeTicks.length - 100),
       signals: 0,
       signalFrequency: 0,
       wins: 0,
@@ -2418,7 +2427,7 @@
     [25, 50, 100, 200].forEach(function (window) {
       result.performanceByWindow[window] = { samples: 0, overRate: 0 };
     });
-    for (var index = 200; index < safeTicks.length - 1; index++) {
+    for (var index = 100; index < safeTicks.length - 1; index++) {
       var analysis = buildOver1FeatureAnalysis(safeTicks.slice(0, index), options);
       [25, 50, 100, 200].forEach(function (window) {
         var windowData = analysis.windows && analysis.windows.find(function (item) { return item.window === window; });

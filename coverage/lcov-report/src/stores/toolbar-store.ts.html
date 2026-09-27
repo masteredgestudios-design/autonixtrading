@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">65.35% </span>
+                <span class="strong">62.87% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>83/127</span>
+                <span class='fraction'>83/132</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">65.35% </span>
+                <span class="strong">62.87% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>83/127</span>
+                <span class='fraction'>83/132</span>
             </div>
         
             
@@ -190,7 +190,12 @@
 <a name='L125'></a><a href='#L125'>125</a>
 <a name='L126'></a><a href='#L126'>126</a>
 <a name='L127'></a><a href='#L127'>127</a>
-<a name='L128'></a><a href='#L128'>128</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -268,6 +273,11 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -319,7 +329,7 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
 import { action, makeObservable, observable } from 'mobx';
-import { config, load, runGroupedEvents } from '@/external/bot-skeleton';
+import { config, load } from '@/external/bot-skeleton';
 import RootStore from './root-store';
 &nbsp;
 interface IToolbarStore {
@@ -382,20 +392,25 @@ export default class ToolbarStore implements IToolbarStore {
 <span class="cstat-no" title="statement not covered" >        this.is_dialog_open = false;</span>
     };
 &nbsp;
-    onResetOkButtonClick = <span class="fstat-no" title="function not covered" >(): void =&gt; {</span>
+    onResetOkButtonClick = <span class="fstat-no" title="function not covered" >async (): Promise&lt;void&gt; =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        this.setResetButtonState(true);</span>
-<span class="cstat-no" title="statement not covered" >        runGroupedEvents(</span>
-<span class="cstat-no" title="statement not covered" >            false,</span>
-<span class="cstat-no" title="statement not covered" >            () =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >                this.resetDefaultStrategy();</span>
-<span class="cstat-no" title="statement not covered" >            },</span>
-<span class="cstat-no" title="statement not covered" >            'reset'</span>
-<span class="cstat-no" title="statement not covered" >        );</span>
 <span class="cstat-no" title="statement not covered" >        this.is_dialog_open = false;</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >        window.Blockly.Events.setGroup('reset');</span>
+<span class="cstat-no" title="statement not covered" >        try {</span>
+<span class="cstat-no" title="statement not covered" >            await this.resetDefaultStrategy();</span>
+<span class="cstat-no" title="statement not covered" >        } finally {</span>
+<span class="cstat-no" title="statement not covered" >            window.Blockly.Events.setGroup(false);</span>
+<span class="cstat-no" title="statement not covered" >        }</span>
     };
 &nbsp;
     resetDefaultStrategy = <span class="fstat-no" title="function not covered" >async () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        const workspace = window.Blockly.derivWorkspace;</span>
+<span class="cstat-no" title="statement not covered" >        if (!workspace || workspace.isDisposed?.()) return;</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >        if (this.root_store.run_panel.is_running) {</span>
+<span class="cstat-no" title="statement not covered" >            await this.root_store.run_panel.stopBot();</span>
+<span class="cstat-no" title="statement not covered" >        }</span>
 <span class="cstat-no" title="statement not covered" >        workspace.current_strategy_id = window?.Blockly?.utils?.idGenerator?.genUid();</span>
 <span class="cstat-no" title="statement not covered" >        await load({</span>
 <span class="cstat-no" title="statement not covered" >            block_string: workspace.cached_xml.main,</span>
@@ -451,7 +466,7 @@ export default class ToolbarStore implements IToolbarStore {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-26T14:29:47.692Z
+                at 2026-09-27T15:40:45.266Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

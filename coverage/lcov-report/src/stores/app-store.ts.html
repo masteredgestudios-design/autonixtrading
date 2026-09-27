@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">27.06% </span>
+                <span class="strong">25.87% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>59/218</span>
+                <span class='fraction'>59/228</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">27.06% </span>
+                <span class="strong">25.87% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>59/218</span>
+                <span class='fraction'>59/228</span>
             </div>
         
             
@@ -281,7 +281,17 @@
 <a name='L216'></a><a href='#L216'>216</a>
 <a name='L217'></a><a href='#L217'>217</a>
 <a name='L218'></a><a href='#L218'>218</a>
-<a name='L219'></a><a href='#L219'>219</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -353,9 +363,19 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -560,6 +580,7 @@ export default class AppStore {
 <span class="cstat-no" title="statement not covered" >        blockly_store.setLoading(true);</span>
 <span class="cstat-no" title="statement not covered" >        await DBot.initWorkspace('/', this.dbot_store, this.api_helpers_store, ui.is_mobile, false);</span>
 <span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >        blockly_store.setWorkspaceInitialized(true);</span>
 <span class="cstat-no" title="statement not covered" >        blockly_store.setContainerSize();</span>
 <span class="cstat-no" title="statement not covered" >        blockly_store.setLoading(false);</span>
 <span class="cstat-no" title="statement not covered" ></span>
@@ -574,11 +595,20 @@ export default class AppStore {
     };
 &nbsp;
     onUnmount = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >        this.root_store.blockly_store.setWorkspaceInitialized(false);</span>
 <span class="cstat-no" title="statement not covered" >        DBot.terminateBot();</span>
 <span class="cstat-no" title="statement not covered" >        DBot.terminateConnection();</span>
-<span class="cstat-no" title="statement not covered" >        if (window.Blockly?.derivWorkspace) {</span>
-<span class="cstat-no" title="statement not covered" >            clearInterval(window.Blockly?.derivWorkspace.save_workspace_interval);</span>
-<span class="cstat-no" title="statement not covered" >            window.Blockly.derivWorkspace?.dispose();</span>
+<span class="cstat-no" title="statement not covered" >        DBot.cleanupWorkspaceListeners?.();</span>
+<span class="cstat-no" title="statement not covered" >        const workspace = window.Blockly?.derivWorkspace;</span>
+<span class="cstat-no" title="statement not covered" >        if (workspace) {</span>
+<span class="cstat-no" title="statement not covered" >            clearInterval(workspace.save_workspace_interval);</span>
+<span class="cstat-no" title="statement not covered" >            if (window.Blockly.derivWorkspace === workspace) {</span>
+<span class="cstat-no" title="statement not covered" >                window.Blockly.derivWorkspace = undefined;</span>
+<span class="cstat-no" title="statement not covered" >            }</span>
+<span class="cstat-no" title="statement not covered" >            if (DBot.workspace === workspace) {</span>
+<span class="cstat-no" title="statement not covered" >                DBot.workspace = null;</span>
+<span class="cstat-no" title="statement not covered" >            }</span>
+<span class="cstat-no" title="statement not covered" >            workspace.dispose();</span>
 <span class="cstat-no" title="statement not covered" >        }</span>
 <span class="cstat-no" title="statement not covered" >        if (typeof this.disposeReloadOnLanguageChangeReaction === 'function') {</span>
 <span class="cstat-no" title="statement not covered" >            this.disposeReloadOnLanguageChangeReaction();</span>
@@ -724,7 +754,7 @@ export default class AppStore {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-26T14:29:47.692Z
+                at 2026-09-27T15:40:45.266Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
