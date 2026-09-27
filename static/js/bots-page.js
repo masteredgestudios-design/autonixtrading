@@ -669,7 +669,7 @@
       state.currentSignal = analysis.reason;
       return null;
     }
-    state.currentSignal = analysis.selection.toUpperCase() + " — " + analysis.alignedWindows + "/5 windows aligned";
+    state.currentSignal = analysis.selection.toUpperCase() + " \u2014 " + analysis.alignedWindows + "/5 windows aligned";
     return {
       selection: analysis.selection,
       tradeType: "rise-fall",
