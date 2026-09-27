@@ -609,6 +609,73 @@
     return { selection: "differ", digit: targetDigit, tradeType: "match-differ" };
   }
 
+  function analyzeRiseFallTicks(ticks) {
+    var safeTicks = Array.isArray(ticks) ? ticks.filter(function (tick) {
+      return tick && isFinite(Number(tick.price)) && Number(tick.price) > 0;
+    }) : [];
+    var windows = [5, 10, 25, 50, 100];
+    if (safeTicks.length < 100) {
+      return { valid: false, reason: "Collecting at least 100 ticks...", windows: [] };
+    }
+
+    var measurements = windows.map(function (size) {
+      var sample = safeTicks.slice(-size);
+      var netMove = Number(sample[sample.length - 1].price) - Number(sample[0].price);
+      var pathLength = 0;
+      var rises = 0;
+      var falls = 0;
+      for (var i = 1; i < sample.length; i++) {
+        var change = Number(sample[i].price) - Number(sample[i - 1].price);
+        pathLength += Math.abs(change);
+        if (change > 0) rises++;
+        else if (change < 0) falls++;
+      }
+      var direction = netMove > 0 ? "rise" : netMove < 0 ? "fall" : null;
+      var alignedMoves = direction === "rise" ? rises : direction === "fall" ? falls : 0;
+      var moveCount = sample.length - 1;
+      var directionalRatio = moveCount ? alignedMoves / moveCount : 0;
+      var efficiency = pathLength ? Math.abs(netMove) / pathLength : 0;
+      return {
+        window: size,
+        direction: direction,
+        directionalRatio: directionalRatio,
+        efficiency: efficiency,
+        valid: !!direction && directionalRatio >= 0.65 && efficiency >= 0.25,
+      };
+    });
+
+    var shortDirection = measurements[1].direction;
+    var alignedWindows = measurements.filter(function (item) {
+      return item.valid && item.direction === shortDirection;
+    }).length;
+    var shortWindowsAgree = measurements[0].valid && measurements[1].valid &&
+      measurements[0].direction === shortDirection;
+    var valid = !!shortDirection && shortWindowsAgree && alignedWindows >= 4;
+    return {
+      valid: valid,
+      selection: valid ? shortDirection : null,
+      tradeType: "rise-fall",
+      reason: valid ? "Strong " + (shortDirection === "rise" ? "Rise" : "Fall") + " setup" :
+        "Waiting for aligned multi-window momentum...",
+      alignedWindows: alignedWindows,
+      windows: measurements,
+    };
+  }
+
+  function decideFreeRiseFall(state) {
+    var analysis = analyzeRiseFallTicks(tickBuffers[state.symbol] || []);
+    state.riseFallAnalysis = analysis;
+    if (!analysis.valid) {
+      state.currentSignal = analysis.reason;
+      return null;
+    }
+    state.currentSignal = analysis.selection.toUpperCase() + " — " + analysis.alignedWindows + "/5 windows aligned";
+    return {
+      selection: analysis.selection,
+      tradeType: "rise-fall",
+    };
+  }
+
   /* ─────────────────────────────────────────────────────────────
      STRATEGY 3 — Basic Bot: Tick-Based Differs Engine
      Reads the last digit of the previous tick and immediately
@@ -938,7 +1005,9 @@
   function getDecision(state) {
     var id = state.def.id;
     if (id === "freeBot") {
-      return state.tradeMode === "differs" ? decideFreeDiffers(state) : decideFreeOverUnder(state);
+      if (state.tradeMode === "differs") return decideFreeDiffers(state);
+      if (state.tradeMode === "rise-fall") return decideFreeRiseFall(state);
+      return decideFreeOverUnder(state);
     }
     if (id === "basicBot")  return decideBasicDiffers(state);
     if (id === "expertBot") return decideExpertOverUnder(state);
@@ -1054,7 +1123,7 @@
       tradeType: sig.tradeType || state.def.tradeType || "over-under",
       selection: sig.selection,
       stake: stake,
-      duration: state.def.duration,
+      duration: state.def.id === "freeBot" && state.tradeMode === "rise-fall" ? 5 : state.def.duration,
       symbol: state.symbol,
       digit: sig.digit,
       currency: currency,
@@ -1277,6 +1346,7 @@
     }
     if (twEl) state.tickWindow = parseInt(twEl.value, 10)   || state.tickWindow || 100;
     if (state.stake < 0.35) state.stake = 0.35;
+    if (state.def.id === "freeBot" && state.tradeMode === "rise-fall") state.martingale = 2;
     state.currentStake = state.stake;
     state.martStep = 0;
     state.consecutiveLosses = 0;
@@ -1631,6 +1701,7 @@
           '<select id="tradetype-' + def.id + '" class="bot-select bot-trade-type-select">' +
             '<option value="over-under"' + (s.tradeMode === "over-under" ? " selected" : "") + '>Over / Under</option>' +
             '<option value="differs"' + (s.tradeMode === "differs" ? " selected" : "") + '>Matches / Differs</option>' +
+            '<option value="rise-fall"' + (s.tradeMode === "rise-fall" ? " selected" : "") + '>Rise / Fall</option>' +
           '</select>' +
         '</div>' +
         inputsHTML +
@@ -1787,6 +1858,9 @@
         if (s.tradeMode === "differs") {
           s.martingale = def.martingaleDiffers || 12;
           s.maxMartSteps = def.maxMartStepsDiffers || 3;
+        } else if (s.tradeMode === "rise-fall") {
+          s.martingale = 2;
+          s.maxMartSteps = def.maxMartStepsOverUnder || 6;
         } else {
           s.martingale = def.martingaleOverUnder || 4.5;
           s.maxMartSteps = def.maxMartStepsOverUnder || 6;
@@ -2300,5 +2374,9 @@
       session.tradeAllowed = true;
       return { running: session.running, lossStopped: false, takeProfitReached: false, tradeAllowed: true, sessionProfit: session.sessionProfit, currentStake: session.currentStake };
     },
+  };
+
+  window.AutonixFreeBotStrategy = {
+    analyzeRiseFall: analyzeRiseFallTicks,
   };
 })();
