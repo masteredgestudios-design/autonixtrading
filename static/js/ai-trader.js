@@ -521,6 +521,15 @@
       return;
     }
 
+    var latestTick = ai.tickBuffer[ai.tickBuffer.length - 1];
+    var entryTickKey = latestTick ? String(latestTick.time || "") + "|" + String(latestTick.price) : "";
+    if (entryTickKey && entryTickKey === ai.state.lastEntryTickKey) {
+      setLiveStatus("Signal remains valid — waiting for a fresh tick", true);
+      scheduleNextTrade();
+      return;
+    }
+    ai.state.lastEntryTickKey = entryTickKey;
+
     ai.state.tradeInProgress = true;
     setLiveStatus("Calculating stake...", true);
     var minimumStake = Math.max(MIN_STAKE, 0.35);
@@ -664,6 +673,7 @@
       symbol: ai.symbol,
       liveStatus: "AI Trader Started",
       tradeInProgress: false,
+      lastEntryTickKey: "",
       submissionFailures: 0
     };
     ai.state.currentStake = ai.state.pendingRecovery > 0 ? calculateRecoveryStake(ai.state.pendingRecovery, ai.state.payoutRate) : ai.state.currentStake;
