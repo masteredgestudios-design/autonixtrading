@@ -52,10 +52,28 @@
     return new Promise(function (resolve, reject) {
       var id = nextReqId();
       payload.req_id = id;
-      state.pendingReqs[id] = { resolve: resolve, reject: reject };
+      var timeoutId = setTimeout(function () {
+        delete state.pendingReqs[id];
+        var error = new Error("Deriv request timed out");
+        error.requestTimedOut = true;
+        reject(error);
+      }, 10000);
+      state.pendingReqs[id] = {
+        resolve: function (response) {
+          clearTimeout(timeoutId);
+          resolve(response);
+        },
+        reject: function (error) {
+          clearTimeout(timeoutId);
+          reject(error);
+        },
+      };
       if (!send(payload)) {
         delete state.pendingReqs[id];
-        reject(new Error("WebSocket not open"));
+        clearTimeout(timeoutId);
+        var sendError = new Error("WebSocket not open");
+        sendError.notSent = true;
+        reject(sendError);
       }
     });
   }
@@ -77,41 +95,14 @@
       var cb = state.pendingReqs[id];
       delete state.pendingReqs[id];
       if (msg.error) {
-        cb.reject(new Error(msg.error.message || "Deriv API error"));
+        var apiError = new Error(msg.error.message || "Deriv API error");
+        apiError.apiRejected = true;
+        cb.reject(apiError);
       } else {
         cb.resolve(msg);
       }
       /* Don't return — subscriptions also carry req_id on first message */
     }
-
-    if (type === "authorize") {
-      if (!msg.error) {
-        state.authorized = true;
-        var acc = msg.authorize;
-        state.accountId = acc.loginid;
-        state.currency = acc.currency;
-        if (!state.wsUrl) {
-          afterAuthorize(acc);
-        }
-      }
-    }
-
-    if (type === "balance") {
-      var bal = msg.balance;
-      if (bal && state.balanceCb) {
-        state.balanceCb(bal.balance, bal.currency, bal.loginid);
-      }
-      if (bal) {
-        syncBalance(bal.balance, bal.currency, bal.loginid);
-        /* Fire global event so any page (bots, trader) can update its balance display */
-        try {
-          document.dispatchEvent(new CustomEvent("derivBalance", {
-            detail: { balance: bal.balance, currency: bal.currency, loginid: bal.loginid }
-          }));
-        } catch (e) {}
-      }
-    }
-
     if (type === "tick") {
       var tick = msg.tick;
       var listeners = tick && state.tickSubs[tick.symbol];
@@ -141,7 +132,6 @@
     if (type === "proposal_open_contract") {
       var poc = msg.proposal_open_contract;
       if (poc && poc.contract_id) {
-        /* Track subscription id for cleanup */
         if (msg.subscription && msg.subscription.id) {
           state.pocSubIds[poc.contract_id] = msg.subscription.id;
         }
@@ -194,6 +184,11 @@
 
   /* Explicitly subscribe to proposal_open_contract for a specific contract */
   function subscribeContractPOC(contractId) {
+    var previousSubId = state.pocSubIds[contractId];
+    if (previousSubId) {
+      send({ forget: previousSubId });
+      delete state.pocSubIds[contractId];
+    }
     var id = nextReqId();
     /* Register a dummy pending handler so the first POC response (which
        carries the req_id) resolves cleanly and doesn't stay pending forever */
@@ -218,6 +213,37 @@
       reject: function () {},
     };
     send({ proposal_open_contract: 1, subscribe: 1, contract_id: contractId, req_id: id });
+  }
+
+  function watchContract(contractId, onSettle) {
+    if (!state.authorized || !state.connected) return null;
+    var settled = false;
+    state.contractCbs[contractId] = function (poc) {
+      if (settled || !(poc.is_sold || poc.status === "sold")) return;
+      settled = true;
+      var profit = parseFloat(poc.profit) || 0;
+      onSettle({
+        won: profit > 0,
+        pl: profit,
+        contractId: String(contractId),
+        buyPrice: poc.buy_price,
+        sellPrice: poc.sell_price,
+        payout: poc.payout,
+        entrySpot: poc.entry_spot,
+        exitSpot: poc.exit_spot,
+      });
+    };
+    drainPocBuffer(contractId);
+    if (state.contractCbs[contractId]) subscribeContractPOC(contractId);
+    return function () {
+      delete state.contractCbs[contractId];
+      delete state.pocBuffer[contractId];
+      var subId = state.pocSubIds[contractId];
+      if (subId) {
+        send({ forget: subId });
+        delete state.pocSubIds[contractId];
+      }
+    };
   }
 
   /* ── Post-authorize setup ───────────────────────────────────── */
@@ -286,7 +312,7 @@
     delete state.tickSubPending[symbol];
   }
 
-  /* ── Connect & (optionally) authorize ───────────────────────── */
+  /* ── Connect using authenticated OTP URL or public market data ─ */
   function connect(appId, token, accountId, onBalance, wsUrl, currency) {
     state.appId = appId;
     state.token = token || null;
@@ -322,23 +348,6 @@
           balance: undefined,
           currency: state.currency || "USD",
         });
-
-        try {
-          var up = new URL(state.wsUrl).searchParams;
-          var otpToken = up.get("otp") || up.get("token") || up.get("access_token");
-          if (otpToken) {
-            sendRequest({ authorize: otpToken })
-              .then(function () {})
-              .catch(function () {});
-          }
-        } catch (e) {}
-      } else if (state.token) {
-        sendRequest({ authorize: state.token })
-          .then(function () {})
-          .catch(function (err) {
-            if (window.showToast)
-              window.showToast("Deriv auth error: " + (err.message || "unknown"), "red", 4000);
-          });
       }
     };
 
@@ -347,6 +356,13 @@
     ws.onclose = function () {
       state.connected = false;
       state.authorized = false;
+      Object.keys(state.pendingReqs).forEach(function (reqId) {
+        var pending = state.pendingReqs[reqId];
+        delete state.pendingReqs[reqId];
+        var error = new Error("WebSocket disconnected while request was pending");
+        error.connectionInterrupted = true;
+        pending.reject(error);
+      });
       state.tickSubIds = {};
       state.tickSubPending = {};
       scheduleReconnect();
@@ -441,8 +457,7 @@
 
   /* ── buyContract ─────────────────────────────────────────────── */
   /*
-   * Two-step proposal → buy flow, works on both old (ws.derivws.com)
-   * and new (api.derivws.com) APIs.
+  * Proposal → buy flow, with an optional one-request direct-buy mode.
    *
    * RACE CONDITION FIX:
    *   For 1-tick contracts, Deriv streams proposal_open_contract with
@@ -461,9 +476,6 @@
       return Promise.reject(new Error("Not authorized — please log in first"));
     }
 
-    /* Both ws.derivws.com (old) and api.derivws.com (new) use the same
-       "symbol" field name for the proposal endpoint.  The old code sent
-       "underlying_symbol" for new-API accounts which the server rejects. */
     var isNewApi = !!(state.wsUrl && state.wsUrl.indexOf("api.derivws.com") !== -1);
     var typeMap = (isNewApi ? CONTRACT_TYPE_MAP_NEW : CONTRACT_TYPE_MAP_LEGACY)[opts.tradeType];
     if (!typeMap) return Promise.reject(new Error("Unknown trade type: " + opts.tradeType));
@@ -476,9 +488,13 @@
        These are two different field names for the same concept; each server
        rejects the other's field name with InputValidationFailed. */
     var symbolField = isNewApi ? "underlying_symbol" : "symbol";
+    if (typeof opts.activationCheck === "function" && !opts.activationCheck()) {
+      var activationError = new Error("Bot activation expired before purchase submission");
+      activationError.notSent = true;
+      return Promise.reject(activationError);
+    }
     var proposal = {
       proposal: 1,
-      subscribe: 1,
       amount: opts.stake,
       basis: "stake",
       contract_type: contractType,
@@ -501,48 +517,46 @@
       .then(function (propMsg) {
         var prop = propMsg.proposal;
         if (!prop || !prop.id) throw new Error("No proposal returned from Deriv");
-
-        /* Step 2 — buy */
-        return sendRequest({ buy: prop.id, price: opts.stake });
+        var proposalDetails = {
+          id: prop.id,
+          payout: prop.payout,
+          ask_price: prop.ask_price,
+          contract_type: prop.contract_type || contractType,
+          symbol: prop.symbol || prop.underlying || opts.symbol,
+          barrier: prop.barrier !== undefined ? prop.barrier : String(opts.digit),
+          duration: opts.duration || 5,
+          currency: prop.currency || opts.currency || state.currency || "USD",
+        };
+        return Promise.resolve(
+          typeof opts.onProposal === "function" ? opts.onProposal(proposalDetails) : null
+        ).then(function () {
+          if (typeof opts.activationCheck === "function" && !opts.activationCheck()) {
+            var activationExpired = new Error("Bot activation expired before purchase submission");
+            activationExpired.notSent = true;
+            throw activationExpired;
+          }
+          return sendRequest({ buy: prop.id, price: opts.stake }).then(function (buyMsg) {
+            return { message: buyMsg, proposal: proposalDetails };
+          });
+        });
       })
-      .then(function (buyMsg) {
+      .then(function (purchase) {
+        var buyMsg = purchase.message;
         var buyData = buyMsg.buy;
         if (!buyData) throw new Error("No buy data returned");
 
         var contractId = buyData.contract_id;
 
         if (onSettle && contractId) {
-          /* ─ 1. Register callback FIRST, before anything else ─ */
-          state.contractCbs[contractId] = function (poc) {
-            if (poc.is_sold || poc.status === "sold") {
-              var pl = parseFloat(poc.profit) || 0;
-              onSettle({
-                won: pl > 0,
-                pl: pl,
-                contractId: contractId,
-                buyPrice: poc.buy_price,
-                sellPrice: poc.sell_price,
-                payout: poc.payout,
-                entrySpot: poc.entry_spot,
-                exitSpot: poc.exit_spot,
-              });
-            }
-          };
-
-          /* ─ 2. Drain any POC that arrived before we registered ─ */
-          drainPocBuffer(contractId);
-
-          /* ─ 3. Explicit POC subscription (belt-and-suspenders) ─
-                  The proposal's implicit subscription may have been
-                  cancelled by the buy; this guarantees we get the
-                  settlement message.                                */
-          if (state.contractCbs[contractId]) {
-            /* Only subscribe if callback wasn't already consumed by drain */
-            subscribeContractPOC(contractId);
-          }
+          watchContract(contractId, onSettle);
         }
 
-        return { contractId: contractId, buyPrice: buyData.buy_price };
+        return {
+          contractId: contractId,
+          buyPrice: buyData.buy_price,
+          proposal: purchase.proposal,
+          buy: buyData,
+        };
       });
   }
 
@@ -558,6 +572,16 @@
     state.authorized = false;
   }
 
+  function requestBalance() {
+    if (!state.authorized) return Promise.reject(new Error("Not authorized"));
+    return sendRequest({ balance: 1 }).then(function (msg) {
+      if (!msg.balance || msg.balance.balance === undefined) {
+        throw new Error("Deriv did not return an account balance");
+      }
+      return msg.balance;
+    });
+  }
+
   function isAuthorized() { return state.authorized; }
   function getState()     { return state; }
 
@@ -569,6 +593,8 @@
     unsubscribeTicks: unsubscribeTicks,
     getHistory: getHistory,
     buyContract: buyContract,
+    watchContract: watchContract,
+      requestBalance: requestBalance,
     isAuthorized: isAuthorized,
     getState: getState,
   };

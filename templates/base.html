@@ -48,7 +48,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}?v=15" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=14" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/autonix.css') }}?v=15" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/redesign.css') }}?v=10" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/redesign.css') }}?v=11" />
   <style>
     /* Anti-flash: apply saved theme before CSS loads */
     html { visibility: hidden; }
@@ -212,7 +212,7 @@
     window.SESSION_DATA = {{ (session_data | tojson) if session_data else 'null' }};
     window.REDIRECT_URL = "{{ redirect_url or '' }}" || window.location.origin;
   </script>
-  <script src="{{ url_for('static', filename='js/deriv-ws.js') }}?v=13"></script>
+  <script src="{{ url_for('static', filename='js/deriv-ws.js') }}?v=16"></script>
   <script src="{{ url_for('static', filename='js/theme-toggle.js') }}?v=3"></script>
   <script src="{{ url_for('static', filename='js/currency.js') }}?v=1"></script>
   <script src="{{ url_for('static', filename='js/markets-panel.js') }}?v=5"></script>
@@ -221,7 +221,7 @@
   <script src="{{ url_for('static', filename='js/tp-celebration.js') }}?v=2"></script>
   <script src="{{ url_for('static', filename='js/bot.js') }}?v=7"></script>
   <script src="{{ url_for('static', filename='js/manual-trader.js') }}?v=1"></script>
-  <script src="{{ url_for('static', filename='js/main.js') }}?v=8"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}?v=9"></script>
   <script src="{{ url_for('static', filename='js/autonix.js') }}?v=5"></script>
   <script src="{{ url_for('static', filename='js/install-pwa.js') }}?v=5"></script>
   <script src="{{ url_for('static', filename='js/pull-to-refresh.js') }}?v=1"></script>

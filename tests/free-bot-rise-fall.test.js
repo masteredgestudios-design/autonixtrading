@@ -130,4 +130,36 @@ describe('Free Bot Rise/Fall analysis', () => {
     jest.clearAllTimers();
     jest.useRealTimers();
   });
+
+  it('keeps Basic activation while the Expert card remains inert', async () => {
+    jest.useFakeTimers();
+    const response = (body) => ({ ok: true, json: () => Promise.resolve(body) });
+    global.fetch = jest.fn((url, options) => {
+      if (!options || options.method !== 'POST') return Promise.resolve(response({ active: false }));
+      const body = JSON.parse(options.body);
+      if (url === '/api/validate-activation') return Promise.resolve(response({ valid: true }));
+      return Promise.resolve(response({
+        active: body.action === 'activity',
+        remaining_seconds: 600,
+      }));
+    });
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    for (let index = 0; index < 8; index += 1) await Promise.resolve();
+
+    document.getElementById('actcode-basicBot').value = 'basic-code';
+    document.getElementById('validate-basicBot').click();
+    for (let index = 0; index < 8; index += 1) await Promise.resolve();
+    expect(document.getElementById('start-basicBot')).toBeTruthy();
+    const expertCard = document.querySelector('.expert-coming-soon-card');
+    expect(expertCard.textContent).toContain('COMING SOON');
+    expect(expertCard.textContent).toContain('The Expert Bot will be available soon.');
+    expect(expertCard.querySelector('button, input, select')).toBeNull();
+
+    expect(document.getElementById('start-basicBot')).toBeTruthy();
+    expect(global.fetch).toHaveBeenCalledWith('/api/activation-session?tier=basic', { credentials: 'include' });
+    expect(global.fetch.mock.calls.some(([url]) => String(url).includes('expert'))).toBe(false);
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
 });

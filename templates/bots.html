@@ -2,7 +2,7 @@
 
 {% block title %}My Bots | Automated Trading Suite | Autonix{% endblock %}
 
-{% block meta_description %}Three intelligent automated trading bots — Free, Basic, and Expert. Set your stake, take profit, and stop loss. Autonix handles the rest.{% endblock %}
+{% block meta_description %}Automated trading tools including Free Bot, Basic Bot, and Over 1 AI Predictor, with the Expert Bot coming soon.{% endblock %}
 
 {% block body %}
 <div class="app-wrapper">
@@ -54,7 +54,7 @@
           </div>
           <div class="bots-summary-item">
             <span class="bots-summary-label">Active Bots</span>
-            <span class="bots-summary-value" id="bots-active-count">0 / 6</span>
+            <span class="bots-summary-value" id="bots-active-count">0 / 5</span>
           </div>
           <div class="bots-summary-item">
             <span class="bots-summary-label">Session P/L</span>
@@ -257,7 +257,7 @@
 
 <div id="toast" class="toast" aria-live="polite"></div>
 {% endblock %} {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/bots-page.js') }}?v=35"></script>
+<script src="{{ url_for('static', filename='js/bots-page.js') }}?v=39"></script>
 <script src="{{ url_for('static', filename='js/bulk-trader.js') }}?v=5"></script>
 <script src="{{ url_for('static', filename='js/ai-trader.js') }}?v=2"></script>
 {% endblock %}

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Autonix — Bots Page v3  (Free Bot · Basic Bot · Expert Bot)
+  Autonix — Bots Page v3  (Free Bot · Basic Bot)
    ═══════════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -139,21 +139,6 @@
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/></svg>',
     },
     {
-      id: "expertBot",
-      name: "Expert Bot",
-      tier: "expert",
-      martingale: 4.5,
-      maxMartSteps: 6,
-      duration: 1,
-      tradeType: "over-under",
-      defaults: { stake: 10, tp: 5, sl: 100 },
-      accent: "#F59E0B",
-      requiresActivation: true,
-      activationTier: "expert",
-      price: 100,
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-    },
-    {
       id: "over1AiPredictor",
       name: "Over 1 AI Predictor",
       tier: "ai",
@@ -168,7 +153,85 @@
   ];
 
   /* ─── Activation state (session-only, no localStorage) ───────── */
-  var activationState = { freeBot: true, basicBot: false, expertBot: false };
+  var activationState = { freeBot: true, basicBot: false };
+  var activationTimers = {};
+  var activationActivityTimers = {};
+  var ACTIVATION_TIMEOUT_MS = 10 * 60 * 1000;
+
+  function scheduleActivationExpiry(botId, remainingSeconds) {
+    clearTimeout(activationTimers[botId]);
+    var delay = Number.isFinite(Number(remainingSeconds))
+      ? Math.max(0, Number(remainingSeconds) * 1000)
+      : ACTIVATION_TIMEOUT_MS;
+    activationTimers[botId] = setTimeout(function () { expireActivation(botId); }, delay);
+  }
+
+  function expireActivation(botId) {
+    if (!activationState[botId]) return;
+    var def = BOT_DEFS.find(function (item) { return item.id === botId; });
+    activationState[botId] = false;
+    clearTimeout(activationTimers[botId]);
+    fetch("/api/activation-session", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "lock", tier: def.activationTier }),
+    }).catch(function () {});
+    document.dispatchEvent(new CustomEvent("autonix:activation-expired", {
+      detail: { tier: def.activationTier },
+    }));
+    if (botId === "basicBot") {
+      var basicState = states[botId];
+      if (basicState && basicState.running) {
+        basicState.running = false;
+        basicState.analysisStatus = "idle";
+        renderBot(basicState);
+        renderSummary();
+      }
+    }
+    renderCardContent(botId);
+  }
+
+  function loadActivationSession(botId) {
+    var def = BOT_DEFS.find(function (item) { return item.id === botId; });
+    fetch("/api/activation-session?tier=" + encodeURIComponent(def.activationTier), {
+      credentials: "include",
+    }).then(function (response) {
+      return response.ok ? response.json() : Promise.reject(new Error("Activation status unavailable"));
+    }).then(function (data) {
+      activationState[botId] = data.active === true;
+      if (activationState[botId]) scheduleActivationExpiry(botId, data.remaining_seconds);
+      else clearTimeout(activationTimers[botId]);
+      renderCardContent(botId);
+    }).catch(function () {
+      activationState[botId] = false;
+      renderCardContent(botId);
+    });
+  }
+
+  function recordBotActivity(event) {
+    var target = event.target;
+    var card = target && target.closest && target.closest("#card-basicBot");
+    if (!card) return;
+    var botId = card.id.replace("card-", "");
+    if (!activationState[botId]) return;
+    var def = BOT_DEFS.find(function (item) { return item.id === botId; });
+    scheduleActivationExpiry(botId, ACTIVATION_TIMEOUT_MS / 1000);
+    clearTimeout(activationActivityTimers[botId]);
+    activationActivityTimers[botId] = setTimeout(function () {
+      fetch("/api/activation-session", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "activity", tier: def.activationTier }),
+      }).then(function (response) {
+        return response.ok ? response.json() : Promise.reject(new Error("Activation expired"));
+      }).then(function (data) {
+        if (data.active) scheduleActivationExpiry(botId, data.remaining_seconds);
+        else expireActivation(botId);
+      }).catch(function () { expireActivation(botId); });
+    }, 200);
+  }
 
   /* ─── Symbol options ─────────────────────────────────────────── */
   var DEFAULT_SYMBOL = "1HZ100V";
@@ -296,7 +359,7 @@
 
   /* ─────────────────────────────────────────────────────────────
      SHARED UTILITY — Shannon entropy (0 = fully predictable,
-     1 = perfectly uniform/random). Used by Basic and Expert.
+    1 = perfectly uniform/random). Used by Basic Bot.
   ───────────────────────────────────────────────────────────── */
   function shannonEntropy(buf, window) {
     var size   = Math.min(buf.length, window);
@@ -789,66 +852,6 @@
     return { selection: "differ", digit: prevDigit, tradeType: "match-differ" };
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     STRATEGY 4 — Expert Bot: Dominant-Group Over / Under Engine
-     Evaluates the last tick's digit against the dominant digit
-     group from the last 100 ticks (low 0-4 vs high 5-9).
-
-     Over 1:  last digit 0-4 AND dominant group is 5-9.
-              High digits dominate; last tick briefly low ->
-              strong expectation next tick reverts high.
-
-     Under 8: last digit 5-9 AND dominant group is 0-4.
-              Low digits dominate; last tick briefly high ->
-              strong expectation next tick reverts low.
-
-     Requires clear dominance (>52%) so balanced markets are
-     skipped.  Decisive, readable, and fast.
-     Martingale: 4.5 (hidden)
-   ───────────────────────────────────────────────────────────── */
-  function decideExpertOverUnder(state) {
-    var buf = tickBuffers[state.symbol] || [];
-    if (buf.length < 20) return null;
-
-    /* Last digit of the most recent completed tick */
-    var lastD = lastDigit(buf[buf.length - 1].price);
-
-    /* Dominant digit group from the last 100 ticks */
-    var sampleSize = Math.min(buf.length, 100);
-    var counts     = countDigits(buf, sampleSize);
-    var lowCount   = counts[0] + counts[1] + counts[2] + counts[3] + counts[4];
-    var highCount  = counts[5] + counts[6] + counts[7] + counts[8] + counts[9];
-    var total      = lowCount + highCount;
-
-    var dominantGroup, dominantPct;
-    if (highCount > lowCount) {
-      dominantGroup = "high"; dominantPct = highCount / total;
-    } else if (lowCount > highCount) {
-      dominantGroup = "low";  dominantPct = lowCount  / total;
-    } else {
-      state.currentSignal = null; return null; // perfectly balanced
-    }
-
-    /* Require clear dominance — skip balanced markets */
-    if (dominantPct < 0.52) { state.currentSignal = null; return null; }
-
-    /* Over 1: last digit low (0-4), market dominated by high (5-9) */
-    if (lastD <= 4 && dominantGroup === "high") {
-      state.currentSignal = "OVER 1  " + (dominantPct * 100).toFixed(0) + "%";
-      return { selection: "over", digit: 1, tradeType: "over-under" };
-    }
-
-    /* Under 8: last digit high (5-9), market dominated by low (0-4) */
-    if (lastD >= 5 && dominantGroup === "low") {
-      state.currentSignal = "UNDER 8  " + (dominantPct * 100).toFixed(0) + "%";
-      return { selection: "under", digit: 8, tradeType: "over-under" };
-    }
-
-    /* Last digit aligns with dominant group — no counter-signal */
-    state.currentSignal = null;
-    return null;
-  }
-
   function _clamp(v, min, max) {
     return Math.min(max, Math.max(min, v));
   }
@@ -1064,7 +1067,6 @@
       return decideFreeOverUnder(state);
     }
     if (id === "basicBot")  return decideBasicDiffers(state);
-    if (id === "expertBot") return decideExpertOverUnder(state);
     if (id === "over1AiPredictor") return decideOver1AIPredictor(state);
     return null;
   }
@@ -1072,9 +1074,7 @@
   /* ─── Signal stability confirmation requirements per tier ────── */
   // Free bot: fires immediately on first valid signal (1 confirmation).
   // Basic bot: requires 2 consecutive ticks with the same signal direction.
-  // Expert bot: requires 3 consecutive ticks with the same signal direction.
-  // This prevents entering on a single spike that may not persist.
-  var SIGNAL_CONFIRM_REQUIRED = { freeBot: 1, basicBot: 1, expertBot: 2 };
+  var SIGNAL_CONFIRM_REQUIRED = { freeBot: 1, basicBot: 1 };
 
   /* ─── Trade loop ─────────────────────────────────────────────── */
   function botTick(state) {
@@ -1133,6 +1133,7 @@
 
   function placeBotTrade(state, sig) {
     if (!state.running || state.awaitingSettle) return;
+    if (state.def.requiresActivation && !activationState[state.def.id]) return;
     if (state.sessionPL >= state.tp) { stopBot(state, "tp"); return; }
     if (state.sl > 0 && state.sessionPL <= -state.sl) { stopBot(state, "sl"); return; }
     if (state.def.id === "over1AiPredictor" && state.currentStake > state.sl + state.sessionPL) {
@@ -1201,6 +1202,9 @@
           digit: sig.digit,
           currency: currency,
         };
+      if (state.def.requiresActivation) {
+        opts.activationCheck = function () { return !!activationState[state.def.id]; };
+      }
       buyRequest = window.DerivWS.buyContract(opts, function (result) {
         handleSettlement(state, sig, stake, result);
       });
@@ -1364,8 +1368,7 @@
 
       // Per-bot cooldowns — tiered by quality level:
       //   Free Bot:   any loss → 5 s;  2+ consecutive losses → 10 s
-      //   Basic Bot:  any loss → 8 s;  2+ consecutive losses → 14 s; win → 2 s gap
-      //   Expert Bot: any loss → 12 s; 2+ consecutive losses → 20 s; win → 5 s gap
+      //   Basic Bot:  any loss → 8 s; 2+ consecutive losses → 14 s; win → 2 s gap
       if (state.def.id === "freeBot") {
         if (!won) {
           state.cooldownUntil = Date.now() + (state.consecutiveLosses >= 2 ? 10000 : 5000);
@@ -1376,13 +1379,6 @@
           state.cooldownUntil = Date.now() + (state.consecutiveLosses >= 2 ? 14000 : 8000);
         } else {
           state.cooldownUntil = Math.max(state.cooldownUntil, Date.now() + 2000);
-        }
-      }
-      if (state.def.id === "expertBot") {
-        if (!won) {
-          state.cooldownUntil = Date.now() + (state.consecutiveLosses >= 2 ? 20000 : 12000);
-        } else {
-          state.cooldownUntil = Math.max(state.cooldownUntil, Date.now() + 5000);
         }
       }
     }
@@ -1401,6 +1397,7 @@
   /* ─── Start / Stop / Reset ───────────────────────────────────── */
   function startBot(state) {
     if (state.running) return;
+    if (state.def.requiresActivation && !activationState[state.def.id]) return;
     if (state.def.id === "over1AiPredictor" && state.lossStopped) {
       window.showToast && window.showToast("Over 1 AI Predictor: Manual restart required after the loss stop.", "red", 4000);
       return;
@@ -1493,11 +1490,6 @@
     renderBot(state);
     renderSummary();
 
-    // Paid bots: session ends on stop → return to activation screen
-    if (state.def.requiresActivation) {
-      activationState[state.def.id] = false;
-      setTimeout(function () { renderCardContent(state.def.id); }, 600);
-    }
   }
 
   function resetBot(state) {
@@ -1548,6 +1540,7 @@
     if (!def || !def.activationTier) { callback(false, "Unknown bot"); return; }
     fetch("/api/validate-activation", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tier: def.activationTier, code: code.trim() }),
     })
@@ -1643,7 +1636,7 @@
   }
 
   function tierBadgeHTML(tier) {
-    var labels = { free: "FREE", basic: "BASIC", expert: "EXPERT" };
+    var labels = { free: "FREE", basic: "BASIC" };
     return '<span class="bot-tier-badge bot-tier-' + tier + '">' + (labels[tier] || tier.toUpperCase()) + '</span>';
   }
 
@@ -1654,7 +1647,7 @@
     var card = document.getElementById("card-" + botId);
     if (!card) return;
     var s = states[botId];
-    var isActivated = activationState[botId];
+    var isActivated = !def.requiresActivation || activationState[botId];
 
     card.innerHTML = buildCardHTML(def, s, isActivated);
     wireCardEvents(def, s);
@@ -1861,7 +1854,7 @@
           '<div class="bot-card-title-wrap">' +
             tierBadgeHTML(def.tier) +
             '<h2 class="bot-card-name">' + def.name + '</h2>' +
-            '<p class="bot-card-tagline">' + (def.tier === "basic" ? "Advanced Differs strategy · Multi-window analysis" : "Full Over/Under engine · Maximum precision") + '</p>' +
+            '<p class="bot-card-tagline">Advanced Differs strategy · Multi-window analysis</p>' +
           '</div>' +
         '</div>' +
         '<div class="bot-activation-panel">' +
@@ -1880,7 +1873,7 @@
         '<div class="bot-purchase-panel">' +
           '<button class="bot-purchase-btn" id="purchase-' + def.id + '">' +
             '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
-            (def.tier === 'basic' ? 'Get Basic Activation Code' : 'Get Expert Activation Code') +
+            'Get Basic Activation Code' +
           '</button>' +
           '<a href="https://wa.me/254776685670" target="_blank" rel="noopener" class="bot-wa-btn">' +
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.534 5.849L0 24l6.335-1.512A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.6a9.545 9.545 0 0 1-4.878-1.336l-.35-.208-3.628.866.9-3.536-.228-.364A9.557 9.557 0 0 1 2.4 12C2.4 6.698 6.698 2.4 12 2.4c5.302 0 9.6 4.298 9.6 9.6 0 5.302-4.298 9.6-9.6 9.6z"/></svg>' +
@@ -1984,6 +1977,7 @@
           validateBtn.textContent = "Validate";
           if (valid) {
             activationState[def.id] = true;
+            scheduleActivationExpiry(def.id, ACTIVATION_TIMEOUT_MS / 1000);
             renderCardContent(def.id);
           } else {
             if (errEl) { errEl.textContent = errMsg || "Invalid activation code."; errEl.style.display = ""; }
@@ -2265,7 +2259,7 @@
     }
     if (emptyEl) emptyEl.style.display = "none";
     if (tableWrap) tableWrap.style.display = "";
-    var ACCENT = { freeBot: "#00E5A0", basicBot: "#5b9dff", expertBot: "#F59E0B" };
+    var ACCENT = { freeBot: "#00E5A0", basicBot: "#5b9dff" };
     tbody.innerHTML = globalHistory.slice(0, 200).map(function (h) {
       var plStr = displaySignedMoney(h.pl);
       return (
@@ -2287,6 +2281,23 @@
     if (!grid) return;
     grid.innerHTML = "";
     BOT_DEFS.forEach(function (def) {
+      if (def.id === "over1AiPredictor") {
+        var comingSoon = document.createElement("article");
+        comingSoon.className = "bot-card bot-card-premium expert-coming-soon-card";
+        comingSoon.setAttribute("aria-labelledby", "expert-coming-soon-title");
+        comingSoon.style.setProperty("--bot-accent", "#F59E0B");
+        comingSoon.innerHTML =
+          '<div class="bot-card-header">' +
+            '<div class="bot-card-icon expert-coming-soon-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19c2-1 3-2 4-4"/><path d="M9 15c-1-5 2-10 10-12 0 8-3 11-8 12"/><path d="M9 15l-1 4 4-1"/><circle cx="15" cy="8" r="1.5"/></svg></div>' +
+            '<div class="bot-card-title-wrap"><span class="bot-tier-badge bot-tier-expert">EXPERT</span><h2 class="bot-card-name" id="expert-coming-soon-title">EXPERT BOT</h2></div>' +
+          '</div>' +
+          '<div class="expert-coming-soon-body">' +
+            '<span class="expert-coming-soon-launch" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19c2-1 3-2 4-4"/><path d="M9 15c-1-5 2-10 10-12 0 8-3 11-8 12"/><path d="M9 15l-1 4 4-1"/><circle cx="15" cy="8" r="1.5"/></svg></span>' +
+            '<p class="expert-coming-soon-label">COMING SOON</p>' +
+            '<p class="expert-coming-soon-message">We\'re working on something powerful. The Expert Bot will be available soon.</p>' +
+          '</div>';
+        grid.appendChild(comingSoon);
+      }
       var article = document.createElement("article");
       article.className = "bot-card" + (def.requiresActivation ? " bot-card-premium" : "");
       article.id = "card-" + def.id;
@@ -2378,6 +2389,10 @@
   /* ─── Init ───────────────────────────────────────────────────── */
   document.addEventListener("DOMContentLoaded", function () {
     renderAll();
+    ["basicBot"].forEach(loadActivationSession);
+    ["click", "input", "change", "keydown"].forEach(function (eventName) {
+      document.addEventListener(eventName, recordBotActivity, true);
+    });
     ensureSymbolStream(DEFAULT_SYMBOL);
     watchConnection();
     startMainLoop();

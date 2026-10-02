@@ -1,0 +1,22 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Verify Expert challenge engine",
+			"type": "shell",
+			"command": "C:\\python314\\python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_challenge_engine.py",
+				"-v"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

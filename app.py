@@ -1,6 +1,5 @@
 import os
 import json
-import csv
 import time
 import hmac
 import hashlib
@@ -27,7 +26,6 @@ from flask import (
 )
 from flask_cors import CORS
 from dotenv import load_dotenv
-from challenge_engine import ChallengeError, ChallengeStore
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR
@@ -126,7 +124,6 @@ def _get_usd_kes_rate():
     return rate
 
 DATA_DIR = BASE_DIR / "data"
-CHALLENGE_STORE = ChallengeStore(DATA_DIR / "autonix_challenges.sqlite3")
 DERIV_APP_ID = os.getenv("DERIV_APP_ID") or os.getenv("NEXT_PUBLIC_DERIV_APP_ID")
 DERIV_PUBLIC_WS_URL = os.getenv(
     "DERIV_PUBLIC_WS_URL",
@@ -504,6 +501,7 @@ def _build_accounts_session(
     server-side for API calls but are stripped before being sent to the
     browser via tojson (see _safe_for_template).
     """
+    session.pop("bot_activation_sessions", None)
     active = next((a for a in accounts if not a["isVirtual"]), accounts[0])
     session["user"] = {
         "isAuthenticated": True,
@@ -1088,197 +1086,6 @@ def bots():
     )
 
 
-def _challenge_account():
-    user = session.get("user")
-    if not user or not user.get("isAuthenticated"):
-        return None, (jsonify({"error": "unauthorized"}), 401)
-    active = user.get("activeAccount") or {}
-    account_id = active.get("account")
-    if not account_id:
-        return None, (jsonify({"error": "no_active_account"}), 400)
-    if type(active.get("isVirtual")) is not bool:
-        return None, (jsonify({"error": "account_mode_unverified"}), 403)
-    mode = "DEMO" if active["isVirtual"] else "REAL"
-    currency = str(active.get("currency", "")).upper()
-    return {"account_id": str(account_id), "mode": mode, "currency": currency}, None
-
-
-def _write_challenge_report(state):
-    trades = CHALLENGE_STORE.trades(state["challenge_id"], state["account_identifier"])
-    settled = [trade for trade in trades if trade.get("status") == "SETTLED"]
-    wins = sum(1 for trade in settled if trade.get("trade_result") == "WIN")
-    losses = sum(1 for trade in settled if trade.get("trade_result") == "LOSS")
-    completed_sessions = len(state.get("session_records", []))
-    attempted_sessions = max(completed_sessions, int(state.get("current_session", 0)))
-    savings = Decimal(str(state.get("total_savings", "0.00")))
-    ledger = Decimal(str(state.get("current_challenge_balance", "0.00")))
-    starting = Decimal(str(state.get("starting_capital", "0.00")))
-    largest_stake = max((Decimal(str(trade.get("stake", "0"))) for trade in settled), default=Decimal("0"))
-    largest_profit = max((Decimal(str(trade.get("actual_profit") or "0")) for trade in settled), default=Decimal("0"))
-    finished_at = state.get("completed_at") or state.get("last_trade_timestamp")
-    report = {
-        "challenge_id": state["challenge_id"],
-        "starting_capital": str(starting),
-        "final_challenge_target": state.get("session_target"),
-        "final_challenge_ledger_balance": str(ledger),
-        "total_savings": str(savings),
-        "actual_deriv_account_balance": state.get("actual_account_balance"),
-        "combined_recorded_challenge_value": str(ledger + savings),
-        "total_sessions_completed": completed_sessions,
-        "total_trades": len(settled),
-        "winning_trades": wins,
-        "losing_trades": losses,
-        "win_rate_percent": round((wins / len(settled) * 100), 2) if settled else 0,
-        "average_trades_per_attempted_session": round((len(settled) / attempted_sessions), 2) if attempted_sessions else 0,
-        "largest_stake": str(largest_stake),
-        "largest_single_profit": str(largest_profit),
-        "total_challenge_growth": str(ledger + savings - starting),
-        "challenge_start_timestamp": state.get("created_at"),
-        "challenge_completion_timestamp": finished_at,
-        "challenge_status": state["challenge_status"],
-        "stop_reason": state.get("halt_reason") or state.get("last_contract_result"),
-        "accounting_note": "Combined recorded value is challenge ledger plus savings allocation; actual Deriv balance is reported separately and is not assumed to reconcile.",
-        "trades": trades,
-        "sessions": state.get("session_records", []),
-    }
-    reports_dir = BASE_DIR / "reports"
-    reports_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-    suffix = "COMPLETE" if state["challenge_status"] == "COMPLETED" else "FAILED"
-    stem = f"AUTONIX_23_SESSION_{suffix}_{timestamp}"
-    json_path = reports_dir / f"{stem}.json"
-    csv_path = reports_dir / f"{stem}.csv"
-    json_temp = json_path.with_suffix(".json.tmp")
-    json_temp.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
-    json_temp.replace(json_path)
-    columns = [
-        "challenge_id", "session_number", "trade_number", "timestamp", "account_mode",
-        "account_identifier", "symbol", "contract_type", "digit_barrier", "contract_duration",
-        "last_three_tick_digits", "signal_valid", "stake", "currency", "proposal_id",
-        "quoted_payout", "buy_price", "contract_id", "status", "actual_profit", "actual_loss",
-        "balance_before", "balance_after", "challenge_balance_before", "challenge_balance_after",
-        "session_target", "trade_result", "api_response_reference", "failure_reason",
-    ]
-    with csv_path.open("w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=columns, extrasaction="ignore")
-        writer.writeheader()
-        for trade in trades:
-            row = dict(trade)
-            row["last_three_tick_digits"] = json.dumps(row.get("last_three_tick_digits", []))
-            writer.writerow(row)
-    return {"json": str(json_path.relative_to(BASE_DIR)), "csv": str(csv_path.relative_to(BASE_DIR))}
-
-
-@app.route("/api/challenge", methods=["GET", "POST"])
-def challenge_api():
-    account, error_response = _challenge_account()
-    if error_response:
-        return error_response
-
-    if request.method == "GET":
-        state = CHALLENGE_STORE.load_latest(account["account_id"])
-        requested_challenge = request.args.get("trades_for")
-        if requested_challenge:
-            if not state or state["challenge_id"] != requested_challenge:
-                return jsonify({"error": "challenge_not_found"}), 404
-            return jsonify({"trades": CHALLENGE_STORE.trades(requested_challenge, account["account_id"])})
-        return jsonify({"challenge": state})
-
-    data = request.get_json(silent=True) or {}
-    action = str(data.get("action", ""))
-    account_id = account["account_id"]
-    try:
-        if action == "create":
-            requested_mode = str(data.get("account_mode", "DEMO")).upper()
-            if requested_mode != account["mode"]:
-                return jsonify({"error": "account_mode_mismatch"}), 403
-            if account["currency"] != "USD":
-                return jsonify({"error": "challenge_requires_usd_account"}), 400
-            if requested_mode == "REAL" and data.get("confirm_real") is not True:
-                return jsonify({"error": "real_account_confirmation_required"}), 403
-            state = CHALLENGE_STORE.create(
-                account_id,
-                requested_mode,
-                str(data.get("symbol", "1HZ10V")),
-                data.get("starting_balance", "1.00"),
-                allow_active=data.get("confirm_new") is True,
-                minimum_payout_ratio=data.get("minimum_payout_ratio", "0.1876"),
-                max_stake=data.get("max_stake"),
-            )
-        elif action == "trades":
-            state = CHALLENGE_STORE.load_latest(account_id)
-            if not state or state["challenge_id"] != data.get("challenge_id"):
-                raise ChallengeError("Challenge not found")
-            return jsonify({"trades": CHALLENGE_STORE.trades(state["challenge_id"], account_id)})
-        else:
-            challenge_id = str(data.get("challenge_id", ""))
-            if action == "start":
-                state = CHALLENGE_STORE.start(challenge_id, account_id)
-            elif action == "stop":
-                state = CHALLENGE_STORE.stop(challenge_id, account_id)
-            elif action == "balance":
-                if str(data.get("currency", "")).upper() != account["currency"]:
-                    raise ChallengeError("Account currency does not match the authorized account")
-                state = CHALLENGE_STORE.update_account_balance(
-                    challenge_id, account_id, data.get("balance"), account["currency"]
-                )
-            elif action == "reserve":
-                state, trade_id = CHALLENGE_STORE.reserve_trade(
-                    challenge_id,
-                    account_id,
-                    str(data.get("tick_key", "")),
-                    data.get("tick_digits", []),
-                    data.get("stake"),
-                    str(data.get("currency", "USD")),
-                )
-                return jsonify({"challenge": state, "trade_id": trade_id})
-            elif action == "proposal":
-                state = CHALLENGE_STORE.record_proposal(
-                    challenge_id, str(data.get("trade_id", "")), data.get("proposal", {})
-                )
-            elif action == "buy_sent":
-                state = CHALLENGE_STORE.mark_buy_sent(
-                    challenge_id, str(data.get("trade_id", ""))
-                )
-            elif action == "buy_accepted":
-                state = CHALLENGE_STORE.mark_buy_accepted(
-                    challenge_id,
-                    str(data.get("trade_id", "")),
-                    str(data.get("contract_id", "")),
-                    data.get("buy_price"),
-                )
-            elif action == "uncertain":
-                state = CHALLENGE_STORE.mark_uncertain(
-                    challenge_id,
-                    str(data.get("trade_id", "")),
-                    str(data.get("reason", "Deriv outcome is uncertain")),
-                )
-            elif action == "reject":
-                state = CHALLENGE_STORE.release_rejected_trade(
-                    challenge_id,
-                    str(data.get("trade_id", "")),
-                    str(data.get("reason", "Proposal or purchase rejected")),
-                )
-            elif action == "settle":
-                state = CHALLENGE_STORE.settle(
-                    challenge_id,
-                    str(data.get("trade_id", "")),
-                    str(data.get("contract_id", "")),
-                    data.get("won") is True,
-                    data.get("actual_profit"),
-                    data.get("actual_account_balance"),
-                    data.get("api_response_reference"),
-                )
-                if state["challenge_status"] in {"FAILED", "COMPLETED"}:
-                    report_paths = _write_challenge_report(state)
-                    return jsonify({"challenge": state, "reports": report_paths})
-            else:
-                return jsonify({"error": "unknown_action"}), 400
-        return jsonify({"challenge": state})
-    except ChallengeError as exc:
-        return jsonify({"error": str(exc)}), 409
-
-
 @app.route("/dbot")
 def dbot():
     return redirect("/atdbot", 301)
@@ -1375,6 +1182,7 @@ def auth_login():
     # Keep session small: clear any existing user data before auth so the
     # PKCE session keys don't push the cookie over 4 KB
     session.pop("user", None)
+    session.pop("bot_activation_sessions", None)
     session["pkce_nonce"] = nonce  # used for optional CSRF check
     session["pkce_redirect"] = redirect_uri  # redirect_uri must match exactly
     session.modified = True
@@ -2343,19 +2151,73 @@ def sitemap():
 def robots():
     return send_file('robots.txt')
 
+ACTIVATION_TIMEOUT_SECONDS = 10 * 60
+
+
+def _active_activation_sessions():
+    records = session.get("bot_activation_sessions", {})
+    if not isinstance(records, dict):
+        records = {}
+    now = time.time()
+    active = {}
+    for tier, record in records.items():
+        if tier != "basic" or not isinstance(record, dict):
+            continue
+        try:
+            last_activity = float(record.get("last_activity"))
+        except (TypeError, ValueError):
+            continue
+        if 0 <= now - last_activity < ACTIVATION_TIMEOUT_SECONDS:
+            active[tier] = {"last_activity": last_activity}
+    if active != records:
+        session["bot_activation_sessions"] = active
+    return active
+
+
+@app.route("/api/activation-session", methods=["GET", "POST"])
+def activation_session_api():
+    data = request.get_json(silent=True) or {}
+    tier = str(
+        request.args.get("tier") if request.method == "GET" else data.get("tier") or ""
+    ).strip().lower()
+    if tier != "basic":
+        return jsonify({"error": "Unknown tier"}), 400
+
+    records = _active_activation_sessions()
+    action = "status" if request.method == "GET" else str(data.get("action", ""))
+    if action == "status":
+        record = records.get(tier)
+        remaining = max(
+            0,
+            int(ACTIVATION_TIMEOUT_SECONDS - (time.time() - record["last_activity"])),
+        ) if record else 0
+        return jsonify({"active": bool(record), "remaining_seconds": remaining})
+    if action == "activity":
+        if tier not in records:
+            return jsonify({"active": False, "error": "Activation expired"}), 403
+        records[tier] = {"last_activity": time.time()}
+        session["bot_activation_sessions"] = records
+        return jsonify({"active": True, "remaining_seconds": ACTIVATION_TIMEOUT_SECONDS})
+    if action == "lock":
+        records.pop(tier, None)
+        session["bot_activation_sessions"] = records
+        return jsonify({"active": False})
+    return jsonify({"error": "Unknown action"}), 400
+
+
 @app.route("/api/validate-activation", methods=["POST"])
 def validate_activation():
     data = request.get_json(silent=True) or {}
-    tier = (data.get("tier") or "").strip().lower()
-    code = (data.get("code") or "").strip()
-    if tier == "basic":
-        valid_codes = [c.strip() for c in os.getenv("BASIC_BOT_CODES", "").split(",") if c.strip()]
-    elif tier == "expert":
-        valid_codes = [c.strip() for c in os.getenv("EXPERT_BOT_CODES", "").split(",") if c.strip()]
-    else:
+    tier = str(data.get("tier") or "").strip().lower()
+    code = str(data.get("code") or "").strip()
+    if tier != "basic":
         return jsonify({"valid": False, "error": "Unknown tier"}), 400
-    if code and code in valid_codes:
-        return jsonify({"valid": True})
+    valid_codes = [c.strip() for c in os.getenv("BASIC_BOT_CODES", "").split(",") if c.strip()]
+    if code and any(hmac.compare_digest(code, valid_code) for valid_code in valid_codes):
+        records = _active_activation_sessions()
+        records[tier] = {"last_activity": time.time()}
+        session["bot_activation_sessions"] = records
+        return jsonify({"valid": True, "expires_in": ACTIVATION_TIMEOUT_SECONDS})
     return jsonify({"valid": False, "error": "Invalid activation code. Please check and try again."})
 
 

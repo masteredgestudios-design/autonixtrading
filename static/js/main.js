@@ -149,10 +149,6 @@
   function initDerivWS() {
     var sd = window.SESSION_DATA;
     var appId = window.DERIV_APP_ID;
-    var token =
-      sd && sd.isAuthenticated && sd.activeAccount
-        ? sd.activeAccount.token || null
-        : null;
     var account =
       sd && sd.isAuthenticated && sd.activeAccount
         ? sd.activeAccount.account
@@ -162,21 +158,13 @@
         ? sd.activeAccount.currency || null
         : null;
 
-    /* New OIDC accounts have no API token (blanked server-side) but a wsUrl.
-       The wsUrl stored at login time can expire quickly — fetch a fresh one
-       just before opening the WebSocket so it is guaranteed valid. */
-    var needsFreshOtp = !!(
-      sd &&
-      sd.isAuthenticated &&
-      sd.activeAccount &&
-      !token &&
-      sd.activeAccount.wsUrl
-    );
+    /* Deriv's authenticated WebSocket flow uses a fresh OTP URL, not authorize. */
+    var needsFreshOtp = !!(sd && sd.isAuthenticated && sd.activeAccount);
 
     function doConnect(wsUrl) {
       window.DerivWS.connect(
         appId,
-        token,
+        null,
         account,
         function (bal, cur) {
           var balEl = document.querySelector(".account-balance");
@@ -214,7 +202,7 @@
           doConnect(data.wsUrl || null);
         })
         .catch(function () {
-          /* If the server call fails, fall back to anonymous tick streaming */
+          /* Keep market data public-only; never send an obsolete authorize request. */
           doConnect(null);
         });
     } else {

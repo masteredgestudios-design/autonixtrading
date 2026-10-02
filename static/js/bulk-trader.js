@@ -141,7 +141,7 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-     ENGINE 2 — Over / Under  (mirrors Expert Bot logic exactly)
+    ENGINE 2 — Over / Under
   ════════════════════════════════════════════════════════════════ */
   function analyzeOverUnder(buf) {
     if (!buf || buf.length < 20) {
