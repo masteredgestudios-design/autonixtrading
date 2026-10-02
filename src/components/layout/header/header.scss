@@ -65,9 +65,16 @@
         }
     }
 
+    .react-flask-header__theme-toggle {
+        width: 4.4rem;
+        height: 4.4rem;
+        padding: 0;
+    }
+
     @include mobile-or-tablet-screen {
         .react-flask-header__brand,
-        .react-flask-header__notification {
+        .react-flask-header__notification,
+        .react-flask-header__theme-toggle {
             display: none;
         }
 

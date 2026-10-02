@@ -1,15 +1,14 @@
 import { action, makeObservable, observable } from 'mobx';
 import { isTouchDevice } from '@/components/shared/utils/screen/responsive';
 
-/**
- * The initial dark-mode state. An explicit stored `theme` (set once the user
- * toggles) always wins; with no stored choice the app defaults to dark mode.
- */
+/** An explicit saved preference wins; new installs start in light mode. */
 function getInitialDarkMode(): boolean {
-    const stored = localStorage.getItem('theme');
+    const sharedTheme = localStorage.getItem('at_theme');
+    const stored =
+        sharedTheme === 'dark' || sharedTheme === 'light' ? sharedTheme : localStorage.getItem('theme');
     if (stored === 'dark') return true;
     if (stored === 'light') return false;
-    return true;
+    return false;
 }
 
 export default class UiStore {

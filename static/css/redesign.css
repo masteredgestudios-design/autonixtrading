@@ -1,103 +1,4 @@
-/* ═══════════════════════════════════════════════════════════════════
-   Autonix — Brand Redesign System  v2.0
-   Red & Black premium trading platform design
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* ─── BRAND TOKENS ──────────────────────────────────────────────── */
-:root {
-  --color-brand:       #FF0000;
-  --color-brand-dim:   #CC0000;
-  --color-brand-deep:  #990000;
-  --color-brand-glow:  rgba(255, 0, 0, .28);
-  --color-brand-glow2: rgba(255, 0, 0, .09);
-  --color-brand-soft:  rgba(255, 0, 0, .12);
-
-  /* Keep green strictly for BUY/profit trading signals */
-  --color-green:        #00C875;
-  --color-green-dim:    #009E5E;
-  --color-green-glow:   rgba(0, 200, 117, .25);
-  --color-green-glow2:  rgba(0, 200, 117, .09);
-
-  /* Sell/loss red aligns with brand */
-  --color-red:          #FF0000;
-  --color-red-dim:      #CC0000;
-  --color-red-glow:     rgba(255, 0, 0, .28);
-
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-/* ─── DARK THEME — Pure Black ────────────────────────────────────── */
-[data-theme="dark"],
-:root {
-  --bg:          #000000;
-  --bg-panel:    #000000;
-  --bg-elevated: #000000;
-  --bg-card:     #000000;
-  --bg-hover:    #000000;
-  --bg-active:   #000000;
-  --bg-glass:    rgba(255, 255, 255, .03);
-  --bg-glass2:   rgba(255, 255, 255, .065);
-  --bg-input:    rgba(255, 255, 255, .05);
-
-  --border:        rgba(255, 255, 255, .08);
-  --border-subtle: rgba(255, 255, 255, .04);
-  --border-accent: rgba(255, 0, 0, .38);
-  --border-card:   rgba(255, 255, 255, .07);
-
-  --text-primary:   #FFFFFF;
-  --text-secondary: #FFFFFF;
-  --text-muted:     #FFFFFF;
-  --text-dim:       #FFFFFF;
-
-  --shadow-float:  0 16px 64px rgba(0,0,0,.96), 0 4px 16px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.04) inset;
-  --shadow-panel:  0 8px 40px rgba(0,0,0,.9), 0 2px 8px rgba(0,0,0,.6);
-  --shadow-card:   0 6px 32px rgba(0,0,0,.75), 0 1px 4px rgba(0,0,0,.5);
-  --shadow-glow:   0 0 28px var(--color-brand-glow), 0 0 56px var(--color-brand-glow2);
-  --shadow-nav:    0 1px 0 rgba(255,255,255,.05);
-
-  --nav-bg:   rgba(0, 0, 0, .92);
-  --nav-blur: blur(28px);
-  --rail-bg:  rgba(4, 4, 4, .96);
-
-  --bot-accent:     #FF0000;
-  --bot-accent-dim: #CC0000;
-}
-
-/* ─── LIGHT THEME — Pure White ───────────────────────────────────── */
-[data-theme="light"] {
-  --bg:          #FFFFFF;
-  --bg-panel:    #FFFFFF;
-  --bg-elevated: #FFFFFF;
-  --bg-card:     #FFFFFF;
-  --bg-hover:    #FFFFFF;
-  --bg-active:   #FFFFFF;
-  --bg-glass:    rgba(0, 0, 0, .03);
-  --bg-glass2:   rgba(0, 0, 0, .055);
-  --bg-input:    rgba(0, 0, 0, .04);
-
-  --border:        rgba(0, 0, 0, .10);
-  --border-subtle: rgba(0, 0, 0, .05);
-  --border-accent: rgba(255, 0, 0, .38);
-  --border-card:   rgba(0, 0, 0, .08);
-
-  --text-primary:   #000000;
-  --text-secondary: #000000;
-  --text-muted:     #000000;
-  --text-dim:       #000000;
-
-  --shadow-float:  0 12px 48px rgba(0,0,0,.13), 0 4px 16px rgba(0,0,0,.08), 0 1px 0 #fff inset;
-  --shadow-panel:  0 4px 24px rgba(0,0,0,.10), 0 1px 4px rgba(0,0,0,.06);
-  --shadow-card:   0 2px 16px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.04);
-  --shadow-glow:   0 0 24px rgba(255,0,0,.14), 0 0 48px rgba(255,0,0,.06);
-  --shadow-nav:    0 1px 0 rgba(0,0,0,.07);
-
-  --nav-bg:   rgba(255, 255, 255, .95);
-  --nav-blur: blur(28px);
-  --rail-bg:  rgba(255, 255, 255, .98);
-
-  --bot-accent:     #FF0000;
-  --bot-accent-dim: #CC0000;
-}
+/* Shared palette and theme tokens are defined in tokens.css. */
 
 /* ═══════════════════════════════════════════════════════════════════
    GLOBAL BASE
@@ -750,51 +651,6 @@ textarea:focus {
 .toast.success { border-left: 3px solid var(--color-green) !important; }
 .toast.error   { border-left: 3px solid var(--color-brand) !important; }
 
-/* ═══════════════════════════════════════════════════════════════════
-   FLOATING THEME TOGGLE — Bottom Left
-   ═══════════════════════════════════════════════════════════════════ */
-
-#floating-theme-toggle {
-  position: fixed;
-  bottom: 24px;
-  left: 24px;
-  z-index: 9999;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-card);
-  transition: all 0.22s cubic-bezier(.4,0,.2,1);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-#floating-theme-toggle:hover {
-  background: var(--color-brand) !important;
-  border-color: var(--color-brand) !important;
-  color: #fff !important;
-  box-shadow: 0 4px 20px var(--color-brand-glow) !important;
-  transform: scale(1.08) !important;
-}
-
-#floating-theme-toggle svg {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  transition: transform 0.3s ease;
-  pointer-events: none;
-}
-
-#floating-theme-toggle:hover svg {
-  transform: rotate(20deg);
-}
-
 /* Hide the old rail theme button if it conflicts */
 #rail-theme-btn { display: none !important; }
 
@@ -803,7 +659,7 @@ textarea:focus {
    ═══════════════════════════════════════════════════════════════════ */
 
 [data-theme="light"] body {
-  background: #FFFFFF;
+  background: var(--bg);
 }
 
 [data-theme="light"] .app-wrapper,
@@ -811,18 +667,18 @@ textarea:focus {
 [data-theme="light"] .invest-page-wrapper,
 [data-theme="light"] .terms-page-wrapper,
 [data-theme="light"] .bots-workspace {
-  background: #FFFFFF !important;
+  background: var(--bg) !important;
 }
 
 [data-theme="light"] .top-nav,
 [data-theme="light"] .autonix-navbar {
-  background: rgba(255,255,255,.95) !important;
-  border-bottom-color: rgba(0,0,0,.08) !important;
+  background: var(--nav-bg) !important;
+  border-bottom-color: var(--border) !important;
 }
 
 [data-theme="light"] .left-rail {
-  background: #FFFFFF !important;
-  border-right-color: rgba(0,0,0,.08) !important;
+  background: var(--rail-bg) !important;
+  border-right-color: var(--border) !important;
 }
 
 [data-theme="light"] .bg-panel,
@@ -830,8 +686,8 @@ textarea:focus {
 [data-theme="light"] .trade-panel,
 [data-theme="light"] .markets-panel,
 [data-theme="light"] .positions-panel {
-  background: #FFFFFF !important;
-  border-color: rgba(0,0,0,.08) !important;
+  background: var(--bg-panel) !important;
+  border-color: var(--border) !important;
 }
 
 [data-theme="light"] .bot-showcase-card,
@@ -840,13 +696,13 @@ textarea:focus {
 [data-theme="light"] .feature-card,
 [data-theme="light"] .bot-card,
 [data-theme="light"] .bots-history-card {
-  background: #FFFFFF !important;
-  border-color: rgba(0,0,0,.09) !important;
-  box-shadow: 0 2px 12px rgba(0,0,0,.06) !important;
+  background: var(--bg-card) !important;
+  border-color: var(--border-card) !important;
+  box-shadow: var(--shadow-card) !important;
 }
 
 [data-theme="light"] .hero {
-  background: #FFFFFF !important;
+  background: var(--bg-panel) !important;
 }
 
 [data-theme="light"] .hero-background {
@@ -855,14 +711,14 @@ textarea:focus {
 
 [data-theme="light"] .hterm-header,
 [data-theme="light"] .hero-terminal {
-  background: #FFFFFF !important;
-  border-color: rgba(0,0,0,.10) !important;
-  box-shadow: 0 8px 40px rgba(0,0,0,.10) !important;
+  background: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow-panel) !important;
 }
 
 /* Light mode nav link color */
 [data-theme="light"] .navbar-link {
-  color: #374151 !important;
+  color: var(--text-secondary) !important;
 }
 
 [data-theme="light"] .navbar-link:hover,
@@ -871,27 +727,27 @@ textarea:focus {
 }
 
 [data-theme="light"] .nav-search {
-  background: #F7F8FA !important;
-  border: 1px solid rgba(0,0,0,.10) !important;
-  color: #000 !important;
+  background: var(--bg-input) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
 }
 
 [data-theme="light"] .nav-search::placeholder {
-  color: #9CA3AF !important;
+  color: var(--text-muted) !important;
 }
 
 [data-theme="light"] .rail-item {
-  color: #374151 !important;
+  color: var(--text-secondary) !important;
 }
 
 [data-theme="light"] .rail-item:hover {
-  background: #F4F5F7 !important;
+  background: var(--bg-hover) !important;
   color: var(--color-brand) !important;
 }
 
 [data-theme="light"] .rail-item.active {
   color: var(--color-brand) !important;
-  background: rgba(232,0,45,.07) !important;
+  background: var(--color-brand-soft) !important;
 }
 
 [data-theme="light"] .rail-label {
@@ -900,15 +756,15 @@ textarea:focus {
 
 /* Light mode bots mode pill */
 [data-theme="light"] .bots-mode-pill {
-  background: rgba(0,0,0,.04) !important;
-  border-color: rgba(0,0,0,.09) !important;
-  color: #374151 !important;
+  background: var(--bg-glass2) !important;
+  border-color: var(--border) !important;
+  color: var(--text-secondary) !important;
 }
 
 /* Light mode footer */
 [data-theme="light"] .footer {
-  background: #F7F8FA !important;
-  border-top: 1px solid rgba(0,0,0,.08) !important;
+  background: var(--bg-panel) !important;
+  border-top: 1px solid var(--border) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -916,14 +772,14 @@ textarea:focus {
    ═══════════════════════════════════════════════════════════════════ */
 
 [data-theme="dark"] body {
-  background: #000000;
+  background: var(--bg);
 }
 
 [data-theme="dark"] .app-wrapper,
 [data-theme="dark"] .autonix-page-wrapper,
 [data-theme="dark"] .invest-page-wrapper,
 [data-theme="dark"] .terms-page-wrapper {
-  background: #000000 !important;
+  background: var(--bg) !important;
 }
 
 /* Neural network / hero animation in dark — subtle */
@@ -1507,20 +1363,6 @@ textarea:focus {
 
 [data-theme="light"] .bot-content h3 {
   color: #000 !important;
-}
-
-/* ── Floating theme toggle — visible in both modes ── */
-[data-theme="light"] #floating-theme-toggle {
-  background: #FFFFFF !important;
-  border-color: rgba(0,0,0,.12) !important;
-  color: #000 !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.08) !important;
-}
-
-[data-theme="light"] #floating-theme-toggle:hover {
-  background: var(--color-brand) !important;
-  color: #fff !important;
-  border-color: var(--color-brand) !important;
 }
 
 /* ── Input / select fields in light mode ── */

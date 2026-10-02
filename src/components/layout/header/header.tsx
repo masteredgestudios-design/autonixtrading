@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
 import { initiateFlaskLogin, initiateFlaskSignup, logoutFromFlask } from '@/services/flask-auth.service';
 import Button from '@/components/shared_ui/button';
+import brandConfig from '@/../brand.config.json';
 import useActiveAccount from '@/hooks/api/account/useActiveAccount';
 import { useApiBase } from '@/hooks/useApiBase';
 import { useLogout } from '@/hooks/useLogout';
@@ -13,6 +14,7 @@ import DisplayCurrencySwitcher from '@/components/currency/display-currency-swit
 import AccountSwitcher from './account-switcher';
 import MenuItems from './menu-items';
 import MobileMenu from './mobile-menu';
+import ChangeTheme from '../footer/ChangeTheme';
 import './header.scss';
 
 const AppHeader = observer(() => {
@@ -21,6 +23,7 @@ const AppHeader = observer(() => {
     const { client } = useStore() ?? {};
     const [authTimeout, setAuthTimeout] = useState(false);
     const is_account_regenerating = client?.is_account_regenerating || false;
+    const enableThemeToggle = brandConfig.platform.footer?.enable_theme_toggle ?? true;
 
     // Detect OAuth callback on mount (before App.tsx cleans up the URL).
     // When ?code=...&state=... is present the full auth flow can take 7-15 s
@@ -216,6 +219,7 @@ const AppHeader = observer(() => {
                     {isDesktop ? <MenuItems /> : renderAccountSection('left')}
                 </Wrapper>
                 <Wrapper variant='right' className='react-flask-header__right'>
+                    {enableThemeToggle && <ChangeTheme />}
                     <button className='react-flask-header__notification' type='button' aria-label='Notifications' title='Notifications'>
                         <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' aria-hidden='true'>
                             <path d='M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9' /><path d='M13.73 21a2 2 0 0 1-3.46 0' />

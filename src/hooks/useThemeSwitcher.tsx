@@ -17,9 +17,13 @@ const useThemeSwitcher = () => {
             const body = document.querySelector('body');
             if (!body) return;
             const isDark = theme === 'dark';
+            localStorage.setItem('at_theme', theme);
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
             body.classList.remove('theme--light', 'theme--dark');
             body.classList.add(isDark ? 'theme--dark' : 'theme--light');
+            body.classList.add('theme-transition');
+            window.setTimeout(() => body.classList.remove('theme-transition'), 240);
             setDarkMode(isDark);
         },
         [setDarkMode]

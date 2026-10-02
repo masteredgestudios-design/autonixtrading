@@ -1,6 +1,6 @@
 // @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
 // Updated to use brand configuration for footer elements visibility
-// Controls language settings and theme toggle via brand.config.json
+// Controls footer elements via brand.config.json.
 import brandConfig from '@/../brand.config.json';
 import { useApiBase } from '@/hooks/useApiBase';
 import useModalManager from '@/hooks/useModalManager';
@@ -8,7 +8,6 @@ import { getActiveTabUrl } from '@/utils/getActiveTabUrl';
 import { FILTERED_LANGUAGES } from '@/utils/languages';
 import { useTranslations } from '@deriv-com/translations';
 import { DesktopLanguagesModal } from '@deriv-com/ui';
-import ChangeTheme from './ChangeTheme';
 import FullScreen from './FullScreen';
 import LanguageSettings from './LanguageSettings';
 import LogoutFooter from './LogoutFooter';
@@ -23,8 +22,6 @@ const Footer = () => {
 
     // Get footer configuration from brand.config.json
     const enableLanguageSettings = brandConfig.platform.footer?.enable_language_settings ?? true;
-    const enableThemeToggle = brandConfig.platform.footer?.enable_theme_toggle ?? true;
-
     const openLanguageSettingModal = () => showModal('DesktopLanguagesModal');
     return (
         <footer className='app-footer'>
@@ -34,14 +31,6 @@ const Footer = () => {
             {enableLanguageSettings && (
                 <>
                     <LanguageSettings openLanguageSettingModal={openLanguageSettingModal} />
-                    <div className='app-footer__vertical-line' />
-                </>
-            )}
-            {/* [/AI] */}
-            {/* [AI] Conditionally render theme toggle based on brand config */}
-            {enableThemeToggle && (
-                <>
-                    <ChangeTheme />
                     <div className='app-footer__vertical-line' />
                 </>
             )}

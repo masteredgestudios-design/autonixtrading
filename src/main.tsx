@@ -11,6 +11,7 @@ import {
 } from './utils/document-branding';
 import { applyReact19DomPolyfills } from './utils/react19-dom-polyfills';
 import { performVersionCheck } from './utils/version-check';
+import '../static/css/tokens.css';
 import './styles/index.scss';
 
 applyReact19DomPolyfills();

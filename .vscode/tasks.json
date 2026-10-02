@@ -17,6 +17,21 @@
 			],
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "Temporary theme unit test",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"exec",
+				"--",
+				"jest",
+				"--runInBand",
+				"--coverage=false",
+				"src/stores/ui-store.spec.ts"
+			],
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }

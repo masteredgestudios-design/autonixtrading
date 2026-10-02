@@ -1,18 +1,18 @@
 /* ═══════════════════════════════════════════════════════
-   Autonix Trader — Design Tokens  (v11)
+   Autonix Trader — Shared Design Tokens
    ═══════════════════════════════════════════════════════ */
 
 :root {
   /* ── Core palette ── */
-  --color-green:        #00E5A0;
-  --color-green-dim:    #00b87e;
-  --color-green-glow:   rgba(0, 229, 160, .28);
-  --color-green-glow2:  rgba(0, 229, 160, .09);
+  --color-green:        #00C875;
+  --color-green-dim:    #009E5E;
+  --color-green-glow:   rgba(0, 200, 117, .25);
+  --color-green-glow2:  rgba(0, 200, 117, .09);
   --color-red:          #FF0000;
   --color-red-dim:      #CC0000;
   --color-red-glow:     rgba(255, 0, 0, .28);
-  --color-amber:        #FF0000;
-  --color-blue:         #FF0000;
+  --color-amber:        #F59E0B;
+  --color-blue:         #3B82F6;
 
   /* ── Typography ── */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -53,8 +53,8 @@
   --pos-width:   280px;
 
   /* ── Bot accent ── */
-  --bot-accent:     #00E5A0;
-  --bot-accent-dim: #00b87e;
+  --bot-accent:     #FF0000;
+  --bot-accent-dim: #CC0000;
 
   /* ── Brand (UI) color — must be red per new theme rules ── */
   --brand-color:       #FF0000;
@@ -63,85 +63,227 @@
   --brand-glow2:       rgba(255, 0, 0, .09);
   --color-brand:       #FF0000;
   --color-brand-dim:   #cc0000;
+  --color-brand-deep:  #990000;
   --color-brand-soft:  rgba(255, 0, 0, .10);
   --color-brand-glow:  rgba(255, 0, 0, .28);
+  --color-brand-glow2: rgba(255, 0, 0, .09);
 }
 
 /* ══════════════════════════════════════════════
-   DARK THEME — pure black base
+   SHARED LIGHT THEME — default palette
    ══════════════════════════════════════════════ */
-[data-theme="dark"],
-:root {
-  --bg:          #000000;
-  --bg-panel:    #000000;
-  --bg-elevated: #000000;
-  --bg-card:     #000000;
-  --bg-hover:    #000000;
-  --bg-active:   #000000;
-  --bg-glass:    rgba(255, 255, 255, .03);
-  --bg-glass2:   rgba(255, 255, 255, .06);
-  --bg-input:    rgba(0, 0, 0, .45);
-
-  --border:        rgba(255, 255, 255, .07);
-  --border-subtle: rgba(255, 255, 255, .035);
-  --border-accent: rgba(255, 0, 0, .55);
-  --border-card:   rgba(255, 255, 255, .065);
-
-  --text-primary:   #FFFFFF;
-  --text-secondary: #FFFFFF;
-  --text-muted:     #FFFFFF;
-  --text-dim:       #FFFFFF;
-
-  /* Floating card shadows */
-  --shadow-float:  0 16px 64px rgba(0,0,0,.96), 0 4px 16px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.04) inset;
-  --shadow-panel:  0 8px 40px rgba(0,0,0,.9),   0 2px 8px rgba(0,0,0,.6);
-  --shadow-card:   0 6px 32px rgba(0,0,0,.75),  0 1px 4px rgba(0,0,0,.5);
-  --shadow-glow:   0 0 28px var(--brand-glow), 0 0 56px var(--brand-glow2);
-  --shadow-nav:    0 1px 0 rgba(255,255,255,.05);
-
-  /* Nav glass */
-  --nav-bg:     rgba(0,0,0,.82);
-  --nav-blur:   blur(28px);
-
-  /* Rail */
-  --rail-bg:    rgba(4,4,4,.9);
-}
-
-/* ══════════════════════════════════════════════
-   LIGHT THEME — clean, premium, warm white
-   ══════════════════════════════════════════════ */
+:root,
 [data-theme="light"] {
-  --bg:          #FFFFFF;
-  --bg-panel:    #FFFFFF;
-  --bg-elevated: #FFFFFF;
-  --bg-card:     #FFFFFF;
-  --bg-hover:    #FFFFFF;
-  --bg-active:   #FFFFFF;
-  --bg-glass:    rgba(0, 0, 0, .025);
-  --bg-glass2:   rgba(0, 0, 0, .05);
-  --bg-input:    rgba(255, 255, 255, .9);
+  color-scheme: light;
+  --palette-bg:           #F4F7FB;
+  --palette-panel:        #FFFFFF;
+  --palette-elevated:     #FFFFFF;
+  --palette-card:         #FFFFFF;
+  --palette-hover:        #EEF2F7;
+  --palette-active:       #E2E8F0;
+  --palette-border:       #D9E1EB;
+  --palette-border-subtle: #E7ECF2;
+  --palette-border-card:   #E1E7EF;
+  --palette-text-primary:  #111827;
+  --palette-text-secondary: #374151;
+  --palette-text-muted:    #64748B;
+  --palette-text-dim:      #94A3B8;
+  --palette-overlay:       rgba(15, 23, 42, .42);
 
-  --border:        rgba(0, 0, 0, .09);
-  --border-subtle: rgba(0, 0, 0, .045);
+  --bg:          var(--palette-bg);
+  --bg-panel:    var(--palette-panel);
+  --bg-elevated: var(--palette-elevated);
+  --bg-card:     var(--palette-card);
+  --bg-hover:    var(--palette-hover);
+  --bg-active:   var(--palette-active);
+  --bg-glass:    rgba(15, 23, 42, .025);
+  --bg-glass2:   rgba(15, 23, 42, .06);
+  --bg-input:    #FFFFFF;
+
+  --border:        var(--palette-border);
+  --border-subtle: var(--palette-border-subtle);
   --border-accent: rgba(255, 0, 0, .55);
-  --border-card:   rgba(0, 0, 0, .08);
+  --border-card:   var(--palette-border-card);
 
-  --text-primary:   #000000;
-  --text-secondary: #000000;
-  --text-muted:     #000000;
-  --text-dim:       #000000;
+  --text-primary:   var(--palette-text-primary);
+  --text-secondary: var(--palette-text-secondary);
+  --text-muted:     var(--palette-text-muted);
+  --text-dim:       var(--palette-text-dim);
 
-  /* Floating card shadows — lifted, soft */
-  --shadow-float:  0 12px 48px rgba(0,0,0,.12), 0 4px 16px rgba(0,0,0,.07), 0 1px 0 rgba(255,255,255,.9) inset;
-  --shadow-panel:  0 4px 24px rgba(0,0,0,.10),  0 1px 4px rgba(0,0,0,.06);
-  --shadow-card:   0 2px 16px rgba(0,0,0,.08),  0 1px 3px rgba(0,0,0,.04);
+  --shadow-float:  0 12px 48px rgba(15, 23, 42, .12), 0 4px 16px rgba(15, 23, 42, .07);
+  --shadow-panel:  0 4px 24px rgba(15, 23, 42, .08), 0 1px 4px rgba(15, 23, 42, .04);
+  --shadow-card:   0 2px 16px rgba(15, 23, 42, .07), 0 1px 3px rgba(15, 23, 42, .04);
   --shadow-glow:   0 0 24px var(--brand-glow), 0 0 48px var(--brand-glow2);
-  --shadow-nav:    0 1px 0 rgba(0,0,0,.06);
+  --shadow-nav:    0 1px 0 rgba(15, 23, 42, .08);
 
-  /* Nav glass */
-  --nav-bg:     rgba(255,255,255,.88);
+  --nav-bg:     rgba(255, 255, 255, .92);
   --nav-blur:   blur(28px);
+  --rail-bg:    rgba(255, 255, 255, .96);
+}
 
-  /* Rail */
-  --rail-bg:    rgba(255,255,255,.95);
+/* ══════════════════════════════════════════════
+   SHARED DARK THEME
+   ══════════════════════════════════════════════ */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --palette-bg:           #0B1120;
+  --palette-panel:        #111827;
+  --palette-elevated:     #172033;
+  --palette-card:         #131D2E;
+  --palette-hover:        #1C2940;
+  --palette-active:       #25334A;
+  --palette-border:       #2A374B;
+  --palette-border-subtle: #202C3F;
+  --palette-border-card:   #263449;
+  --palette-text-primary:  #F3F4F6;
+  --palette-text-secondary: #CBD5E1;
+  --palette-text-muted:    #94A3B8;
+  --palette-text-dim:      #64748B;
+  --palette-overlay:       rgba(0, 0, 0, .72);
+
+  --bg:          var(--palette-bg);
+  --bg-panel:    var(--palette-panel);
+  --bg-elevated: var(--palette-elevated);
+  --bg-card:     var(--palette-card);
+  --bg-hover:    var(--palette-hover);
+  --bg-active:   var(--palette-active);
+  --bg-glass:    rgba(255, 255, 255, .035);
+  --bg-glass2:   rgba(255, 255, 255, .07);
+  --bg-input:    #0F172A;
+
+  --border:        var(--palette-border);
+  --border-subtle: var(--palette-border-subtle);
+  --border-accent: rgba(255, 0, 0, .55);
+  --border-card:   var(--palette-border-card);
+
+  --text-primary:   var(--palette-text-primary);
+  --text-secondary: var(--palette-text-secondary);
+  --text-muted:     var(--palette-text-muted);
+  --text-dim:       var(--palette-text-dim);
+
+  --shadow-float:  0 16px 64px rgba(0, 0, 0, .48), 0 4px 16px rgba(0, 0, 0, .28);
+  --shadow-panel:  0 8px 40px rgba(0, 0, 0, .36), 0 2px 8px rgba(0, 0, 0, .2);
+  --shadow-card:   0 6px 32px rgba(0, 0, 0, .3), 0 1px 4px rgba(0, 0, 0, .2);
+  --shadow-glow:   0 0 28px var(--brand-glow), 0 0 56px var(--brand-glow2);
+  --shadow-nav:    0 1px 0 rgba(255, 255, 255, .06);
+
+  --nav-bg:     rgba(11, 17, 32, .9);
+  --nav-blur:   blur(28px);
+  --rail-bg:    rgba(15, 23, 42, .96);
+}
+
+/* Map the shared palette onto React's existing semantic design tokens. */
+html[data-theme="light"] body.theme--light,
+html[data-theme="dark"] body.theme--dark {
+  background: var(--palette-bg);
+  color: var(--palette-text-primary);
+  --general-main-1: var(--palette-panel);
+  --general-main-2: var(--palette-bg);
+  --general-main-3: var(--palette-elevated);
+  --general-main-4: var(--bg-glass);
+  --general-section-1: var(--palette-hover);
+  --general-section-2: var(--palette-panel);
+  --general-section-3: var(--palette-elevated);
+  --general-section-4: var(--palette-elevated);
+  --general-section-5: var(--palette-card);
+  --general-section-6: var(--palette-active);
+  --general-disabled: var(--palette-active);
+  --general-hover: var(--palette-hover);
+  --general-active: var(--palette-active);
+
+  --text-general: var(--palette-text-secondary);
+  --text-prominent: var(--palette-text-primary);
+  --text-less-prominent: var(--palette-text-muted);
+  --text-primary: var(--palette-text-primary);
+  --text-disabled: var(--palette-text-muted);
+  --text-disabled-1: var(--palette-text-dim);
+  --text-hint: var(--palette-text-muted);
+  --text-warning: var(--color-amber);
+  --text-info-blue: var(--color-blue);
+  --text-status-info-blue: var(--color-blue);
+  --brand-red-coral: var(--brand-color);
+  --brand-primary: var(--brand-color);
+  --brand-success: var(--color-green);
+  --brand-danger: var(--color-red);
+  --text-profit-success: var(--color-green);
+  --text-loss-danger: var(--color-red);
+  --text-green: var(--color-green);
+  --text-red: var(--color-red);
+  --purchase-main-1: var(--color-green);
+  --purchase-section-1: var(--color-green-dim);
+  --purchase-main-2: var(--color-red);
+  --purchase-section-2: var(--color-red-dim);
+  --status-success: var(--color-green);
+  --status-danger: var(--color-red);
+  --status-default: var(--palette-text-muted);
+  --status-warning: var(--color-amber);
+  --status-info: var(--color-blue);
+  --overlay-outside-dialog: var(--palette-overlay);
+  --overlay-inside-dialog: var(--palette-panel);
+  --icon-black-plus: var(--palette-text-primary);
+  --icon-grey-background: var(--palette-hover);
+
+  --border-normal: var(--palette-border);
+  --border-normal-1: var(--palette-border);
+  --border-normal-2: var(--palette-border-card);
+  --border-normal-3: var(--palette-border-subtle);
+  --border-divider: var(--palette-border-subtle);
+  --border-hover: var(--palette-text-muted);
+  --border-hover-1: var(--palette-border);
+
+  --button-primary-default: var(--brand-color);
+  --button-secondary-default: var(--palette-text-secondary);
+  --button-secondary-hover: var(--palette-hover);
+  --button-toggle-primary: var(--brand-color);
+  --button-toggle-secondary: var(--palette-active);
+  --button-toggle-alternate: var(--palette-panel);
+  --fill-normal: var(--palette-panel);
+  --fill-normal-1: var(--palette-elevated);
+  --fill-hover: var(--palette-hover);
+  --fill-active: var(--brand-color);
+  --fill-disabled: var(--palette-active);
+  --state-normal: var(--palette-panel);
+  --state-hover: var(--palette-hover);
+  --state-active: var(--palette-active);
+  --state-disabled: var(--palette-active);
+  --shadow-menu: var(--shadow-panel);
+  --shadow-menu-2: var(--shadow-panel);
+  --shadow-drop: var(--shadow-card);
+  --shadow-box: var(--shadow-card);
+}
+
+.theme-toggle-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.theme-toggle-button:hover {
+  background: var(--bg-hover);
+}
+
+.theme-toggle-button:focus-visible {
+  outline: 2px solid var(--brand-color);
+  outline-offset: 2px;
+}
+
+.theme-toggle-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+body.theme-transition,
+body.theme-transition * {
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease !important;
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="google-site-verification" content="eT_GDsu5O5k9yFgq_pk_nmQGj7nak0OC4MQCll8_1u0" />
@@ -45,10 +45,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}?v=15" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}?v=16" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=14" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/autonix.css') }}?v=15" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/redesign.css') }}?v=11" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/redesign.css') }}?v=12" />
   <style>
     /* Anti-flash: apply saved theme before CSS loads */
     html { visibility: hidden; }
@@ -57,27 +57,18 @@
   <script>
     (function(){
       var stored = localStorage.getItem('at_theme');
-      var t = stored || 'dark';
+      if (stored !== 'light' && stored !== 'dark') {
+        stored = localStorage.getItem('theme');
+      }
+      var t = stored === 'dark' ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', t);
-      if (!stored) localStorage.setItem('at_theme', t);
+      if (stored === 'light' || stored === 'dark') localStorage.setItem('at_theme', t);
       document.documentElement.classList.add('theme-ready');
     })();
   </script>
 </head>
 <body>
   {% block body %}{% endblock %}
-
-  <!-- Floating Theme Toggle — bottom left -->
-  <button
-    id="floating-theme-toggle"
-    aria-label="Toggle theme"
-    title="Toggle theme"
-    type="button"
-  >
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-    </svg>
-  </button>
 
   <div id="installAppPrompt" class="install-app-prompt" hidden role="dialog" aria-modal="true" aria-labelledby="installAppTitle" aria-describedby="installAppMessage">
     <div class="install-app-popup">
@@ -118,7 +109,6 @@
 
     .top-nav,
     .autonix-navbar,
-    .left-rail,
     .bot-showcase-card,
     .plan-card,
     .detail-card,
@@ -129,6 +119,19 @@
     .modal-content,
     .navbar-mobile-menu {
       background: var(--bg-panel) !important;
+      border-color: var(--border) !important;
+      color: var(--text-primary) !important;
+    }
+
+    .top-nav,
+    .autonix-navbar {
+      background: var(--nav-bg) !important;
+      border-color: var(--border) !important;
+      color: var(--text-primary) !important;
+    }
+
+    .left-rail {
+      background: var(--rail-bg) !important;
       border-color: var(--border) !important;
       color: var(--text-primary) !important;
     }
@@ -213,7 +216,7 @@
     window.REDIRECT_URL = "{{ redirect_url or '' }}" || window.location.origin;
   </script>
   <script src="{{ url_for('static', filename='js/deriv-ws.js') }}?v=16"></script>
-  <script src="{{ url_for('static', filename='js/theme-toggle.js') }}?v=3"></script>
+  <script src="{{ url_for('static', filename='js/theme-toggle.js') }}?v=4"></script>
   <script src="{{ url_for('static', filename='js/currency.js') }}?v=1"></script>
   <script src="{{ url_for('static', filename='js/markets-panel.js') }}?v=5"></script>
   <script src="{{ url_for('static', filename='js/chart.js') }}?v=5"></script>
