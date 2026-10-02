@@ -131,7 +131,7 @@ describe('Free Bot Rise/Fall analysis', () => {
     jest.useRealTimers();
   });
 
-  it('keeps Basic activation while the Expert card remains inert', async () => {
+  it('expires Basic and Expert independently after inactivity', async () => {
     jest.useFakeTimers();
     const response = (body) => ({ ok: true, json: () => Promise.resolve(body) });
     global.fetch = jest.fn((url, options) => {
@@ -147,18 +147,25 @@ describe('Free Bot Rise/Fall analysis', () => {
     document.dispatchEvent(new Event('DOMContentLoaded'));
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
 
-    document.getElementById('actcode-basicBot').value = 'basic-code';
-    document.getElementById('validate-basicBot').click();
+    ['basicBot', 'expertBot'].forEach((botId) => {
+      document.getElementById(`actcode-${botId}`).value = `${botId}-code`;
+      document.getElementById(`validate-${botId}`).click();
+    });
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
     expect(document.getElementById('start-basicBot')).toBeTruthy();
-    const expertCard = document.querySelector('.expert-coming-soon-card');
-    expect(expertCard.textContent).toContain('COMING SOON');
-    expect(expertCard.textContent).toContain('The Expert Bot will be available soon.');
-    expect(expertCard.querySelector('button, input, select')).toBeNull();
+    expect(document.getElementById('challenge-start')).toBeTruthy();
 
+    jest.advanceTimersByTime(9 * 60 * 1000);
+    document.getElementById('input-stake-basicBot').dispatchEvent(new Event('input', { bubbles: true }));
+    await jest.advanceTimersByTimeAsync(200);
+    jest.advanceTimersByTime(60 * 1000);
+
+    expect(document.getElementById('actcode-expertBot')).toBeTruthy();
     expect(document.getElementById('start-basicBot')).toBeTruthy();
-    expect(global.fetch).toHaveBeenCalledWith('/api/activation-session?tier=basic', { credentials: 'include' });
-    expect(global.fetch.mock.calls.some(([url]) => String(url).includes('expert'))).toBe(false);
+    expect(global.fetch).toHaveBeenCalledWith('/api/activation-session', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ action: 'lock', tier: 'expert' }),
+    }));
     jest.clearAllTimers();
     jest.useRealTimers();
   });

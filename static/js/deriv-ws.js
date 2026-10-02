@@ -57,16 +57,10 @@
         var error = new Error("Deriv request timed out");
         error.requestTimedOut = true;
         reject(error);
-      }, 10000);
+      }, 15000);
       state.pendingReqs[id] = {
-        resolve: function (response) {
-          clearTimeout(timeoutId);
-          resolve(response);
-        },
-        reject: function (error) {
-          clearTimeout(timeoutId);
-          reject(error);
-        },
+        resolve: function (value) { clearTimeout(timeoutId); resolve(value); },
+        reject: function (error) { clearTimeout(timeoutId); reject(error); },
       };
       if (!send(payload)) {
         delete state.pendingReqs[id];
@@ -103,6 +97,33 @@
       }
       /* Don't return — subscriptions also carry req_id on first message */
     }
+
+    if (type === "authorize") {
+      if (!msg.error) {
+        state.authorized = true;
+        var acc = msg.authorize;
+        state.accountId = acc.loginid;
+        state.currency = acc.currency;
+        afterAuthorize(acc);
+      }
+    }
+
+    if (type === "balance") {
+      var bal = msg.balance;
+      if (bal && state.balanceCb) {
+        state.balanceCb(bal.balance, bal.currency, bal.loginid);
+      }
+      if (bal) {
+        syncBalance(bal.balance, bal.currency, bal.loginid);
+        /* Fire global event so any page (bots, trader) can update its balance display */
+        try {
+          document.dispatchEvent(new CustomEvent("derivBalance", {
+            detail: { balance: bal.balance, currency: bal.currency, loginid: bal.loginid }
+          }));
+        } catch (e) {}
+      }
+    }
+
     if (type === "tick") {
       var tick = msg.tick;
       var listeners = tick && state.tickSubs[tick.symbol];
@@ -132,6 +153,7 @@
     if (type === "proposal_open_contract") {
       var poc = msg.proposal_open_contract;
       if (poc && poc.contract_id) {
+        /* Track subscription id for cleanup */
         if (msg.subscription && msg.subscription.id) {
           state.pocSubIds[poc.contract_id] = msg.subscription.id;
         }
@@ -475,6 +497,9 @@
     if (!state.authorized) {
       return Promise.reject(new Error("Not authorized — please log in first"));
     }
+    if (window.AutonixChallenge && !window.AutonixChallenge.authorizeContract(opts, "proposal")) {
+      return Promise.reject(new Error("The active AUTONIX challenge controls all purchases for this account"));
+    }
 
     var isNewApi = !!(state.wsUrl && state.wsUrl.indexOf("api.derivws.com") !== -1);
     var typeMap = (isNewApi ? CONTRACT_TYPE_MAP_NEW : CONTRACT_TYPE_MAP_LEGACY)[opts.tradeType];
@@ -512,6 +537,35 @@
       proposal.barrier = String(opts.barrier);
     }
 
+    if (opts.atomicBuy === true) {
+      var parameters = Object.assign({}, proposal);
+      delete parameters.proposal;
+      return Promise.resolve(
+        typeof opts.onBeforeBuy === "function" ? opts.onBeforeBuy() : null
+      ).then(function () {
+        if (window.AutonixChallenge && !window.AutonixChallenge.authorizeContract(opts, "buy")) {
+          var stoppedError = new Error("The challenge was stopped before purchase submission");
+          stoppedError.notSent = true;
+          throw stoppedError;
+        }
+        if (typeof opts.onBuySent === "function") opts.onBuySent();
+        return sendRequest({ buy: "1", price: opts.stake, parameters: parameters }).then(function (buyMsg) {
+          return { message: buyMsg, proposal: null };
+        });
+      }).then(function (purchase) {
+        var buyData = purchase.message.buy;
+        if (!buyData) throw new Error("No buy data returned");
+        var contractId = buyData.contract_id;
+        if (onSettle && contractId) watchContract(contractId, onSettle);
+        return {
+          contractId: contractId,
+          buyPrice: buyData.buy_price,
+          proposal: null,
+          buy: buyData,
+        };
+      });
+    }
+
     /* Step 1 — proposal */
     return sendRequest(proposal)
       .then(function (propMsg) {
@@ -534,6 +588,11 @@
             var activationExpired = new Error("Bot activation expired before purchase submission");
             activationExpired.notSent = true;
             throw activationExpired;
+          }
+          if (window.AutonixChallenge && !window.AutonixChallenge.authorizeContract(opts, "buy")) {
+            var stoppedError = new Error("The challenge was stopped before purchase submission");
+            stoppedError.notSent = true;
+            throw stoppedError;
           }
           return sendRequest({ buy: prop.id, price: opts.stake }).then(function (buyMsg) {
             return { message: buyMsg, proposal: proposalDetails };
