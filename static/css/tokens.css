@@ -126,7 +126,7 @@
    ══════════════════════════════════════════════ */
 [data-theme="dark"] {
   color-scheme: dark;
-  --palette-bg:           #0B1120;
+  --palette-bg:           #000000;
   --palette-panel:        #111827;
   --palette-elevated:     #172033;
   --palette-card:         #131D2E;
@@ -167,9 +167,9 @@
   --shadow-glow:   0 0 28px var(--brand-glow), 0 0 56px var(--brand-glow2);
   --shadow-nav:    0 1px 0 rgba(255, 255, 255, .06);
 
-  --nav-bg:     rgba(11, 17, 32, .9);
+  --nav-bg:     #000000;
   --nav-blur:   blur(28px);
-  --rail-bg:    rgba(15, 23, 42, .96);
+  --rail-bg:    #000000;
 }
 
 /* Map the shared palette onto React's existing semantic design tokens. */

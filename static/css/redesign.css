@@ -2802,7 +2802,7 @@ textarea,
   align-items: center;
   justify-content: center;
   padding: 13px 18px !important;
-  background: #111111 !important;
+  background: #000000 !important;
   color: #FFFFFF !important;
   border: 1px solid rgba(255, 255, 255, .16) !important;
   border-left: 4px solid var(--color-brand) !important;
@@ -2885,7 +2885,7 @@ textarea,
   display: grid;
   gap: 16px;
   padding: 20px;
-  background: #0E0E0E;
+  background: #000000;
   color: #FFFFFF;
   border: 1px solid rgba(255, 255, 255, .12);
   box-shadow: 0 22px 72px rgba(0, 0, 0, .56);
@@ -3824,6 +3824,7 @@ textarea,
   color: var(--text-primary);
   outline: none;
   transition: border-color .15s;
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 .bulk-input::-webkit-outer-spin-button,
