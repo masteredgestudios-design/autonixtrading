@@ -249,6 +249,8 @@
   ];
 
   /* ─── Per-bot state ──────────────────────────────────────────── */
+  var DEFAULT_OVER1_PREVIOUS_TICK_COUNT = 3;
+
   function makeState(def) {
     return {
       def: def,
@@ -274,11 +276,11 @@
       latencySafeguard: true,
       currentSignal: null,
       lastEntryTickKey: "",
-      previousTickCount: 3,
       riseFallAnalysis: null,
       riseFallResult: "",
       activeTradeSignal: null,
-      tickWindow: 100,
+      tickWindow: def.id === "over1AiPredictor" ? DEFAULT_OVER1_PREVIOUS_TICK_COUNT : 100,
+      tradePhase: "idle",
       tradeMode: "over-under",
       analysisStatus: "idle",
       lossStopped: false,
@@ -322,18 +324,54 @@
       var st = window.DerivWS.getState();
       if (!st || !st.connected) { setTimeout(doSeed, 400); return; }
       window.DerivWS.getHistory(symbol, TICK_WINDOW)
-        .then(function (hist) { tickBuffers[symbol] = hist.slice(-TICK_WINDOW); })
-        .catch(function () {});
+        .then(function (hist) {
+          var liveTicks = tickBuffers[symbol] || [];
+          var merged = (Array.isArray(hist) ? hist : []).concat(liveTicks).filter(function (tick) {
+            return tick && tick.price !== null && tick.price !== undefined &&
+              String(tick.price).trim() !== "" && isFinite(Number(tick.price));
+          }).sort(function (a, b) { return Number(a.time) - Number(b.time); });
+          var unique = [];
+          var seen = {};
+          merged.forEach(function (tick) {
+            var key = tickKey(tick);
+            if (!seen[key]) {
+              seen[key] = true;
+              unique.push(tick);
+            }
+          });
+          tickBuffers[symbol] = unique.slice(-TICK_WINDOW);
+          BOT_DEFS.forEach(function (def) {
+            var state = states[def.id];
+            if (def.id === "over1AiPredictor" && state.symbol === symbol) {
+              refreshOver1LiveAnalysis(state);
+              renderOver1LiveAnalysis(state);
+            }
+          });
+        })
+        .catch(function (error) {
+          console.warn("[Autonix] Unable to load tick history for " + symbol + ":", error);
+          BOT_DEFS.forEach(function (def) {
+            var state = states[def.id];
+            if (def.id === "over1AiPredictor" && state.symbol === symbol) {
+              refreshOver1LiveAnalysis(state);
+              renderOver1LiveAnalysis(state);
+            }
+          });
+        });
       window.DerivWS.subscribeTicks(symbol, function (tick) {
         var price = parseFloat(tick.quote);
         if (!isFinite(price)) return;
         var buf = tickBuffers[symbol];
         buf.push({ price: price, time: tick.epoch * 1000 });
         if (buf.length > TICK_WINDOW) buf.shift();
-        var predictorState = states.over1AiPredictor;
-        if (predictorState && predictorState.running && predictorState.symbol === symbol) {
-          botTick(predictorState);
-        }
+        BOT_DEFS.forEach(function (def) {
+          var state = states[def.id];
+          if (def.id !== "over1AiPredictor" || state.symbol !== symbol) return;
+          refreshOver1LiveAnalysis(state);
+          renderOver1LiveAnalysis(state);
+          renderOver1TradeStatus(state);
+          if (state.running) botTick(state);
+        });
       });
     }
     doSeed();
@@ -985,93 +1023,87 @@
 
   function decideOver1AIPredictor(state) {
     var buf = tickBuffers[state.symbol] || [];
-    var signal = analyzePreviousOver1Ticks(buf, state.previousTickCount);
-    state.currentProbability = 0;
-    state.currentConfidence = 0;
-    state.analysisStatus = "analyzing";
-    state.statusText = "Checking previous ticks";
-    if (!signal.ready) {
-      state.currentSignal = "Collecting previous ticks (" + signal.digits.length + "/" +
-        state.previousTickCount + ")...";
+    var analysis = analyzeOver1PreviousTicks(buf, state.tickWindow);
+    refreshOver1LiveAnalysis(state, analysis);
+    if (!analysis.ready || !analysis.shouldTrade) {
       return null;
     }
 
-    if (!signal.shouldTrade) {
-      state.currentSignal = "A previous tick digit is 1 — waiting";
-      return null;
-    }
-
-    state.predictionStats.qualifiedSignals += 1;
-    state.analysisStatus = "signal";
-    state.statusText = "Over 1 conditions met";
-    state.currentSignal = "OVER 1 — previous " + state.previousTickCount + " tick digits are not 1";
+    state.currentSignal = "OVER 1 signal detected";
     return {
       selection: "over",
       digit: 1,
       tradeType: "over-under",
-      reason: "Previous tick digits are not 1",
+      reason: "Previous tick digits contain no 1",
     };
   }
 
-  function normalizePreviousTickCount(value, fallback) {
-    var count = Number(value);
-    if (!isFinite(count)) count = fallback;
-    return Math.max(1, Math.min(TICK_WINDOW, Math.floor(count)));
-  }
-
-  function analyzePreviousOver1Ticks(buf, tickCount) {
-    var count = normalizePreviousTickCount(tickCount, 3);
-    var ticks = Array.isArray(buf) ? buf.slice(-count) : [];
-    if (ticks.some(function (tick) { return !tick || !isFinite(Number(tick.price)); })) {
-      return { ready: false, shouldTrade: false, digits: [] };
-    }
-    var digits = ticks.map(function (tick) { return lastDigit(Number(tick.price)); });
+  function analyzeOver1PreviousTicks(ticks, count) {
+    var tickCount = Math.max(1, parseInt(count, 10) || DEFAULT_OVER1_PREVIOUS_TICK_COUNT);
+    var safeTicks = Array.isArray(ticks) ? ticks.filter(function (tick) {
+      return tick && tick.price !== null && tick.price !== undefined &&
+        String(tick.price).trim() !== "" && isFinite(Number(tick.price));
+    }) : [];
+    var digits = safeTicks.slice(-tickCount).map(function (tick) {
+      return lastDigit(Number(tick.price));
+    });
+    var ready = digits.length === tickCount;
     return {
-      ready: digits.length === count,
-      shouldTrade: digits.length === count && digits.every(function (digit) { return digit !== 1; }),
+      ready: ready,
+      shouldTrade: ready && digits.every(function (digit) { return digit !== 1; }),
       digits: digits,
+      tickCount: tickCount,
+      latestDigit: safeTicks.length ? lastDigit(Number(safeTicks[safeTicks.length - 1].price)) : null,
     };
   }
 
-  function buildOver1LiveAnalysis(state, buf, analysis) {
-    var summary = summarizeOver1Window(buf, 100);
-    var threshold = state.over1ConfidenceThreshold || 0.72;
-    var hasData = buf && buf.length > 0;
-    var reasons = analysis.rejectionReasons || [];
-    var strength = analysis.score >= threshold ? "Strong" :
-      analysis.score >= 0.55 ? "Moderate" : "Weak";
-    var status = analysis.reason || "Analyzing market...";
-    if (!hasData) status = "Collecting tick data...";
-    else if (buf.length < 25) status = "Building digit distribution...";
-    else if (buf.length < 100) status = "Building multi-window analysis...";
-    else if (analysis.valid) status = "Strong Over 1 setup detected...";
-    else if (reasons.indexOf("window-disagreement") !== -1) status = "Comparing short-term and long-term patterns...";
-    else if (reasons.indexOf("unstable-distribution") !== -1) status = "Market condition is unstable...";
-    else if (analysis.recentOverRate >= 0.65 && analysis.frequencyShift > 0) status = "Over 1 signal strengthening...";
-    else if (analysis.recentOverRate >= 0.55) status = "Over 1 pressure detected...";
-    else status = "Signal currently too weak...";
-    var stateClass = analysis.valid ? "strong" : "analyzing";
-    if (reasons.indexOf("window-disagreement") !== -1 || reasons.indexOf("confidence-below-threshold") !== -1) stateClass = "waiting";
-    if (status.indexOf("strengthening") !== -1 || status.indexOf("pressure") !== -1) stateClass = "strengthening";
-
-    return {
+  function refreshOver1LiveAnalysis(state, analysis) {
+    if (state.def.id !== "over1AiPredictor") return;
+    var result = analysis || analyzeOver1PreviousTicks(
+      tickBuffers[state.symbol] || [],
+      state.tickWindow
+    );
+    var status;
+    var stateClass = "waiting";
+    if (state.awaitingSettle) {
+      status = state.tradePhase === "active"
+        ? "Over 1 trade active — awaiting settlement"
+        : "Executing Over 1 trade";
+      stateClass = state.tradePhase === "active" ? "active" : "executing";
+      state.currentSignal = "OVER 1 trade in progress";
+      state.analysisStatus = "executing";
+    } else if (!result.ready) {
+      status = "Waiting for tick data (" + result.digits.length + "/" + result.tickCount + ")";
+      stateClass = "analyzing";
+      state.currentSignal = null;
+      state.analysisStatus = "analyzing";
+    } else if (result.shouldTrade) {
+      var currentTicks = tickBuffers[state.symbol] || [];
+      var currentTickKey = currentTicks.length
+        ? state.symbol + "|" + tickKey(currentTicks[currentTicks.length - 1])
+        : "";
+      var waitingForFreshTick = state.running && currentTickKey &&
+        currentTickKey === state.lastEntryTickKey;
+      status = waitingForFreshTick
+        ? "Over 1 signal detected — waiting for a fresh tick"
+        : "Over 1 signal detected — previous digits contain no 1";
+      stateClass = waitingForFreshTick ? "waiting" : "strong";
+      state.currentSignal = "OVER 1 signal detected";
+      state.analysisStatus = waitingForFreshTick ? "analyzing" : "signal";
+    } else {
+      status = "Waiting — a previous tick digit is 1";
+      state.currentSignal = "Waiting for an Over 1 signal";
+      state.analysisStatus = "analyzing";
+    }
+    state.liveAnalysis = {
       status: status,
       stateClass: stateClass,
-      lastDigit: hasData ? lastDigit(buf[buf.length - 1].price) : "--",
-      overRate: summary.overRate,
-      underRate: summary.underRate,
-      window: 100,
-      overSignals: summary.overCount,
-      signalStrength: strength,
-      marketCondition: buf.length < 200 ? "Building" :
-        reasons.indexOf("unstable-distribution") !== -1 ? "Unstable" :
-          analysis.score >= 0.65 ? "Strengthening" : "Building",
-      entryStatus: analysis.valid ? "Entry detected" : "Waiting",
-      contract: state.awaitingSettle ? "Over 1" : "--",
-      stake: state.awaitingSettle ? state.currentStake : 0,
-      duration: state.awaitingSettle ? "1 tick" : "--",
-      result: state.liveAnalysis && state.liveAnalysis.result ? state.liveAnalysis.result : "",
+      market: state.symbol,
+      lastDigit: result.latestDigit === null ? "--" : String(result.latestDigit),
+      tickCount: result.tickCount,
+      digits: result.digits,
     };
+    state.statusText = status;
   }
 
   /* ─── Strategy router ────────────────────────────────────────── */
@@ -1161,6 +1193,12 @@
     state.lastEntryTickKey = entryTicks.length ?
       state.symbol + "|" + tickKey(entryTicks[entryTicks.length - 1]) : "";
     state.awaitingSettle = true;
+    if (state.def.id === "over1AiPredictor") {
+      state.tradePhase = "executing";
+      refreshOver1LiveAnalysis(state);
+      renderOver1LiveAnalysis(state);
+      renderOver1TradeStatus(state);
+    }
     if (state.def.id === "freeBot" && state.tradeMode === "rise-fall") {
       state.martingale = 2;
       state.activeTradeSignal = sig.selection;
@@ -1171,6 +1209,12 @@
     state._settleTimer = setTimeout(function () {
       if (state.awaitingSettle) {
         state.awaitingSettle = false;
+        state.tradePhase = "idle";
+        if (state.def.id === "over1AiPredictor") {
+          refreshOver1LiveAnalysis(state);
+          renderOver1LiveAnalysis(state);
+          renderOver1TradeStatus(state);
+        }
         window.showToast && window.showToast(state.def.name + ": settlement timeout — retrying", "neutral", 3000);
       }
     }, 45000);
@@ -1178,32 +1222,6 @@
     var sd = window.SESSION_DATA;
     var currency = (sd && sd.activeAccount && sd.activeAccount.currency) || "USD";
     var stake = Math.min(+state.currentStake.toFixed(2), 5000);
-
-    if (state.def.id === "over1AiPredictor") {
-      var prediction = {
-        id: ++state.predictionSequence,
-        timestamp: new Date().toISOString(),
-        symbol: state.symbol,
-        prediction: "OVER 1",
-        estimatedProbability: null,
-        confidence: null,
-        modelAgreement: sig.modelAgreement,
-        stake: stake,
-        probabilityBucket: null,
-        result: "PENDING",
-      };
-      state.predictionHistory.push(prediction);
-      state.predictionStats.totalPredictions += 1;
-      sig.predictionId = prediction.id;
-      state.activeTrade = true;
-      state.liveAnalysis = state.liveAnalysis || {};
-      state.liveAnalysis.status = "Executing Over 1 trade...";
-      state.liveAnalysis.stateClass = "executing";
-      state.liveAnalysis.entryStatus = "Executing Over 1...";
-      state.liveAnalysis.contract = "Over 1";
-      state.liveAnalysis.stake = stake;
-      state.liveAnalysis.duration = "1 tick";
-    }
 
     var buyRequest;
     try {
@@ -1228,9 +1246,10 @@
     }
     Promise.resolve(buyRequest).then(function () {
       if (state.def.id === "over1AiPredictor" && state.awaitingSettle) {
-        state.liveAnalysis.status = "Trade active - waiting for settlement...";
-        state.liveAnalysis.stateClass = "active";
-        state.liveAnalysis.entryStatus = "Trade active";
+        state.tradePhase = "active";
+        refreshOver1LiveAnalysis(state);
+        renderOver1LiveAnalysis(state);
+        renderOver1TradeStatus(state);
         renderBot(state);
       }
     }).catch(function (err) {
@@ -1239,18 +1258,16 @@
       window.showToast && window.showToast(state.def.name + ": " + msg, "red", 4500);
       if (state._settleTimer) { clearTimeout(state._settleTimer); state._settleTimer = null; }
       state.awaitingSettle = false;
+      state.tradePhase = "idle";
       state.activeTrade = false;
       state.activeTradeSignal = null;
       if (state.def.id === "freeBot" && sig.tradeType === "rise-fall") {
         state.riseFallResult = "Order failed — scanning resumes";
       }
       if (state.def.id === "over1AiPredictor") {
-        state.liveAnalysis.status = "Reassessing market...";
-        state.liveAnalysis.stateClass = "waiting";
-        state.liveAnalysis.entryStatus = "Waiting";
-        state.liveAnalysis.contract = "--";
-        state.liveAnalysis.stake = 0;
-        state.liveAnalysis.duration = "--";
+        refreshOver1LiveAnalysis(state);
+        renderOver1LiveAnalysis(state);
+        renderOver1TradeStatus(state);
       }
       if (state.latencySafeguard) state.cooldownUntil = Date.now() + 4000;
       renderBot(state);
@@ -1261,6 +1278,7 @@
 
   function handleSettlement(state, sig, stake, result) {
     state.awaitingSettle = false;
+    state.tradePhase = "idle";
     state.activeTrade = false;
     state.activeTradeSignal = null;
     if (state._settleTimer) { clearTimeout(state._settleTimer); state._settleTimer = null; }
@@ -1279,77 +1297,33 @@
       state.riseFallResult = (won ? "WIN " : "LOSS ") + displaySignedMoney(pl);
     }
     if (state.def.id === "over1AiPredictor") {
-      state.liveAnalysis = state.liveAnalysis || {};
-      state.liveAnalysis.status = won ? "Trade won - recalculating..." : "Trade lost - reassessing market...";
-      state.liveAnalysis.stateClass = won ? "won" : "lost";
-      state.liveAnalysis.entryStatus = "Waiting";
-      state.liveAnalysis.contract = "--";
-      state.liveAnalysis.stake = 0;
-      state.liveAnalysis.duration = "--";
-      state.liveAnalysis.result = (won ? "WIN " : "LOSS ") + displaySignedMoney(pl);
+      refreshOver1LiveAnalysis(state);
     }
     var tradeTime = new Date().toLocaleTimeString();
 
     if (state.def.id === "over1AiPredictor") {
-      state.predictionStats.tradesExecuted += 1;
-      var settledPrediction = state.predictionHistory.find(function (entry) { return entry.id === sig.predictionId; });
-      if (settledPrediction) {
-        settledPrediction.result = won ? "WIN" : "LOSS";
-        settledPrediction.profitLoss = pl;
-        settledPrediction.actualDigit = state.lastResult && state.lastResult.digit;
-        var bucket = state.predictionStats.buckets[settledPrediction.probabilityBucket] || { predictions: 0, wins: 0 };
-        bucket.predictions += 1;
-        if (won) bucket.wins += 1;
-        state.predictionStats.buckets[settledPrediction.probabilityBucket] = bucket;
-      }
-      state.predictionStats.maxDrawdown = Math.max(state.predictionStats.maxDrawdown, state.peakSessionPL - state.sessionPL);
       if (won) {
         state.currentStake = state.stake;
         state.martStep = 0;
         state.consecutiveLosses = 0;
-        state.predictionStats.wins += 1;
-        state.predictionStats.losingStreak = 0;
-        state.modelHistory.push({
-          timestamp: tradeTime,
-          symbol: state.symbol,
-          price: state.currentSignal || "n/a",
-          lastDigit: state.lastResult && state.lastResult.digit,
-          prediction: "OVER 1",
-          predictedProbability: state.currentProbability,
-          confidence: state.currentConfidence,
-          stake: stake,
-          result: "WIN",
-          profitLoss: pl,
-        });
       } else {
         state.martStep += 1;
         state.consecutiveLosses += 1;
         state.currentStake = Math.min(+(state.currentStake * state.martingale).toFixed(2), 5000);
-        state.predictionStats.losses += 1;
-        state.predictionStats.losingStreak = state.consecutiveLosses;
-        state.modelHistory.push({
-          timestamp: tradeTime,
-          symbol: state.symbol,
-          price: state.currentSignal || "n/a",
-          lastDigit: state.lastResult && state.lastResult.digit,
-          prediction: "OVER 1",
-          predictedProbability: state.currentProbability,
-          confidence: state.currentConfidence,
-          stake: stake,
-          result: "LOSS",
-          profitLoss: pl,
-        });
-        pushGlobalHistory({
-          time: tradeTime,
-          botName: state.def.name,
-          botId: state.def.id,
-          tradeType: "OVER 1",
-          stake: stake,
-          pl: pl,
-          won: won,
-        });
-        window.showToast && window.showToast("Over 1 AI Predictor: loss recorded", "red", 3500);
       }
+      pushGlobalHistory({
+        time: tradeTime,
+        botName: state.def.name,
+        botId: state.def.id,
+        tradeType: "OVER 1",
+        stake: stake,
+        pl: pl,
+        won: won,
+      });
+      window.showToast && window.showToast(
+        "Over 1 AI Predictor: " + (won ? "win" : "loss") + " recorded",
+        won ? "green" : "red", 3500
+      );
     } else {
       pushGlobalHistory({
         time: tradeTime,
@@ -1439,11 +1413,6 @@
       state.tp = Math.max(0.01, parseFloat(tpEl && tpEl.value) || 5);
       state.martingale = Math.max(1, parseFloat(document.getElementById("input-martingale-" + state.def.id)?.value) || 4.5);
       state.sl = Math.max(0.01, parseFloat(slEl && slEl.value) || 100);
-      var previousTicksEl = document.getElementById("previous-ticks-" + state.def.id);
-      state.previousTickCount = normalizePreviousTickCount(
-        previousTicksEl && previousTicksEl.value,
-        state.previousTickCount
-      );
     }
     if (twEl) state.tickWindow = parseInt(twEl.value, 10)   || state.tickWindow || 100;
     if (state.stake < 0.35) state.stake = 0.35;
@@ -1454,6 +1423,7 @@
     state.cooldownUntil = 0;
     state.running = true;
     state.awaitingSettle = false;
+    state.tradePhase = "idle";
     state.analysisStatus = "analyzing";
     state.currentSignal = null;
     state.riseFallResult = "";
@@ -1474,6 +1444,7 @@
     if (!state.running && reason !== "loss") return;
     state.running = false;
     state.awaitingSettle = false;
+    state.tradePhase = "idle";
     state.analysisStatus = "idle";
     state.currentSignal = state.currentSignal || null;
     if (state.def.id === "over1AiPredictor" && !state.lossStopped && reason === "tp") {
@@ -1525,6 +1496,7 @@
     state.consecutiveLosses = 0;
     state.cooldownUntil = 0;
     state.currentSignal = null;
+    state.tradePhase = "idle";
     state.lossStopped = false;
     state.takeProfitReached = false;
     state.modelHistory = [];
@@ -1640,8 +1612,11 @@
 
   function tickWindowSelectHTML(botId, selected) {
     var sel = selected || 100;
+    var options = botId === "over1AiPredictor"
+      ? [DEFAULT_OVER1_PREVIOUS_TICK_COUNT].concat(TICK_WINDOW_OPTIONS)
+      : TICK_WINDOW_OPTIONS;
     return '<select id="tickwin-' + botId + '" class="bot-select">' +
-      TICK_WINDOW_OPTIONS.map(function (n) {
+      options.map(function (n) {
         return '<option value="' + n + '"' + (n === sel ? " selected" : "") + '>' + n + ' ticks</option>';
       }).join("") +
     '</select>';
@@ -1677,32 +1652,21 @@
 
   function buildCardHTML(def, s, isActivated) {
     var live = s.liveAnalysis || {
-      status: "Start the predictor to begin live analysis...",
+      status: "Waiting for tick data",
       stateClass: "analyzing",
+      market: s.symbol,
       lastDigit: "--",
-      overRate: null,
-      underRate: null,
-      window: "--",
-      overSignals: "--",
-      signalStrength: "Weak",
-      marketCondition: "Waiting",
-      entryStatus: "Waiting",
-      contract: "--",
-      stake: 0,
-      duration: "--",
-      result: "",
+      tickCount: s.tickWindow,
+      digits: [],
     };
     var optsHTML = symbolSelectHTML(def.id, s.symbol);
-    var tickwinRow = def.id === "over1AiPredictor"
-      ? '<label class="bot-input-field">' +
-          '<span class="bot-input-label">Previous Ticks to Analyze</span>' +
-          '<input type="number" min="1" max="' + TICK_WINDOW + '" step="1" value="' +
-            s.previousTickCount + '" id="previous-ticks-' + def.id + '" />' +
-        '</label>'
-      : '<div class="bot-trade-type-row">' +
-          '<label class="bot-input-label" for="tickwin-' + def.id + '">Analysis Window</label>' +
-          tickWindowSelectHTML(def.id, s.tickWindow) +
-        '</div>';
+    var tickwinRow =
+      '<div class="bot-trade-type-row">' +
+      '<label class="bot-input-label" for="tickwin-' + def.id + '">' +
+        (def.id === "over1AiPredictor" ? "Previous Ticks to Analyze" : "Analysis Window") +
+      '</label>' +
+        tickWindowSelectHTML(def.id, s.tickWindow) +
+      '</div>';
     var inputsHTML =
       tickwinRow +
       '<div class="bot-inputs-grid">' +
@@ -1833,7 +1797,7 @@
           '<div class="bot-card-title-wrap">' +
             '<span class="bot-tier-badge bot-tier-ai">AI</span>' +
             '<h2 class="bot-card-name">' + def.name + '</h2>' +
-            '<p class="bot-card-tagline">Selective Over 1 probability model with controlled risk</p>' +
+            '<p class="bot-card-tagline">Over 1 signals from configurable recent tick digits</p>' +
           '</div>' +
           '<span class="bot-status-pill stopped" id="status-' + def.id + '">' +
             '<span class="bot-status-dot"></span>' +
@@ -1852,19 +1816,21 @@
         '<div class="bot-live-analysis state-' + (live.stateClass || 'analyzing') + '" id="live-analysis-' + def.id + '">' +
           '<div class="bot-live-analysis-head"><span>Live Analysis</span><strong id="live-status-' + def.id + '">' + live.status + '</strong></div>' +
           '<div class="bot-live-analysis-grid">' +
+            '<div class="bot-live-value"><span>Market</span><strong id="live-market-' + def.id + '">' + live.market + '</strong></div>' +
             '<div class="bot-live-value"><span>Last Digit</span><strong id="live-digit-' + def.id + '">' + live.lastDigit + '</strong></div>' +
-            '<div class="bot-live-value"><span>Over 1</span><strong id="live-over-' + def.id + '">' + (live.overRate === null ? '--' : (live.overRate * 100).toFixed(0) + '%') + '</strong></div>' +
-            '<div class="bot-live-value"><span>Under 2</span><strong id="live-under-' + def.id + '">' + (live.underRate === null ? '--' : (live.underRate * 100).toFixed(0) + '%') + '</strong></div>' +
-            '<div class="bot-live-value"><span>Signals</span><strong id="live-signals-' + def.id + '">' + live.overSignals + ' / ' + live.window + '</strong></div>' +
-            '<div class="bot-live-value"><span>Strength</span><strong id="live-strength-' + def.id + '">' + live.signalStrength + '</strong></div>' +
-            '<div class="bot-live-value"><span>Window</span><strong id="live-window-' + def.id + '">' + live.window + ' ticks</strong></div>' +
+            '<div class="bot-live-value"><span>Configured Ticks</span><strong id="live-count-' + def.id + '">' + live.tickCount + '</strong></div>' +
           '</div>' +
-          '<div class="bot-live-analysis-foot"><span id="live-condition-' + def.id + '">Market: ' + live.marketCondition + '</span><span id="live-entry-' + def.id + '">Entry: ' + live.entryStatus + '</span></div>' +
-          '<div class="bot-live-trade" id="live-trade-' + def.id + '">' +
-            '<span id="live-contract-' + def.id + '">' + (live.contract !== '--' ? 'Contract: ' + live.contract : '') + '</span>' +
-            '<span id="live-stake-' + def.id + '">' + (live.stake ? 'Stake: $' + Number(live.stake).toFixed(2) : '') + '</span>' +
-            '<span id="live-duration-' + def.id + '">' + (live.duration !== '--' ? 'Duration: ' + live.duration : '') + '</span>' +
-            '<strong id="live-result-' + def.id + '">' + live.result + '</strong>' +
+          '<div class="bot-live-ticks"><span>Previous tick digits</span><strong id="live-digits-' + def.id + '">Waiting for tick data</strong>' +
+            '<small id="live-tick-progress-' + def.id + '"></small>' +
+          '</div>' +
+        '</div>' +
+        '<div class="bot-trade-status" id="trade-status-' + def.id + '">' +
+          '<div class="bot-trade-status-title">Trade Status</div>' +
+          '<div class="bot-trade-status-grid">' +
+            '<div><span>Status</span><strong id="trade-phase-' + def.id + '">No completed trades</strong></div>' +
+            '<div><span>Last Result</span><strong id="trade-result-' + def.id + '">—</strong></div>' +
+            '<div><span>Session P/L</span><strong id="trade-pl-' + def.id + '">' + displaySignedMoney(s.sessionPL) + '</strong></div>' +
+            '<div><span>Wins / Losses</span><strong id="trade-record-' + def.id + '">' + s.wins + ' / ' + s.losses + '</strong></div>' +
           '</div>' +
         '</div>' +
         digitFreqHTML
@@ -1951,6 +1917,10 @@
       symbolSel.addEventListener("change", function (e) {
         s.symbol = e.target.value;
         ensureSymbolStream(s.symbol);
+        if (def.id === "over1AiPredictor") {
+          refreshOver1LiveAnalysis(s);
+          renderOver1LiveAnalysis(s);
+        }
       });
     }
 
@@ -1958,15 +1928,13 @@
     var twSel = document.getElementById("tickwin-" + def.id);
     if (twSel) {
       twSel.addEventListener("change", function (e) {
-        s.tickWindow = parseInt(e.target.value, 10) || 100;
-      });
-    }
-    var previousTicksInput = document.getElementById("previous-ticks-" + def.id);
-    if (previousTicksInput) {
-      previousTicksInput.addEventListener("change", function (e) {
-        s.previousTickCount = normalizePreviousTickCount(e.target.value, s.previousTickCount);
-        e.target.value = s.previousTickCount;
-        if (s.running) botTick(s);
+        s.tickWindow = Math.max(1, parseInt(e.target.value, 10) || DEFAULT_OVER1_PREVIOUS_TICK_COUNT);
+        if (def.id === "over1AiPredictor") {
+          refreshOver1LiveAnalysis(s);
+          renderOver1LiveAnalysis(s);
+          renderOver1TradeStatus(s);
+          if (s.running) botTick(s);
+        }
       });
     }
 
@@ -2037,7 +2005,8 @@
   }
 
   function renderOver1LiveAnalysis(state) {
-    if (state.def.id !== "over1AiPredictor" || !state.liveAnalysis) return;
+    if (state.def.id !== "over1AiPredictor") return;
+    if (!state.liveAnalysis) refreshOver1LiveAnalysis(state);
     var live = state.liveAnalysis;
     var id = state.def.id;
     var panel = document.getElementById("live-analysis-" + id);
@@ -2046,19 +2015,40 @@
       var el = document.getElementById("live-" + suffix + "-" + id);
       if (el) el.textContent = value;
     };
-    setText("status", live.status);
-    setText("digit", live.lastDigit);
-    setText("over", (live.overRate * 100).toFixed(0) + "%");
-    setText("under", (live.underRate * 100).toFixed(0) + "%");
-    setText("signals", live.overSignals + " / " + live.window);
-    setText("strength", live.signalStrength);
-    setText("window", live.window + " ticks");
-    setText("condition", "Market: " + live.marketCondition);
-    setText("entry", "Entry: " + live.entryStatus);
-    setText("contract", live.contract !== "--" ? "Contract: " + live.contract : "");
-    setText("stake", live.stake ? "Stake: $" + Number(live.stake).toFixed(2) : "");
-    setText("duration", live.duration !== "--" ? "Duration: " + live.duration : "");
-    setText("result", live.result || "");
+    setText("status", live.status || "Waiting for tick data");
+    setText("market", live.market || state.symbol);
+    setText("digit", live.lastDigit || "--");
+    setText("count", String(live.tickCount || state.tickWindow));
+    setText("digits", live.digits.length ? live.digits.join("  ·  ") : "Waiting for tick data");
+    setText("tick-progress", live.digits.length < live.tickCount
+      ? "Received " + live.digits.length + " of " + live.tickCount + " required ticks"
+      : "Analyzing the latest " + live.tickCount + " ticks");
+  }
+
+  function renderOver1TradeStatus(state) {
+    if (state.def.id !== "over1AiPredictor") return;
+    var id = state.def.id;
+    var result = state.lastResult;
+    var phase = state.awaitingSettle
+      ? (state.tradePhase === "active" ? "Trade active — awaiting settlement" : "Executing Over 1 trade")
+      : result ? "Trade settled" : "No completed trades";
+    var resultText = result
+      ? (result.won ? "WIN " : "LOSS ") + displaySignedMoney(result.pl)
+      : "—";
+    var phaseEl = document.getElementById("trade-phase-" + id);
+    var resultEl = document.getElementById("trade-result-" + id);
+    var plEl = document.getElementById("trade-pl-" + id);
+    var recordEl = document.getElementById("trade-record-" + id);
+    if (phaseEl) phaseEl.textContent = phase;
+    if (resultEl) {
+      resultEl.textContent = resultText;
+      resultEl.className = result ? (result.won ? "positive" : "negative") : "";
+    }
+    if (plEl) {
+      plEl.textContent = displaySignedMoney(state.sessionPL);
+      plEl.className = state.sessionPL >= 0 ? "positive" : "negative";
+    }
+    if (recordEl) recordEl.textContent = state.wins + " / " + state.losses;
   }
 
   function formatAnalysisPrice(value) {
@@ -2154,6 +2144,7 @@
     var probabilityEl = document.getElementById("probability-" + def.id);
     if (probabilityEl) probabilityEl.textContent = state.currentProbability ? (state.currentProbability * 100).toFixed(1) + "%" : "\u2014";
     renderOver1LiveAnalysis(state);
+    renderOver1TradeStatus(state);
     renderFreeRiseFallAnalysis(state);
 
     // Signal
@@ -2405,7 +2396,12 @@
     mainLoopTimerId = setInterval(function () {
       BOT_DEFS.forEach(function (d) {
         var s = states[d.id];
-        if (s.running && d.id !== "over1AiPredictor") botTick(s);
+        if (d.id === "over1AiPredictor") {
+          refreshOver1LiveAnalysis(s);
+          renderOver1LiveAnalysis(s);
+          renderOver1TradeStatus(s);
+        }
+        if (s.running) botTick(s);
         if (d.id === "freeBot" && s.tradeMode === "rise-fall") {
           updateFreeRiseFallAnalysis(s);
           renderFreeRiseFallAnalysis(s);
@@ -2505,9 +2501,9 @@
   }
 
   window.AutonixOver1Predictor = {
+    defaultPreviousTickCount: DEFAULT_OVER1_PREVIOUS_TICK_COUNT,
+    analyzePreviousTicks: analyzeOver1PreviousTicks,
     evaluateWindow: evaluateOver1WindowData,
-    analyzePreviousTicks: analyzePreviousOver1Ticks,
-    defaultPreviousTickCount: 3,
     validateHistory: function (options) {
       var input = options || {};
       return {
