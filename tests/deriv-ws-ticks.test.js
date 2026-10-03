@@ -119,68 +119,6 @@ describe('DerivWS shared tick subscriptions', () => {
     }));
   });
 
-  it('submits Expert direct-buy parameters in one Deriv request', async () => {
-    jest.useFakeTimers();
-    window.DerivWS.disconnect();
-    socket = {
-      readyState: 0,
-      sent: [],
-      send(message) { this.sent.push(JSON.parse(message)); },
-      close() {},
-    };
-    window.DerivWS.connect(
-      '1234', null, 'VRTC12345', null,
-      'wss://api.derivws.com/trading/v1/options/ws?otp=fresh-otp', 'USD',
-    );
-    socket.readyState = 1;
-    socket.onopen();
-
-    const beforeBuy = jest.fn();
-    const buySent = jest.fn();
-    const settled = jest.fn();
-    const purchase = window.DerivWS.buyContract({
-      tradeType: 'over-under',
-      selection: 'over',
-      stake: 1,
-      duration: 1,
-      symbol: '1HZ10V',
-      digit: 1,
-      currency: 'USD',
-      atomicBuy: true,
-      onBeforeBuy: beforeBuy,
-      onBuySent: buySent,
-    }, settled);
-    await Promise.resolve();
-
-    const buyRequest = socket.sent.find((message) => message.buy === '1');
-    expect(socket.sent.some((message) => message.proposal === 1)).toBe(false);
-    expect(buyRequest).toEqual(expect.objectContaining({
-      price: 1,
-      parameters: expect.objectContaining({
-        amount: 1,
-        basis: 'stake',
-        contract_type: 'DIGITOVER',
-        underlying_symbol: '1HZ10V',
-        barrier: '1',
-        duration: 1,
-        duration_unit: 't',
-      }),
-    }));
-    expect(beforeBuy).toHaveBeenCalledTimes(1);
-    expect(buySent).toHaveBeenCalledTimes(1);
-
-    socket.onmessage({ data: JSON.stringify({
-      msg_type: 'buy',
-      req_id: buyRequest.req_id,
-      buy: { contract_id: 'contract-direct', buy_price: 1 },
-    }) });
-    await expect(purchase).resolves.toEqual(expect.objectContaining({
-      contractId: 'contract-direct',
-      buyPrice: 1,
-    }));
-    expect(socket.sent.some((message) => message.proposal_open_contract === 1)).toBe(true);
-  });
-
   it('does not buy a Basic proposal after its activation expires', async () => {
     jest.useFakeTimers();
     window.DerivWS.disconnect();

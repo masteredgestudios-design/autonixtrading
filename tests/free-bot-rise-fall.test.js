@@ -131,7 +131,7 @@ describe('Free Bot Rise/Fall analysis', () => {
     jest.useRealTimers();
   });
 
-  it('expires Basic and Expert independently after inactivity', async () => {
+  it('keeps Basic activation and renders Expert as inert Coming Soon', async () => {
     jest.useFakeTimers();
     const response = (body) => ({ ok: true, json: () => Promise.resolve(body) });
     global.fetch = jest.fn((url, options) => {
@@ -147,25 +147,16 @@ describe('Free Bot Rise/Fall analysis', () => {
     document.dispatchEvent(new Event('DOMContentLoaded'));
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
 
-    ['basicBot', 'expertBot'].forEach((botId) => {
-      document.getElementById(`actcode-${botId}`).value = `${botId}-code`;
-      document.getElementById(`validate-${botId}`).click();
-    });
+    document.getElementById('actcode-basicBot').value = 'basic-code';
+    document.getElementById('validate-basicBot').click();
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
     expect(document.getElementById('start-basicBot')).toBeTruthy();
-    expect(document.getElementById('challenge-start')).toBeTruthy();
-
-    jest.advanceTimersByTime(9 * 60 * 1000);
-    document.getElementById('input-stake-basicBot').dispatchEvent(new Event('input', { bubbles: true }));
-    await jest.advanceTimersByTimeAsync(200);
-    jest.advanceTimersByTime(60 * 1000);
-
-    expect(document.getElementById('actcode-expertBot')).toBeTruthy();
-    expect(document.getElementById('start-basicBot')).toBeTruthy();
-    expect(global.fetch).toHaveBeenCalledWith('/api/activation-session', expect.objectContaining({
-      method: 'POST',
-      body: JSON.stringify({ action: 'lock', tier: 'expert' }),
-    }));
+    const expertCard = document.querySelector('.expert-coming-soon-card');
+    expect(expertCard.textContent).toContain('EXPERT BOT');
+    expect(expertCard.textContent).toContain('COMING SOON');
+    expect(expertCard.textContent).toContain('The Expert Bot will be available soon.');
+    expect(expertCard.querySelector('button, input, select')).toBeNull();
+    expect(global.fetch.mock.calls.some(([url]) => String(url).includes('expert'))).toBe(false);
     jest.clearAllTimers();
     jest.useRealTimers();
   });

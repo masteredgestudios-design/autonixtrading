@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Autonix — Bots Page v3  (Free Bot · Basic Bot · Expert Bot)
+  Autonix — Bots Page v3  (Free Bot · Basic Bot)
    ═══════════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -139,19 +139,6 @@
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/></svg>',
     },
     {
-      id: "expertBot",
-      name: "Expert Bot",
-      tier: "expert",
-      duration: 1,
-      tradeType: "over-under",
-      defaults: { stake: 1, tp: 0, sl: 0 },
-      accent: "#F59E0B",
-      requiresActivation: true,
-      activationTier: "expert",
-      price: 100,
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-    },
-    {
       id: "over1AiPredictor",
       name: "Over 1 AI Predictor",
       tier: "ai",
@@ -166,7 +153,7 @@
   ];
 
   /* ─── Activation state (session-only, no localStorage) ───────── */
-  var activationState = { freeBot: true, basicBot: false, expertBot: false };
+  var activationState = { freeBot: true, basicBot: false };
   var activationTimers = {};
   var activationActivityTimers = {};
   var ACTIVATION_TIMEOUT_MS = 10 * 60 * 1000;
@@ -224,7 +211,7 @@
 
   function recordBotActivity(event) {
     var target = event.target;
-    var card = target && target.closest && target.closest("#card-basicBot, #card-expertBot");
+    var card = target && target.closest && target.closest("#card-basicBot");
     if (!card) return;
     var botId = card.id.replace("card-", "");
     if (!activationState[botId]) return;
@@ -372,7 +359,7 @@
 
   /* ─────────────────────────────────────────────────────────────
      SHARED UTILITY — Shannon entropy (0 = fully predictable,
-     1 = perfectly uniform/random). Used by Basic and Expert.
+    1 = perfectly uniform/random). Used by Basic Bot.
   ───────────────────────────────────────────────────────────── */
   function shannonEntropy(buf, window) {
     var size   = Math.min(buf.length, window);
@@ -1649,7 +1636,7 @@
   }
 
   function tierBadgeHTML(tier) {
-    var labels = { free: "FREE", basic: "BASIC", expert: "EXPERT" };
+    var labels = { free: "FREE", basic: "BASIC" };
     return '<span class="bot-tier-badge bot-tier-' + tier + '">' + (labels[tier] || tier.toUpperCase()) + '</span>';
   }
 
@@ -1867,7 +1854,7 @@
           '<div class="bot-card-title-wrap">' +
             tierBadgeHTML(def.tier) +
             '<h2 class="bot-card-name">' + def.name + '</h2>' +
-            '<p class="bot-card-tagline">' + (def.id === "expertBot" ? "Full Over/Under engine · Maximum precision" : "Advanced Differs strategy · Multi-window analysis") + '</p>' +
+            '<p class="bot-card-tagline">Advanced Differs strategy · Multi-window analysis</p>' +
           '</div>' +
         '</div>' +
         '<div class="bot-activation-panel">' +
@@ -1886,49 +1873,13 @@
         '<div class="bot-purchase-panel">' +
           '<button class="bot-purchase-btn" id="purchase-' + def.id + '">' +
             '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
-            'Get ' + (def.id === "expertBot" ? "Expert" : "Basic") + ' Activation Code' +
+            'Get Basic Activation Code' +
           '</button>' +
           '<a href="https://wa.me/254776685670" target="_blank" rel="noopener" class="bot-wa-btn">' +
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.534 5.849L0 24l6.335-1.512A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.6a9.545 9.545 0 0 1-4.878-1.336l-.35-.208-3.628.866.9-3.536-.228-.364A9.557 9.557 0 0 1 2.4 12C2.4 6.698 6.698 2.4 12 2.4c5.302 0 9.6 4.298 9.6 9.6 0 5.302-4.298 9.6-9.6 9.6z"/></svg>' +
             'Contact Support on WhatsApp' +
           '</a>' +
         '</div>'
-      );
-    }
-
-    if (def.id === "expertBot") {
-      return (
-        '<div class="bot-card-header">' +
-          '<div class="bot-card-icon">' + def.icon + '</div>' +
-          '<div class="bot-card-title-wrap">' +
-            '<h2 class="bot-card-name">Expert Bot</h2>' +
-            '<p class="bot-card-tagline">23-session Over 1 account growth challenge</p>' +
-          '</div>' +
-          '<span class="bot-status-pill stopped" id="challenge-status-pill"><span class="bot-status-dot"></span><span id="challenge-status-label">Loading</span></span>' +
-        '</div>' +
-        '<div class="bulk-config-grid challenge-config-grid">' +
-          '<label class="bot-input-field"><span class="bot-input-label">Starting Stake (USD)</span><input class="bulk-input" id="challenge-starting-balance" type="number" min="0.35" max="50000" step="0.01" value="1.00" /></label>' +
-          '<label class="bot-input-field"><span class="bot-input-label">Volatility Index</span><select class="bot-select" id="challenge-symbol">' + SYMBOL_OPTIONS.map(function (symbol) { return '<option value="' + symbol.v + '"' + (symbol.v === "1HZ10V" ? " selected" : "") + '>' + symbol.l + '</option>'; }).join("") + '</select></label>' +
-        '</div>' +
-        '<div class="bulk-actions-row challenge-actions">' +
-          '<button class="bulk-execute-btn" id="challenge-start" type="button">Start Challenge</button>' +
-          '<button class="bulk-stop-btn" id="challenge-stop" type="button" disabled>Stop Challenge</button>' +
-          '<button class="bot-reset-btn" id="challenge-reset" type="button">Reset Challenge</button>' +
-        '</div>' +
-        '<div class="challenge-live-tick" aria-live="polite"><span class="challenge-live-symbol" id="challenge-live-symbol">Waiting for ticks</span><span class="challenge-live-price" id="challenge-live-price">--</span><span class="challenge-live-digit-label">Last digit <strong id="challenge-live-digit">--</strong></span></div>' +
-        '<section class="challenge-decision" id="challenge-decision" hidden><div><h3 id="challenge-decision-title">Session complete</h3><p id="challenge-decision-summary"></p></div><div class="challenge-decision-actions"><button class="bulk-execute-btn" id="challenge-continue" type="button">Continue</button><button class="bulk-stop-btn" id="challenge-pause" type="button">Stop Challenge</button></div></section>' +
-        '<div class="bot-stats-grid challenge-stats-grid">' +
-          '<div class="bot-stat"><span class="bot-stat-label">Session</span><span class="bot-stat-val" id="challenge-session">Unavailable</span></div>' +
-          '<div class="bot-stat"><span class="bot-stat-label">Session Start</span><span class="bot-stat-val" id="challenge-session-start">Unavailable</span></div>' +
-          '<div class="bot-stat"><span class="bot-stat-label">Current Stake</span><span class="bot-stat-val" id="challenge-stake">Unavailable</span></div>' +
-          '<div class="bot-stat"><span class="bot-stat-label">Accumulated Profit</span><span class="bot-stat-val" id="challenge-session-profit">Unavailable</span></div>' +
-          '<div class="bot-stat"><span class="bot-stat-label">Session Target</span><span class="bot-stat-val" id="challenge-target">Unavailable</span></div>' +
-          '<div class="bot-stat"><span class="bot-stat-label">Completed Sessions</span><span class="bot-stat-val" id="challenge-completed-sessions">0 / 23</span></div>' +
-        '</div>' +
-        '<div class="challenge-progress"><div class="challenge-progress-head"><span>Challenge Progress</span><strong id="challenge-progress-label">0%</strong></div><div class="challenge-progress-track"><div class="challenge-progress-fill" id="challenge-progress-fill"></div></div></div>' +
-        '<div class="bot-live-analysis state-waiting challenge-engine-panel"><div class="bot-live-analysis-head"><span>Over 1</span><strong id="challenge-engine-status">Loading saved progress</strong></div><p id="challenge-message" role="status"></p></div>' +
-        '<details class="challenge-roadmap"><summary>23-session roadmap</summary><div class="bots-history-table-wrap"><table class="bots-history-table"><thead><tr><th>Session</th><th>Start</th><th>Target</th><th>Status</th></tr></thead><tbody id="challenge-roadmap-body"></tbody></table></div></details>' +
-        '<section class="challenge-roadmap challenge-journal"><h3>Trade Journal</h3><div class="bots-history-table-wrap"><table class="bots-history-table"><thead><tr><th>Session / Trade</th><th>Stake</th><th>Result</th><th>Profit / Loss</th><th>Challenge Balance</th></tr></thead><tbody id="challenge-journal-body"></tbody></table></div></section>'
       );
     }
 
@@ -2214,10 +2165,6 @@
       if (s.running) active++;
       total += s.sessionPL;
     });
-    if (window.AutonixChallenge) {
-      if (window.AutonixChallenge.isRunning()) active++;
-      total += window.AutonixChallenge.sessionProfit();
-    }
     if (window.AutonixSuite && window.AutonixSuite.systems) {
       Object.keys(window.AutonixSuite.systems).forEach(function (id) {
         var system = window.AutonixSuite.systems[id];
@@ -2312,7 +2259,7 @@
     }
     if (emptyEl) emptyEl.style.display = "none";
     if (tableWrap) tableWrap.style.display = "";
-    var ACCENT = { freeBot: "#00E5A0", basicBot: "#5b9dff", expertBot: "#F59E0B" };
+    var ACCENT = { freeBot: "#00E5A0", basicBot: "#5b9dff" };
     tbody.innerHTML = globalHistory.slice(0, 200).map(function (h) {
       var plStr = displaySignedMoney(h.pl);
       return (
@@ -2333,6 +2280,19 @@
     var grid = document.getElementById("bot-cards-render-target");
     if (!grid) return;
     grid.innerHTML = "";
+    var comingSoon = document.createElement("article");
+    comingSoon.className = "bot-card bot-card-premium expert-coming-soon-card";
+    comingSoon.setAttribute("aria-labelledby", "expert-coming-soon-title");
+    comingSoon.innerHTML =
+      '<div class="bot-card-header">' +
+        '<div class="bot-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c4 2 7 5 8 10-3 2-6 3-10 3L7 12c0-4 1-7 5-10Z"/><path d="m10 15-1 5 4-4M8 8l-4 1 4 4"/><circle cx="15" cy="8" r="1"/></svg></div>' +
+        '<div class="bot-card-title-wrap"><span class="bot-tier-badge bot-tier-expert">EXPERT</span><h2 class="bot-card-name" id="expert-coming-soon-title">EXPERT BOT</h2></div>' +
+      '</div>' +
+      '<div class="expert-coming-soon-body">' +
+        '<span class="expert-coming-soon-label">COMING SOON</span>' +
+        '<p class="expert-coming-soon-message">We\'re working on something powerful. The Expert Bot will be available soon.</p>' +
+      '</div>';
+    grid.appendChild(comingSoon);
     BOT_DEFS.forEach(function (def) {
       var article = document.createElement("article");
       article.className = "bot-card" + (def.requiresActivation ? " bot-card-premium" : "");
@@ -2425,7 +2385,7 @@
   /* ─── Init ───────────────────────────────────────────────────── */
   document.addEventListener("DOMContentLoaded", function () {
     renderAll();
-    ["basicBot", "expertBot"].forEach(loadActivationSession);
+    ["basicBot"].forEach(loadActivationSession);
     ["click", "input", "change", "keydown"].forEach(function (eventName) {
       document.addEventListener(eventName, recordBotActivity, true);
     });

@@ -208,7 +208,7 @@
   top: calc(100% + 10px);
   right: 0;
   min-width: 200px;
-  background: #141420;
+  background: #000000;
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 14px;
   box-shadow: 0 20px 60px rgba(0,0,0,.7);
@@ -2952,7 +2952,36 @@ html:has(.terms-page-wrapper) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   LIGHT THEME — Marketing Pages
+  DARK THEME — Pure-black surfaces
+  ══════════════════════════════════════════════════════════ */
+[data-theme="dark"] .autonix-navbar,
+[data-theme="dark"] .navbar-account-dropdown,
+[data-theme="dark"] .node-card,
+[data-theme="dark"] .node-card:hover,
+[data-theme="dark"] .stats-card,
+[data-theme="dark"] .stats-card:hover,
+[data-theme="dark"] .bot-showcase-card,
+[data-theme="dark"] .bot-showcase-card:hover,
+[data-theme="dark"] .markets-container,
+[data-theme="dark"] .market-tabs,
+[data-theme="dark"] .market-mobile-card,
+[data-theme="dark"] .feature-card,
+[data-theme="dark"] .step-card,
+[data-theme="dark"] .testimonial-card,
+[data-theme="dark"] .security-item,
+[data-theme="dark"] .metric-card,
+[data-theme="dark"] .faq-item,
+[data-theme="dark"] .exchange-ticker,
+[data-theme="dark"] .live-ticker,
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .device-mockup,
+[data-theme="dark"] .device-header,
+[data-theme="dark"] .device-screen {
+  background: #000000 !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+  LIGHT THEME — Marketing Pages
    ══════════════════════════════════════════════════════════ */
 [data-theme="light"] .autonix-navbar {
   background: rgba(255,255,255,.90);

@@ -37,7 +37,7 @@
 
     /* Brand colors - dynamically generated from brand.config.json */
     --brand-white: #ffffff;
-    --brand-dark-grey: #0f172a;
+    --brand-dark-grey: #000000;
     --brand-red-coral: #c20000; /* legacy compatibility */
     --brand-orange: #8b5cf6; /* legacy compatibility */
 
@@ -58,8 +58,8 @@
     /* [/AI] */
 
     // App Cards gradient background
-    --app-card-virtual: #{constants.$gradient-virtual};
-    --app-card-virtual-swap-free: #{constants.$gradient-virtual-swap-free};
+    --app-card-virtual: #{constants.$color-black};
+    --app-card-virtual-swap-free: #{constants.$color-black};
 
     // Opacity
     --tw-border-opacity: 1;
@@ -173,8 +173,8 @@
         --status-alert-background: #{constants.$color-yellow-3};
 
         // Dashboard
-        --dashboard-swap-free: #{constants.$gradient-color-black-3};
-        --dashboard-app: #{constants.$gradient-color-black-4};
+        --dashboard-swap-free: #{constants.$color-black};
+        --dashboard-app: #{constants.$color-black};
 
         // Transparentize
         --transparent-success: #{constants.$alpha-color-green-1};
@@ -207,25 +207,25 @@
         --demo-text-color-2: #{constants.$color-white};
 
         // Header
-        --header-background-mt5: #{constants.$color-blue-8};
-        --header-background-others: #{constants.$color-green-7};
+        --header-background-mt5: #{constants.$color-black};
+        --header-background-others: #{constants.$color-black};
     }
 
     .theme--dark {
         // General
         --general-main-1: #{constants.$color-black};
-        --general-main-2: #{constants.$color-black-3};
-        --general-main-3: #{constants.$color-black-4};
-        --general-main-4: #{constants.$alpha-color-black-7};
-        --general-section-1: #{constants.$color-black-3};
+        --general-main-2: #{constants.$color-black};
+        --general-main-3: #{constants.$color-black};
+        --general-main-4: #{constants.$color-black};
+        --general-section-1: #{constants.$color-black};
         --general-section-2: #{constants.$color-black};
-        --general-section-3: #{constants.$color-black-5};
-        --general-section-4: #{constants.$color-black-5};
-        --general-section-5: #{constants.$color-black-5};
-        --general-section-6: #{constants.$color-grey-7};
-        --general-disabled: #{constants.$color-black-4};
-        --general-hover: #{constants.$color-black-5};
-        --general-active: #{constants.$color-black-8};
+        --general-section-3: #{constants.$color-black};
+        --general-section-4: #{constants.$color-black};
+        --general-section-5: #{constants.$color-black};
+        --general-section-6: #{constants.$color-black};
+        --general-disabled: #{constants.$color-black};
+        --general-hover: #{constants.$color-black};
+        --general-active: #{constants.$color-black};
 
         // Icons and Texts
         --text-prominent: #{constants.$color-white};
@@ -252,16 +252,16 @@
         --purchase-section-1: #{constants.$color-green-4};
         --purchase-main-2: #{constants.$color-red-2};
         --purchase-section-2: #{constants.$color-red-3};
-        --purchase-disabled-main: #{constants.$color-black-4};
+        --purchase-disabled-main: #{constants.$color-black};
         --purchase-disabled-section: #{constants.$color-black};
 
         // Buttons
         --button-primary-default: var(--brand-red-coral);
-        --button-secondary-default: #{constants.$color-grey-7};
+        --button-secondary-default: #{constants.$color-black};
         --button-tertiary-default: transparent;
         --button-primary-light-default: #{constants.$alpha-color-red-2};
         --button-primary-hover: #{constants.$color-red-5};
-        --button-secondary-hover: #{constants.$alpha-color-white-3};
+        --button-secondary-hover: #{constants.$color-black};
         --button-tertiary-hover: #{constants.$alpha-color-red-1};
         --button-primary-light-hover: #{constants.$alpha-color-red-3};
         --button-toggle-primary: #{constants.$color-blue-3};
@@ -281,9 +281,9 @@
 
         // States
         --state-normal: #{constants.$color-black};
-        --state-hover: #{constants.$color-black-5};
-        --state-active: #{constants.$color-black-8};
-        --state-disabled: #{constants.$color-black-4};
+        --state-hover: #{constants.$color-black};
+        --state-active: #{constants.$color-black};
+        --state-disabled: #{constants.$color-black};
         --checkbox-disabled-grey: #{constants.$color-grey-6};
         --sidebar-tab: #{constants.$color-grey-7};
 
@@ -300,10 +300,10 @@
 
         // Fill
         --fill-normal: #{constants.$color-black};
-        --fill-normal-1: #{constants.$color-black-1};
-        --fill-hover: #{constants.$color-grey-7};
+        --fill-normal-1: #{constants.$color-black};
+        --fill-hover: #{constants.$color-black};
         --fill-active: var(--brand-secondary);
-        --fill-disabled: #{constants.$color-black-4};
+        --fill-disabled: #{constants.$color-black};
 
         // Status
         --status-default: #{constants.$color-grey-3};
