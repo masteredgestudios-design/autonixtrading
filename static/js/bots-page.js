@@ -274,6 +274,7 @@
       latencySafeguard: true,
       currentSignal: null,
       lastEntryTickKey: "",
+      previousTickCount: 3,
       riseFallAnalysis: null,
       riseFallResult: "",
       activeTradeSignal: null,
@@ -329,6 +330,10 @@
         var buf = tickBuffers[symbol];
         buf.push({ price: price, time: tick.epoch * 1000 });
         if (buf.length > TICK_WINDOW) buf.shift();
+        var predictorState = states.over1AiPredictor;
+        if (predictorState && predictorState.running && predictorState.symbol === symbol) {
+          botTick(predictorState);
+        }
       });
     }
     doSeed();
@@ -980,40 +985,51 @@
 
   function decideOver1AIPredictor(state) {
     var buf = tickBuffers[state.symbol] || [];
-    if (!buf || buf.length < 50) {
-      state.currentSignal = "Collecting sufficient data...";
-      state.liveAnalysis = buildOver1LiveAnalysis(state, buf, {
-        valid: false,
-        confidence: 0,
-        score: 0,
-        reason: "Collecting tick data...",
-      });
+    var signal = analyzePreviousOver1Ticks(buf, state.previousTickCount);
+    state.currentProbability = 0;
+    state.currentConfidence = 0;
+    state.analysisStatus = "analyzing";
+    state.statusText = "Checking previous ticks";
+    if (!signal.ready) {
+      state.currentSignal = "Collecting previous ticks (" + signal.digits.length + "/" +
+        state.previousTickCount + ")...";
       return null;
     }
 
-    var analysis = buildOver1FeatureAnalysis(buf, { confidenceThreshold: state.over1ConfidenceThreshold });
-    state.liveAnalysis = buildOver1LiveAnalysis(state, buf, analysis);
-    state.currentProbability = analysis.probability;
-    state.currentConfidence = analysis.confidence;
-    state.analysisStatus = analysis.valid ? "signal" : "analyzing";
-    state.statusText = analysis.valid ? "Valid signal detected" : "Analyzing market";
-
-    if (!analysis.valid) {
-      state.currentSignal = analysis.reason;
+    if (!signal.shouldTrade) {
+      state.currentSignal = "A previous tick digit is 1 — waiting";
       return null;
     }
 
     state.predictionStats.qualifiedSignals += 1;
-    state.predictionStats.probabilitySum += analysis.probability;
-    var signalText = "OVER 1 probability: " + (analysis.probability * 100).toFixed(1) + "%";
-    state.currentSignal = signalText;
+    state.analysisStatus = "signal";
+    state.statusText = "Over 1 conditions met";
+    state.currentSignal = "OVER 1 — previous " + state.previousTickCount + " tick digits are not 1";
     return {
       selection: "over",
       digit: 1,
       tradeType: "over-under",
-      probability: analysis.probability,
-      confidence: analysis.confidence,
-      reason: analysis.reason,
+      reason: "Previous tick digits are not 1",
+    };
+  }
+
+  function normalizePreviousTickCount(value, fallback) {
+    var count = Number(value);
+    if (!isFinite(count)) count = fallback;
+    return Math.max(1, Math.min(TICK_WINDOW, Math.floor(count)));
+  }
+
+  function analyzePreviousOver1Ticks(buf, tickCount) {
+    var count = normalizePreviousTickCount(tickCount, 3);
+    var ticks = Array.isArray(buf) ? buf.slice(-count) : [];
+    if (ticks.some(function (tick) { return !tick || !isFinite(Number(tick.price)); })) {
+      return { ready: false, shouldTrade: false, digits: [] };
+    }
+    var digits = ticks.map(function (tick) { return lastDigit(Number(tick.price)); });
+    return {
+      ready: digits.length === count,
+      shouldTrade: digits.length === count && digits.every(function (digit) { return digit !== 1; }),
+      digits: digits,
     };
   }
 
@@ -1164,17 +1180,16 @@
     var stake = Math.min(+state.currentStake.toFixed(2), 5000);
 
     if (state.def.id === "over1AiPredictor") {
-      var probabilityBucket = Math.min(95, Math.floor((sig.probability || 0) * 100 / 5) * 5);
       var prediction = {
         id: ++state.predictionSequence,
         timestamp: new Date().toISOString(),
         symbol: state.symbol,
         prediction: "OVER 1",
-        estimatedProbability: sig.probability,
-        confidence: sig.confidence,
+        estimatedProbability: null,
+        confidence: null,
         modelAgreement: sig.modelAgreement,
         stake: stake,
-        probabilityBucket: probabilityBucket,
+        probabilityBucket: null,
         result: "PENDING",
       };
       state.predictionHistory.push(prediction);
@@ -1424,6 +1439,11 @@
       state.tp = Math.max(0.01, parseFloat(tpEl && tpEl.value) || 5);
       state.martingale = Math.max(1, parseFloat(document.getElementById("input-martingale-" + state.def.id)?.value) || 4.5);
       state.sl = Math.max(0.01, parseFloat(slEl && slEl.value) || 100);
+      var previousTicksEl = document.getElementById("previous-ticks-" + state.def.id);
+      state.previousTickCount = normalizePreviousTickCount(
+        previousTicksEl && previousTicksEl.value,
+        state.previousTickCount
+      );
     }
     if (twEl) state.tickWindow = parseInt(twEl.value, 10)   || state.tickWindow || 100;
     if (state.stake < 0.35) state.stake = 0.35;
@@ -1673,11 +1693,16 @@
       result: "",
     };
     var optsHTML = symbolSelectHTML(def.id, s.symbol);
-    var tickwinRow =
-      '<div class="bot-trade-type-row">' +
-        '<label class="bot-input-label" for="tickwin-' + def.id + '">Analysis Window</label>' +
-        tickWindowSelectHTML(def.id, s.tickWindow) +
-      '</div>';
+    var tickwinRow = def.id === "over1AiPredictor"
+      ? '<label class="bot-input-field">' +
+          '<span class="bot-input-label">Previous Ticks to Analyze</span>' +
+          '<input type="number" min="1" max="' + TICK_WINDOW + '" step="1" value="' +
+            s.previousTickCount + '" id="previous-ticks-' + def.id + '" />' +
+        '</label>'
+      : '<div class="bot-trade-type-row">' +
+          '<label class="bot-input-label" for="tickwin-' + def.id + '">Analysis Window</label>' +
+          tickWindowSelectHTML(def.id, s.tickWindow) +
+        '</div>';
     var inputsHTML =
       tickwinRow +
       '<div class="bot-inputs-grid">' +
@@ -1934,6 +1959,14 @@
     if (twSel) {
       twSel.addEventListener("change", function (e) {
         s.tickWindow = parseInt(e.target.value, 10) || 100;
+      });
+    }
+    var previousTicksInput = document.getElementById("previous-ticks-" + def.id);
+    if (previousTicksInput) {
+      previousTicksInput.addEventListener("change", function (e) {
+        s.previousTickCount = normalizePreviousTickCount(e.target.value, s.previousTickCount);
+        e.target.value = s.previousTickCount;
+        if (s.running) botTick(s);
       });
     }
 
@@ -2372,7 +2405,7 @@
     mainLoopTimerId = setInterval(function () {
       BOT_DEFS.forEach(function (d) {
         var s = states[d.id];
-        if (s.running) botTick(s);
+        if (s.running && d.id !== "over1AiPredictor") botTick(s);
         if (d.id === "freeBot" && s.tradeMode === "rise-fall") {
           updateFreeRiseFallAnalysis(s);
           renderFreeRiseFallAnalysis(s);
@@ -2473,6 +2506,8 @@
 
   window.AutonixOver1Predictor = {
     evaluateWindow: evaluateOver1WindowData,
+    analyzePreviousTicks: analyzePreviousOver1Ticks,
+    defaultPreviousTickCount: 3,
     validateHistory: function (options) {
       var input = options || {};
       return {

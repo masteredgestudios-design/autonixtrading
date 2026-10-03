@@ -35,6 +35,20 @@ describe('Over 1 AI Predictor model', () => {
     expect(result.reason).toMatch(/Analyzing|Collecting/);
   });
 
+  it('signals Over 1 when none of the configured previous tick digits are 1', () => {
+    const predictor = window.AutonixOver1Predictor;
+    const ticks = makeTicks([1, 2, 3, 4]);
+
+    expect(predictor.defaultPreviousTickCount).toBe(3);
+    expect(predictor.analyzePreviousTicks(ticks, 3)).toEqual({
+      ready: true,
+      shouldTrade: true,
+      digits: [2, 3, 4],
+    });
+    expect(predictor.analyzePreviousTicks(makeTicks([2, 1, 4]), 3).shouldTrade).toBe(false);
+    expect(predictor.analyzePreviousTicks(makeTicks([2, 4]), 3).ready).toBe(false);
+  });
+
   it('reports separate development and validation metrics', () => {
     const predictor = window.AutonixOver1Predictor;
     const historical = makeTicks(Array.from({ length: 260 }, (_, index) => 2 + (index % 8)));
