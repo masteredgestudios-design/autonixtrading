@@ -32,6 +32,27 @@
 			],
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "Run Autonix app.py",
+			"type": "shell",
+			"command": "C:\\Users\\antteh\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+			"args": [
+				"app.py"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Run app.py",
+			"type": "shell",
+			"command": "C:\\Users\\antteh\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+			"args": [
+				"-u",
+				"app.py"
+			],
+			"isBackground": true,
+			"problemMatcher": []
 		}
 	]
 }

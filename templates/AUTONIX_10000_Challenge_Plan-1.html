@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AUTONIX — $10,000 Challenge Plan</title>
+<style>
+@page { size:A4; margin: 14mm; }
+:root {
+  --bg:#0B0E14; --panel:#111722; --panel2:#151C28; --cyan:#00F0FF;
+  --green:#00E676; --white:#FFFFFF; --muted:#8E9AAA; --line:#263141;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; background:var(--bg); color:var(--white);
+  font-family:Inter,Montserrat,Roboto,Arial,sans-serif; line-height:1.45;
+}
+.page { max-width:980px; margin:0 auto; padding:34px 26px 50px; }
+.hero {
+  border:1px solid #1D3944; border-radius:24px; padding:38px 34px 32px;
+  background:radial-gradient(circle at 85% 10%, rgba(0,240,255,.14), transparent 28%),
+             linear-gradient(145deg,#101722,#0B0E14 68%);
+  box-shadow:0 0 45px rgba(0,240,255,.07); position:relative; overflow:hidden;
+}
+.hero:after { content:""; position:absolute; inset:auto -10% -70px 35%; height:170px;
+  background:rgba(0,230,118,.07); filter:blur(35px); }
+.brand { letter-spacing:.22em; color:var(--cyan); font-weight:900; font-size:14px; }
+h1 { margin:8px 0 4px; font-size:48px; line-height:.98; letter-spacing:-.04em; }
+.subtitle { color:#C5D0DC; font-weight:700; letter-spacing:.09em; font-size:13px; }
+.hero-line { display:flex; gap:12px; flex-wrap:wrap; margin-top:22px; }
+.pill { border:1px solid #29404A; background:#0E151E; border-radius:999px;
+  padding:8px 12px; font-size:11px; font-weight:800; letter-spacing:.06em; }
+.pill strong { color:var(--green); }
+.quote {
+  margin-top:25px; border-left:3px solid var(--cyan); padding:14px 18px;
+  background:rgba(0,240,255,.05); border-radius:0 12px 12px 0;
+  font-size:17px; font-weight:800;
+}
+.quote span { color:var(--cyan); font-size:11px; letter-spacing:.08em; margin-left:7px; }
+.section { margin-top:28px; }
+.section-title { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.num { color:var(--cyan); font-size:12px; font-weight:900; letter-spacing:.12em; }
+h2 { margin:0; font-size:25px; letter-spacing:-.02em; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:20px; }
+.mission { font-size:15px; color:#DCE4EC; }
+.rules { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+.rule { background:var(--panel2); border:1px solid #202B39; border-radius:13px; padding:15px; }
+.rule b { color:var(--cyan); display:block; font-size:11px; letter-spacing:.09em; margin-bottom:5px; }
+.rule p { margin:0; color:#D6DEE7; font-size:13px; }
+table { width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; }
+th { background:#172330; color:var(--cyan); font-size:10px; letter-spacing:.1em; padding:11px 10px; text-align:left; }
+td { padding:11px 10px; border-top:1px solid #202A37; font-size:12px; color:#E9EEF3; }
+tr:nth-child(even) td { background:#0F151E; }
+.final,.progress { color:var(--green); font-weight:900; }
+.day-label,.session { color:var(--cyan); font-weight:900; letter-spacing:.06em; }
+.target { color:var(--green); font-weight:900; text-align:right; }
+.overview td:last-child, .overview th:last-child { text-align:right; }
+.milestone {
+  display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:18px;
+  padding:25px; border:1px solid #24453C; border-radius:18px;
+  background:linear-gradient(135deg,rgba(0,230,118,.08),rgba(0,240,255,.04));
+}
+.milestone .big { font-size:28px; font-weight:900; }
+.milestone .arrow { color:var(--cyan); font-size:30px; }
+.milestone .target-big { color:var(--green); font-size:30px; font-weight:900; text-align:right; }
+.day-card { background:var(--panel); border:1px solid var(--line); border-radius:18px;
+  padding:18px; margin:14px 0; }
+.day-head { display:flex; justify-content:space-between; align-items:center; gap:15px; margin-bottom:13px; }
+.eyebrow { color:var(--cyan); font-size:10px; letter-spacing:.12em; font-weight:900; }
+.day-head h3 { margin:2px 0 0; font-size:19px; }
+.day-chip { border:1px solid #24453C; color:var(--green); padding:7px 10px; border-radius:999px;
+  font-size:9px; font-weight:900; letter-spacing:.08em; }
+.session-table td:last-child { text-align:right; }
+.small-quote { margin-top:13px; font-size:13px; padding:11px 14px; }
+.mindset { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.check { padding:12px 14px; background:var(--panel2); border-radius:12px; border:1px solid #202B39;
+  font-size:13px; }
+.check::first-letter { color:var(--green); }
+.warning { border:1px solid #4A3A1D; background:#17140F; border-radius:16px; padding:18px; color:#C8C0B1; }
+.warning b { color:#FFD166; }
+.footer { margin-top:30px; padding-top:16px; border-top:1px solid #1D2631; color:#667385;
+  font-size:9px; letter-spacing:.04em; text-align:center; }
+@media print {
+  body { background:var(--bg); }
+  .page { padding:0; }
+  .day-card { break-inside:avoid; }
+  .section { break-inside:avoid; }
+}
+@media(max-width:650px) {
+  .rules,.mindset { grid-template-columns:1fr; }
+  h1 { font-size:36px; }
+  .milestone { grid-template-columns:1fr; text-align:center; }
+  .milestone .target-big { text-align:center; }
+  .milestone .arrow { transform:rotate(90deg); }
+  .session-table { font-size:10px; }
+  th,td { padding:8px 5px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <div class="brand">AUTONIX // TRADING DISCIPLINE SYSTEM</div>
+    <h1>$10,000<br>CHALLENGE</h1>
+    <div class="subtitle">4 SESSIONS • 50% TP • ONE BALANCE AT A TIME</div>
+    <div class="hero-line">
+      <div class="pill">START <strong>$1.00</strong></div>
+      <div class="pill">TARGET <strong>$10,000+</strong></div>
+      <div class="pill">MODEL <strong>COMPOUNDING</strong></div>
+    </div>
+    <div class="quote">“Profit driven by intelligence. Progress driven by discipline.” <span>— AUTONIX</span></div>
+  </header>
+
+  <section class="section">
+    <div class="section-title"><span class="num">MISSION</span><h2>The Mission</h2></div>
+    <div class="card mission">
+      Start with <strong>$1.00</strong>. Complete four successful sessions each day. Target <strong>50%</strong> of the session stake.
+      Carry the final balance into the next session. Repeat with discipline until the balance reaches <strong>$10,000 or more</strong>.
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="num">01</span><h2>The AUTONIX Challenge Rules</h2></div>
+    <div class="rules">
+      <div class="rule"><b>01 / START SMALL</b><p>The challenge begins with a $1.00 starting balance.</p></div>
+      <div class="rule"><b>02 / FOUR SESSIONS</b><p>Every day has Morning, Lunch, Evening and Night sessions.</p></div>
+      <div class="rule"><b>03 / 50% TP</b><p>Each session's target profit is 50% of that session's starting stake.</p></div>
+      <div class="rule"><b>04 / COMPOUND</b><p>The final balance becomes the starting stake for the next session.</p></div>
+      <div class="rule"><b>05 / DISCIPLINE</b><p>The table is a target roadmap—not a promise of actual trading results.</p></div>
+    </div>
+    <div class="quote">“The goal is not to rush the balance. The goal is to execute the plan.” <span>— AUTONIX</span></div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="num">02</span><h2>The Road to $10,000</h2></div>
+    <div class="card overview">
+      <table>
+        <thead><tr><th>DAY</th><th>START</th><th>END</th><th>PROGRESS</th></tr></thead>
+        <tbody><tr><td class="day-label">DAY 1</td><td>$1.00</td><td class="final">$5.06</td>
+    <td class="progress">0.1%</td></tr>
+<tr><td class="day-label">DAY 2</td><td>$5.06</td><td class="final">$25.61</td>
+    <td class="progress">0.3%</td></tr>
+<tr><td class="day-label">DAY 3</td><td>$25.61</td><td class="final">$129.61</td>
+    <td class="progress">1.3%</td></tr>
+<tr><td class="day-label">DAY 4</td><td>$129.61</td><td class="final">$656.16</td>
+    <td class="progress">6.6%</td></tr>
+<tr><td class="day-label">DAY 5</td><td>$656.16</td><td class="final">$3,321.81</td>
+    <td class="progress">33.2%</td></tr>
+<tr><td class="day-label">DAY 6</td><td>$3,321.81</td><td class="final">$11,211.10</td>
+    <td class="progress">100.0%</td></tr></tbody>
+      </table>
+      <div style="margin-top:15px;text-align:right;color:#8E9AAA;font-size:10px;letter-spacing:.08em">
+        TARGET MILESTONE <span style="color:#00E676;font-size:18px;font-weight:900;margin-left:8px">$11,211.10</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="num">03</span><h2>Complete Session Roadmap</h2></div>
+    
+    <section class="day-card">
+      <div class="day-head">
+        <div><span class="eyebrow">DAY 1</span><h3>$1.00 → $5.06</h3></div>
+        <div class="day-chip">4 SESSIONS</div>
+      </div>
+      <table class="session-table">
+        <thead><tr><th>SESSION</th><th>START</th><th>TP · 50%</th><th>FINAL</th><th>TARGET</th></tr></thead>
+        <tbody><tr>
+            <td><span class="session">MORNING</span></td>
+            <td>$1.00</td><td class="tp">$0.50</td><td class="final">$1.50</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">LUNCH</span></td>
+            <td>$1.50</td><td class="tp">$0.75</td><td class="final">$2.25</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">EVENING</span></td>
+            <td>$2.25</td><td class="tp">$1.12</td><td class="final">$3.37</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">NIGHT</span></td>
+            <td>$3.37</td><td class="tp">$1.69</td><td class="final">$5.06</td>
+            <td class="target">+50%</td>
+        </tr></tbody>
+      </table>
+      <div class="quote small-quote">“One dollar is the beginning. Discipline is the multiplier.” <span>— AUTONIX</span></div>
+    </section>
+    
+    <section class="day-card">
+      <div class="day-head">
+        <div><span class="eyebrow">DAY 2</span><h3>$5.06 → $25.61</h3></div>
+        <div class="day-chip">4 SESSIONS</div>
+      </div>
+      <table class="session-table">
+        <thead><tr><th>SESSION</th><th>START</th><th>TP · 50%</th><th>FINAL</th><th>TARGET</th></tr></thead>
+        <tbody><tr>
+            <td><span class="session">MORNING</span></td>
+            <td>$5.06</td><td class="tp">$2.53</td><td class="final">$7.59</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">LUNCH</span></td>
+            <td>$7.59</td><td class="tp">$3.79</td><td class="final">$11.38</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">EVENING</span></td>
+            <td>$11.38</td><td class="tp">$5.69</td><td class="final">$17.07</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">NIGHT</span></td>
+            <td>$17.07</td><td class="tp">$8.54</td><td class="final">$25.61</td>
+            <td class="target">+50%</td>
+        </tr></tbody>
+      </table>
+      
+    </section>
+    
+    <section class="day-card">
+      <div class="day-head">
+        <div><span class="eyebrow">DAY 3</span><h3>$25.61 → $129.61</h3></div>
+        <div class="day-chip">4 SESSIONS</div>
+      </div>
+      <table class="session-table">
+        <thead><tr><th>SESSION</th><th>START</th><th>TP · 50%</th><th>FINAL</th><th>TARGET</th></tr></thead>
+        <tbody><tr>
+            <td><span class="session">MORNING</span></td>
+            <td>$25.61</td><td class="tp">$12.80</td><td class="final">$38.41</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">LUNCH</span></td>
+            <td>$38.41</td><td class="tp">$19.20</td><td class="final">$57.61</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">EVENING</span></td>
+            <td>$57.61</td><td class="tp">$28.80</td><td class="final">$86.41</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">NIGHT</span></td>
+            <td>$86.41</td><td class="tp">$43.20</td><td class="final">$129.61</td>
+            <td class="target">+50%</td>
+        </tr></tbody>
+      </table>
+      <div class="quote small-quote">“Protect the process. Let the mathematics do the talking.” <span>— AUTONIX</span></div>
+    </section>
+    
+    <section class="day-card">
+      <div class="day-head">
+        <div><span class="eyebrow">DAY 4</span><h3>$129.61 → $656.16</h3></div>
+        <div class="day-chip">4 SESSIONS</div>
+      </div>
+      <table class="session-table">
+        <thead><tr><th>SESSION</th><th>START</th><th>TP · 50%</th><th>FINAL</th><th>TARGET</th></tr></thead>
+        <tbody><tr>
+            <td><span class="session">MORNING</span></td>
+            <td>$129.61</td><td class="tp">$64.81</td><td class="final">$194.42</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">LUNCH</span></td>
+            <td>$194.42</td><td class="tp">$97.21</td><td class="final">$291.63</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">EVENING</span></td>
+            <td>$291.63</td><td class="tp">$145.81</td><td class="final">$437.44</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">NIGHT</span></td>
+            <td>$437.44</td><td class="tp">$218.72</td><td class="final">$656.16</td>
+            <td class="target">+50%</td>
+        </tr></tbody>
+      </table>
+      
+    </section>
+    
+    <section class="day-card">
+      <div class="day-head">
+        <div><span class="eyebrow">DAY 5</span><h3>$656.16 → $3,321.81</h3></div>
+        <div class="day-chip">4 SESSIONS</div>
+      </div>
+      <table class="session-table">
+        <thead><tr><th>SESSION</th><th>START</th><th>TP · 50%</th><th>FINAL</th><th>TARGET</th></tr></thead>
+        <tbody><tr>
+            <td><span class="session">MORNING</span></td>
+            <td>$656.16</td><td class="tp">$328.08</td><td class="final">$984.24</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">LUNCH</span></td>
+            <td>$984.24</td><td class="tp">$492.12</td><td class="final">$1,476.36</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">EVENING</span></td>
+            <td>$1,476.36</td><td class="tp">$738.18</td><td class="final">$2,214.54</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">NIGHT</span></td>
+            <td>$2,214.54</td><td class="tp">$1,107.27</td><td class="final">$3,321.81</td>
+            <td class="target">+50%</td>
+        </tr></tbody>
+      </table>
+      <div class="quote small-quote">“Consistency turns small steps into large milestones.” <span>— AUTONIX</span></div>
+    </section>
+    
+    <section class="day-card">
+      <div class="day-head">
+        <div><span class="eyebrow">DAY 6</span><h3>$3,321.81 → $11,211.10</h3></div>
+        <div class="day-chip">3 SESSIONS</div>
+      </div>
+      <table class="session-table">
+        <thead><tr><th>SESSION</th><th>START</th><th>TP · 50%</th><th>FINAL</th><th>TARGET</th></tr></thead>
+        <tbody><tr>
+            <td><span class="session">MORNING</span></td>
+            <td>$3,321.81</td><td class="tp">$1,660.90</td><td class="final">$4,982.71</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">LUNCH</span></td>
+            <td>$4,982.71</td><td class="tp">$2,491.36</td><td class="final">$7,474.07</td>
+            <td class="target">+50%</td>
+        </tr>
+<tr>
+            <td><span class="session">EVENING</span></td>
+            <td>$7,474.07</td><td class="tp">$3,737.03</td><td class="final">$11,211.10</td>
+            <td class="target">+50%</td>
+        </tr></tbody>
+      </table>
+      
+    </section>
+    
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="num">04</span><h2>The $10,000 Moment</h2></div>
+    <div class="milestone">
+      <div class="big">$1.00</div><div class="arrow">→</div><div class="target-big">$11,211.10</div>
+    </div>
+    <div style="text-align:center;margin:12px 0;color:#B9C5D0;font-size:12px;font-weight:800;letter-spacing:.06em">
+      TARGET REACHED ON DAY 6 • EVENING SESSION
+    </div>
+    <div class="quote">“Stay focused. Stay patient. Follow the plan. Let every session earn its place.” <span>— AUTONIX</span></div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="num">CHECK</span><h2>Session Mindset Check</h2></div>
+    <div class="card mindset">
+      <div class="check">☑ I know my starting stake before the session.</div>
+      <div class="check">☑ I know my 50% TP target before entering.</div>
+      <div class="check">☑ I will not change the plan because of emotion.</div>
+      <div class="check">☑ I will record the result before moving to the next session.</div>
+      <div class="check">☑ I understand that a target is not a guarantee.</div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="warning">
+      <b>⚠ IMPORTANT — RISK & DISCLAIMER</b><br><br>
+      This document is a mathematical compounding challenge plan. A 50% TP target is not guaranteed in real trading,
+      and actual outcomes can include losses. Use appropriate risk management and only trade capital you can afford to lose.
+    </div>
+  </section>
+
+  <div class="footer">AUTONIX • $10,000 CHALLENGE • PROFIT DRIVEN BY INTELLIGENCE • PROGRESS DRIVEN BY DISCIPLINE</div>
+</div>
+</body>
+</html>
