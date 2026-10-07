@@ -274,6 +274,7 @@
         <strong>Important — Risk &amp; Disclaimer</strong>
         <p>This is a mathematical compounding challenge plan. A 50% TP target is not guaranteed in real trading, and actual outcomes can include losses. Use appropriate risk management and only trade capital you can afford to lose.</p>
       </aside>
+      <p class="challenge-footer">AUTONIX · $10,000 CHALLENGE · PROFIT DRIVEN BY INTELLIGENCE · PROGRESS DRIVEN BY DISCIPLINE</p>
     </div>
   </section>
 
@@ -417,7 +418,7 @@
         </label>
       </div>
 
-      <div id="checklist-status" class="checklist-status" style="display:none;">
+      <div id="checklist-status" class="checklist-status" style="display:none;" role="status" aria-live="polite">
         <span class="checklist-status-icon">✅</span> All checks passed — you are ready to trade.
         <a href="/trader" class="cta-primary" style="margin-top:16px;display:inline-flex;">Open Trader →</a>
       </div>
@@ -430,18 +431,18 @@
       <div class="journal-section-header">
         <div class="journal-section-badge">Record</div>
         <h2>📒 Daily Trading Journal</h2>
-        <p>Fill in your session record below. Consistency in recording leads to consistency in trading.</p>
+        <p>Record each session consistently. Required fields are marked with an asterisk; entries stay in this browser until you export a backup.</p>
       </div>
 
-      <div class="journal-form-card">
+      <form class="journal-form-card" id="journal-entry-form">
         <div class="jform-row">
           <div class="jform-field">
-            <label>Date</label>
-            <input type="date" class="jform-input" id="jf-date" />
+            <label for="jf-date">Date <span aria-hidden="true">*</span><span class="sr-only"> required</span></label>
+            <input type="date" class="jform-input" id="jf-date" required />
           </div>
           <div class="jform-field">
-            <label>Session</label>
-            <select class="jform-input" id="jf-session">
+            <label for="jf-session">Session <span aria-hidden="true">*</span><span class="sr-only"> required</span></label>
+            <select class="jform-input" id="jf-session" required>
               <option value="">Select session</option>
               <option>🌅 Morning (4:00 AM – 7:00 AM)</option>
               <option>☀️ Lunch (11:00 AM – 2:00 PM)</option>
@@ -452,8 +453,8 @@
         </div>
         <div class="jform-row">
           <div class="jform-field">
-            <label>Strategy / Bot</label>
-            <select class="jform-input" id="jf-strategy">
+            <label for="jf-strategy">Strategy / Bot <span aria-hidden="true">*</span><span class="sr-only"> required</span></label>
+            <select class="jform-input" id="jf-strategy" required>
               <option value="">Select bot</option>
               <option>Free Bot</option>
               <option>Basic Bot</option>
@@ -463,22 +464,22 @@
             </select>
           </div>
           <div class="jform-field">
-            <label>Stake ($)</label>
-            <input type="number" class="jform-input" id="jf-stake" placeholder="e.g. 50" min="0" step="0.01" />
+            <label for="jf-stake">Stake ($) <span aria-hidden="true">*</span><span class="sr-only"> required</span></label>
+            <input type="number" class="jform-input" id="jf-stake" placeholder="e.g. 50" min="0.01" step="0.01" required />
           </div>
           <div class="jform-field">
-            <label>Take Profit ($)</label>
+            <label for="jf-tp">Take Profit ($)</label>
             <input type="number" class="jform-input" id="jf-tp" placeholder="Auto: 50% of stake" min="0" step="0.01" readonly />
           </div>
         </div>
         <div class="jform-row">
           <div class="jform-field">
-            <label>Trades Executed</label>
-            <input type="number" class="jform-input" id="jf-trades" placeholder="e.g. 12" min="0" />
+            <label for="jf-trades">Trades Executed</label>
+            <input type="number" class="jform-input" id="jf-trades" placeholder="e.g. 12" min="0" step="1" />
           </div>
           <div class="jform-field">
-            <label>Result</label>
-            <select class="jform-input" id="jf-result">
+            <label for="jf-result">Result <span aria-hidden="true">*</span><span class="sr-only"> required</span></label>
+            <select class="jform-input" id="jf-result" required>
               <option value="">Select result</option>
               <option value="win">✅ Win — Target Reached</option>
               <option value="loss">❌ Loss</option>
@@ -487,32 +488,32 @@
             </select>
           </div>
           <div class="jform-field">
-            <label>Profit / Loss ($)</label>
-            <input type="number" class="jform-input" id="jf-pl" placeholder="e.g. +25 or -10" step="0.01" />
+            <label for="jf-pl">Profit / Loss ($) <span aria-hidden="true">*</span><span class="sr-only"> required</span></label>
+            <input type="number" class="jform-input" id="jf-pl" placeholder="e.g. +25 or -10" step="0.01" required />
           </div>
         </div>
         <div class="jform-row">
-          <div class="jform-field jform-full">
-            <label>Did you follow your trading plan?</label>
+          <fieldset class="jform-field jform-full jform-fieldset">
+            <legend>Did you follow your trading plan?</legend>
             <div class="jform-radio-group">
               <label class="jform-radio"><input type="radio" name="followed-plan" value="yes" /> Yes</label>
               <label class="jform-radio"><input type="radio" name="followed-plan" value="no" /> No</label>
             </div>
-          </div>
-          <div class="jform-field jform-full">
-            <label>Did you stop after your planned session?</label>
+          </fieldset>
+          <fieldset class="jform-field jform-full jform-fieldset">
+            <legend>Did you stop after your planned session?</legend>
             <div class="jform-radio-group">
               <label class="jform-radio"><input type="radio" name="stopped-after" value="yes" /> Yes</label>
               <label class="jform-radio"><input type="radio" name="stopped-after" value="no" /> No</label>
             </div>
-          </div>
+          </fieldset>
         </div>
         <div class="jform-field">
-          <label>Lessons Learned</label>
+          <label for="jf-lessons">Lessons Learned</label>
           <textarea class="jform-input jform-textarea" id="jf-lessons" placeholder="What did you observe? What will you do differently next time?"></textarea>
         </div>
         <div class="jform-actions">
-          <button class="cta-primary" id="jf-save-btn" type="button">
+          <button class="cta-primary" id="jf-save-btn" type="submit">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Save Entry
           </button>
@@ -521,12 +522,13 @@
             Export Log
           </button>
         </div>
-
         <!-- Saved entries -->
         <div id="jf-entries-wrap" style="display:none; margin-top:32px;">
           <h3 class="jf-entries-title">Saved Sessions</h3>
           <div id="jf-entries-list"></div>
         </div>
+        <p id="jf-status" class="jf-status" role="status" aria-live="polite"></p>
+      </form>
       </div>
     </div>
   </section>
@@ -721,13 +723,13 @@
 .challenge-table-wrap { max-width: 900px; margin-bottom: 22px; }
 .challenge-table { min-width: 540px; font-size: 13px; }
 .challenge-table th, .challenge-table td { padding: 11px 14px; white-space: nowrap; }
-.challenge-days { display: grid; gap: 16px; max-width: 900px; margin: 0 auto; }
-.challenge-day { padding: 22px; }
+.challenge-days { display: grid; gap: 16px; max-width: 900px; min-width: 0; margin: 0 auto; }
+.challenge-day { min-width: 0; padding: 22px; }
 .challenge-day header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
 .challenge-day header span { color: var(--color-brand); font-size: 11px; font-weight: 800; letter-spacing: .1em; }
 .challenge-day h3 { margin: 3px 0 0; font-size: 20px; font-weight: 800; }
 .challenge-day header > strong { color: var(--challenge-green); border: 1px solid rgba(0,200,117,.3); border-radius: 99px; padding: 7px 10px; font-size: 10px; letter-spacing: .06em; }
-.challenge-day .journal-table-wrap { max-width: none; margin-bottom: 0; }
+.challenge-day .journal-table-wrap { width: 100%; max-width: 100%; min-width: 0; margin: 0 0 0; }
 .challenge-day .challenge-table { min-width: 490px; }
 .challenge-day blockquote { margin: 14px 0 0; font-size: 13px; font-style: italic; }
 .challenge-milestone {
@@ -751,10 +753,13 @@
 .challenge-risk { max-width: 900px; margin: 16px auto 0; padding: 20px; border: 1px solid rgba(255,190,70,.35); border-radius: 14px; background: rgba(255,190,70,.06); }
 .challenge-risk strong { color: #d99a20; }
 .challenge-risk p { margin: 8px 0 0; color: var(--text-secondary, #8e9aaa); font-size: 13px; line-height: 1.7; }
+.challenge-footer { margin: 24px auto 0; color: var(--text-secondary, #8e9aaa); font-size: 10px; letter-spacing: .07em; text-align: center; }
 @media(max-width:640px) {
   .challenge-hero { padding: 30px 20px; margin-bottom: 52px; }
   .challenge-day { padding: 16px; }
   .challenge-day h3 { font-size: 17px; }
+  .challenge-day .challenge-table { min-width: 0; width: 100%; table-layout: fixed; font-size: 10px; }
+  .challenge-day .challenge-table th, .challenge-day .challenge-table td { padding: 8px 3px; white-space: normal; overflow-wrap: anywhere; }
   .challenge-milestone { grid-template-columns: 1fr; text-align: center; }
   .challenge-milestone div, .challenge-milestone div:last-child { align-items: center; text-align: center; }
   .challenge-arrow { transform: rotate(90deg); }
@@ -887,7 +892,7 @@
   user-select: none;
 }
 .checklist-item:hover { border-color: var(--color-brand); }
-.checklist-cb { display: none; }
+.checklist-cb { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .checklist-box {
   width: 20px; height: 20px; border-radius: 5px;
   border: 2px solid rgba(255,255,255,.25); flex-shrink: 0;
@@ -899,6 +904,7 @@
 .checklist-cb:checked ~ .checklist-box::after {
   content: '✓'; color: #fff; font-size: 13px; font-weight: 800;
 }
+.checklist-cb:focus-visible ~ .checklist-box { outline: 2px solid var(--color-brand); outline-offset: 3px; }
 .checklist-status {
   max-width: 520px; margin: 0 auto; text-align: center;
   background: rgba(0,200,117,.1); border: 1px solid rgba(0,200,117,.3);
@@ -915,8 +921,9 @@
 .jform-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px; }
 .jform-field { display: flex; flex-direction: column; gap: 8px; }
 .jform-full { grid-column: 1 / -1; }
-.jform-field label { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.7); text-transform: uppercase; letter-spacing: .05em; }
-[data-theme="light"] .jform-field label { color: rgba(0,0,0,.55); }
+.jform-field label, .jform-fieldset legend { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.7); text-transform: uppercase; letter-spacing: .05em; }
+[data-theme="light"] .jform-field label, [data-theme="light"] .jform-fieldset legend { color: rgba(0,0,0,.55); }
+.jform-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .jform-input {
   background: var(--bg-input); border: 1px solid var(--border);
   border-radius: 10px; padding: 12px 16px; font-size: 15px;
@@ -939,6 +946,8 @@
 .jf-entry-meta { font-weight: 600; margin-bottom: 4px; }
 .jf-entry-detail { color: rgba(255,255,255,.6); font-size: 13px; }
 [data-theme="light"] .jf-entry-detail { color: rgba(0,0,0,.5); }
+.jf-status { margin-top: 16px; color: var(--color-green); font-size: 14px; font-weight: 600; }
+.jf-status.is-error { color: var(--color-brand); }
 .jf-entry-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .jf-entry-pl-win { color: var(--color-green); font-weight: 700; font-size: 16px; }
 .jf-entry-pl-loss { color: var(--color-brand); font-weight: 700; font-size: 16px; }
@@ -1027,55 +1036,117 @@
 </style>
 
 <script>
-// Stake → auto-fill TP
-document.getElementById('jf-stake').addEventListener('input', function() {
-  const val = parseFloat(this.value) || 0;
-  document.getElementById('jf-tp').value = val > 0 ? (val * 0.5).toFixed(2) : '';
-});
+const journalForm = document.getElementById('journal-entry-form');
+const journalStatus = document.getElementById('jf-status');
+const storageKey = 'autonix_journal_entries';
 
-// Checklist all checked → show ready message
-const cbs = document.querySelectorAll('.checklist-cb');
-const statusEl = document.getElementById('checklist-status');
-function checkAll() {
-  const allChecked = Array.from(cbs).every(c => c.checked);
-  statusEl.style.display = allChecked ? 'flex' : 'none';
+function showJournalStatus(message, isError = false) {
+  journalStatus.textContent = message;
+  journalStatus.classList.toggle('is-error', isError);
 }
-cbs.forEach(cb => cb.addEventListener('change', checkAll));
 
-// Journal entries stored in localStorage
-const STORAGE_KEY = 'autonix_journal_entries';
-function loadEntries() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
-function saveEntries(arr) { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+function loadEntries() {
+  const rawEntries = localStorage.getItem(storageKey);
+  if (!rawEntries) return [];
+  const entries = JSON.parse(rawEntries);
+  if (!Array.isArray(entries) || entries.some(entry => !entry || typeof entry !== 'object' || Array.isArray(entry))) {
+    throw new Error('Saved journal data is not a list of entries.');
+  }
+  return entries;
+}
+
+function saveEntries(entries) {
+  localStorage.setItem(storageKey, JSON.stringify(entries));
+}
+
+function addTextElement(parent, tagName, className, text) {
+  const element = document.createElement(tagName);
+  element.className = className;
+  element.textContent = text;
+  parent.appendChild(element);
+  return element;
+}
 
 function renderEntries() {
   const entries = loadEntries();
   const wrap = document.getElementById('jf-entries-wrap');
   const list = document.getElementById('jf-entries-list');
-  if (!entries.length) { wrap.style.display = 'none'; return; }
-  wrap.style.display = 'block';
-  list.innerHTML = entries.slice().reverse().map((e, i) => {
-    const originalIndex = entries.length - 1 - i;
-    const pl = parseFloat(e.pl) || 0;
-    const plClass = pl >= 0 ? 'jf-entry-pl-win' : 'jf-entry-pl-loss';
-    const plText = pl >= 0 ? '+$' + Math.abs(pl).toFixed(2) : '-$' + Math.abs(pl).toFixed(2);
-    return `<div class="jf-entry-card">
-      <div>
-        <div class="jf-entry-meta">${e.date || 'No date'} — ${e.session || 'Unknown session'}</div>
-        <div class="jf-entry-detail">${e.strategy || '—'} · Stake: $${e.stake || 0} · TP: $${e.tp || 0} · ${e.trades || 0} trades</div>
-        ${e.lessons ? `<div class="jf-entry-detail" style="margin-top:4px;">📝 ${e.lessons}</div>` : ''}
-      </div>
-      <div class="jf-entry-actions">
-        <div class="${plClass}">${plText}</div>
-        <button class="jf-entry-delete" type="button" data-entry-index="${originalIndex}" aria-label="Delete saved session">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-        </button>
-      </div>
-    </div>`;
-  }).join('');
-}
-renderEntries();
+  list.replaceChildren();
+  wrap.style.display = entries.length ? 'block' : 'none';
 
-document.getElementById('jf-save-btn').addEventListener('click', function() {
+  entries.forEach((entry, index) => {
+    const card = document.createElement('div');
+    card.className = 'jf-entry-card';
+    const details = document.createElement('div');
+    const session = entry.session || 'Unknown session';
+    addTextElement(details, 'div', 'jf-entry-meta', `${entry.date || 'No date'} — ${session}`);
+    addTextElement(
+      details,
+      'div',
+      'jf-entry-detail',
+      `${entry.strategy || '—'} · Stake: $${entry.stake || 0} · TP: $${entry.tp || 0} · ${entry.trades || 0} trades · ${entry.result || 'No result'}`
+    );
+    if (entry.lessons) {
+      const lessons = addTextElement(details, 'div', 'jf-entry-detail', `📝 ${entry.lessons}`);
+      lessons.style.marginTop = '4px';
+    }
+    card.appendChild(details);
+
+    const actions = document.createElement('div');
+    actions.className = 'jf-entry-actions';
+    const profitLoss = Number.parseFloat(entry.pl) || 0;
+    addTextElement(
+      actions,
+      'div',
+      profitLoss >= 0 ? 'jf-entry-pl-win' : 'jf-entry-pl-loss',
+      `${profitLoss >= 0 ? '+' : '-'}$${Math.abs(profitLoss).toFixed(2)}`
+    );
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'jf-entry-delete';
+    deleteButton.type = 'button';
+    deleteButton.dataset.entryIndex = String(index);
+    deleteButton.setAttribute('aria-label', `Delete ${entry.date || 'saved'} ${session} session`);
+    deleteButton.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+    actions.appendChild(deleteButton);
+    card.appendChild(actions);
+    list.prepend(card);
+  });
+}
+
+const stakeInput = document.getElementById('jf-stake');
+stakeInput.addEventListener('input', function() {
+  const stake = Number.parseFloat(this.value);
+  document.getElementById('jf-tp').value = Number.isFinite(stake) && stake > 0 ? (stake * 0.5).toFixed(2) : '';
+});
+
+function setDefaultJournalDate() {
+  const today = new Date();
+  document.getElementById('jf-date').value = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0')
+  ].join('-');
+}
+setDefaultJournalDate();
+
+const checkboxes = document.querySelectorAll('.checklist-cb');
+const checklistStatus = document.getElementById('checklist-status');
+function updateChecklistStatus() {
+  checklistStatus.style.display = Array.from(checkboxes).every(checkbox => checkbox.checked) ? 'flex' : 'none';
+}
+checkboxes.forEach(checkbox => checkbox.addEventListener('change', updateChecklistStatus));
+
+try {
+  renderEntries();
+} catch (error) {
+  showJournalStatus('Could not read saved journal entries. Your browser storage may be unavailable or the saved data may be invalid.', true);
+  console.error('Unable to load journal entries:', error);
+}
+
+journalForm.addEventListener('submit', function(event) {
+  event.preventDefault();
+  if (!journalForm.reportValidity()) return;
+
   const entry = {
     date: document.getElementById('jf-date').value,
     session: document.getElementById('jf-session').value,
@@ -1087,38 +1158,72 @@ document.getElementById('jf-save-btn').addEventListener('click', function() {
     pl: document.getElementById('jf-pl').value,
     followedPlan: document.querySelector('input[name="followed-plan"]:checked')?.value || '',
     stoppedAfter: document.querySelector('input[name="stopped-after"]:checked')?.value || '',
-    lessons: document.getElementById('jf-lessons').value,
+    lessons: document.getElementById('jf-lessons').value.trim(),
     savedAt: new Date().toISOString()
   };
-  const entries = loadEntries();
-  entries.push(entry);
-  saveEntries(entries);
-  renderEntries();
-  this.textContent = '✅ Saved!';
-  setTimeout(() => { this.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Entry'; }, 2000);
+
+  try {
+    const entries = loadEntries();
+    entries.push(entry);
+    saveEntries(entries);
+    renderEntries();
+    showJournalStatus('Session saved on this device.');
+    journalForm.reset();
+    setDefaultJournalDate();
+    document.getElementById('jf-tp').value = '';
+  } catch (error) {
+    showJournalStatus('Could not save your entry. Check that browser storage is available, then try again.', true);
+    console.error('Unable to save journal entry:', error);
+  }
 });
 
 document.getElementById('jf-entries-list').addEventListener('click', function(event) {
-  const deleteBtn = event.target.closest('.jf-entry-delete');
-  if (!deleteBtn) return;
-  const entryIndex = Number(deleteBtn.dataset.entryIndex);
-  const entries = loadEntries();
-  if (!Number.isInteger(entryIndex) || entryIndex < 0 || entryIndex >= entries.length) return;
-  entries.splice(entryIndex, 1);
-  saveEntries(entries);
-  renderEntries();
+  if (!(event.target instanceof Element)) return;
+  const deleteButton = event.target.closest('.jf-entry-delete');
+  if (!deleteButton) return;
+  const entryIndex = Number(deleteButton.dataset.entryIndex);
+  try {
+    const entries = loadEntries();
+    if (!Number.isInteger(entryIndex) || entryIndex < 0 || entryIndex >= entries.length) return;
+    entries.splice(entryIndex, 1);
+    saveEntries(entries);
+    renderEntries();
+    showJournalStatus('Journal entry deleted.');
+  } catch (error) {
+    showJournalStatus('Could not delete the entry. Check that browser storage is available, then try again.', true);
+    console.error('Unable to delete journal entry:', error);
+  }
 });
 
 document.getElementById('jf-export-btn').addEventListener('click', function() {
-  const entries = loadEntries();
-  if (!entries.length) { alert('No entries to export yet.'); return; }
-  const headers = ['Date','Session','Strategy','Stake','TP','Trades','Result','P/L','Followed Plan','Stopped After','Lessons'];
-  const rows = entries.map(e => [e.date,e.session,e.strategy,e.stake,e.tp,e.trades,e.result,e.pl,e.followedPlan,e.stoppedAfter,(e.lessons||'').replace(/,/g,' ')]);
-  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download = 'autonix-journal.csv';
-  a.click();
+  try {
+    const entries = loadEntries();
+    if (!entries.length) {
+      showJournalStatus('There are no journal entries to export yet.', true);
+      return;
+    }
+    const headers = ['Date','Session','Strategy','Stake','TP','Trades','Result','P/L','Followed Plan','Stopped After','Lessons'];
+    const escapeCsv = value => {
+      const text = String(value ?? '');
+      const safeText = /^[\s]*[=+\-@]/.test(text) ? `'${text}` : text;
+      return `"${safeText.replace(/"/g, '""')}"`;
+    };
+    const rows = entries.map(entry => [
+      entry.date, entry.session, entry.strategy, entry.stake, entry.tp, entry.trades,
+      entry.result, entry.pl, entry.followedPlan, entry.stoppedAfter, entry.lessons
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\r\n');
+    const downloadUrl = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = 'autonix-journal.csv';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+    showJournalStatus('Journal exported as CSV.');
+  } catch (error) {
+    showJournalStatus('Could not export journal entries. Check that browser storage is available, then try again.', true);
+    console.error('Unable to export journal entries:', error);
+  }
 });
 
 // Navbar toggle (mobile)
