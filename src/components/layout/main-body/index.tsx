@@ -12,10 +12,11 @@ const MainBody: React.FC<TMainBodyProps> = observer(({ children }) => {
     const { ui } = useStore() ?? {
         ui: {
             setDevice: () => {},
+            setDarkMode: () => {},
             is_dark_mode_on: false,
         },
     };
-    const { setDevice, is_dark_mode_on } = ui;
+    const { setDevice, setDarkMode, is_dark_mode_on } = ui;
     const { isDesktop, isMobile, isTablet } = useDevice();
 
     // Keep the document theme attributes aligned with the saved shared preference.
