@@ -57,17 +57,24 @@ describe('Autonix Rapid Over 1 execution', () => {
 
   async function confirmOrder(index, won, pl) {
     const order = orders[index];
+    const contractId = `rapid-contract-${index}`;
     order.resolve({
-      contractId: `rapid-contract-${index}`,
+      contractId,
       buyPrice: order.proposal.ask_price,
     });
     await flushPromises();
-    order.onSettle({ contractId: `rapid-contract-${index}`, won, pl });
+    const rapidCard = document.getElementById('card-rapidOver1');
+    expect(document.getElementById('rapid-contract-id').textContent).toBe('Settling');
+    expect(rapidCard.textContent).not.toContain(contractId);
+    expect(document.getElementById('rapid-status-label').textContent).not.toContain(contractId);
+    expect(document.getElementById('last-res-rapidOver1').title).not.toContain(contractId);
+    order.onSettle({ contractId, won, pl });
     await flushPromises();
   }
 
   async function startWithStake(stake = '2') {
     document.getElementById('input-stake-rapidOver1').value = stake;
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$0.00');
     document.getElementById('start-rapidOver1').click();
     await waitForOrderCount(1);
   }
@@ -86,18 +93,22 @@ describe('Autonix Rapid Over 1 execution', () => {
     await confirmOrder(0, false, -2);
     await waitForOrderCount(2);
     expect(orders[1].proposal.amount).toBe(20);
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$4.00');
 
     await confirmOrder(1, true, 1);
     await waitForOrderCount(3);
     expect(orders[2].proposal.amount).toBe(15);
-    expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$2.00');
-    expect(document.getElementById('rapid-total-stake').textContent).toBe('$37.00');
+    expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$1.00');
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$3.00');
+    expect(document.getElementById('rapid-total-stake').textContent).toBe('$22.00');
 
     await confirmOrder(2, true, 3);
     expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$0.00');
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$0.00');
     expect(document.getElementById('rapid-total-stake').textContent).toBe('$37.00');
     expect(document.getElementById('rapid-session-pl').textContent).toBe('+$2.00');
     expect(document.getElementById('rapid-countdown').textContent).toBe('5s');
+    expect(document.getElementById('rapid-contract-id').textContent).toBe('Won');
     expect(rapidCard.textContent).not.toMatch(/analysis|signal|last digit|digit frequency/i);
     expect(rapidCard.textContent).not.toMatch(/multiplier|1 tick/i);
 
@@ -119,6 +130,55 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(orders[2].proposal.amount).toBe(120);
     expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$22.00');
     expect(document.getElementById('rapid-total-stake').textContent).toBe('$22.00');
+  });
+
+  it('records the maximum confirmed loss streak and resets it only with the session', async () => {
+    await startWithStake();
+
+    await confirmOrder(0, false, -1);
+    await waitForOrderCount(2);
+    await confirmOrder(1, false, -5);
+    await waitForOrderCount(3);
+    await confirmOrder(2, false, -10);
+    await waitForOrderCount(4);
+    expect(document.getElementById('rapid-max-loss-streak').textContent)
+      .toBe('3 consecutive losses — $16.00 lost');
+
+    document.getElementById('start-rapidOver1').click();
+    await confirmOrder(3, true, 100);
+    expect(document.getElementById('rapid-max-loss-streak').textContent)
+      .toBe('3 consecutive losses — $16.00 lost');
+
+    document.getElementById('start-rapidOver1').click();
+    await waitForOrderCount(5);
+    expect(document.getElementById('rapid-max-loss-streak').textContent)
+      .toBe('3 consecutive losses — $16.00 lost');
+    await confirmOrder(4, false, -2);
+    await waitForOrderCount(6);
+    await confirmOrder(5, false, -4);
+    await waitForOrderCount(7);
+    expect(document.getElementById('rapid-max-loss-streak').textContent)
+      .toBe('3 consecutive losses — $16.00 lost');
+
+    await confirmOrder(6, true, 100);
+    jest.advanceTimersByTime(5000);
+    await waitForOrderCount(8);
+    await confirmOrder(7, false, -1);
+    await waitForOrderCount(9);
+    await confirmOrder(8, false, -2);
+    await waitForOrderCount(10);
+    await confirmOrder(9, false, -3);
+    await waitForOrderCount(11);
+    await confirmOrder(10, false, -4);
+    await waitForOrderCount(12);
+    expect(document.getElementById('rapid-max-loss-streak').textContent)
+      .toBe('4 consecutive losses — $10.00 lost');
+
+    await confirmOrder(11, true, 100);
+    document.getElementById('reset-rapidOver1').click();
+    expect(document.getElementById('rapid-max-loss-streak').textContent)
+      .toBe('0 consecutive losses — $0.00 lost');
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$0.00');
   });
 
   it('converts minute intervals to the actual countdown schedule', async () => {

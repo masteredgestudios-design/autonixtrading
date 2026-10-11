@@ -71,7 +71,7 @@
 		{
 			"label": "Temporary Rapid Over 1 focused tests",
 			"type": "shell",
-			"command": "npm test -- --runInBand tests/rapid-over1.test.js tests/deriv-ws-ticks.test.js",
+			"command": "npm test -- --runInBand tests/rapid-over1.test.js",
 			"isBackground": false,
 			"problemMatcher": []
 		}

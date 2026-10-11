@@ -263,6 +263,42 @@
   var DEFAULT_OVER1_PREVIOUS_TICK_COUNT = 3;
   var RAPID_OVER1_CONTRACT_DURATION_TICKS = 1;
 
+  function getRapidOutstandingRecoveryLoss(state) {
+    return Math.max(0, Number((
+      state.accumulatedRecoveryLoss - state.recoveryProfit
+    ).toFixed(2)));
+  }
+
+  function getRapidRemainingRecoveryTarget(state) {
+    if (!state.recoveryMode || state.accumulatedRecoveryLoss <= 0) return 0;
+    return Math.max(0, Number((
+      getRapidOutstandingRecoveryLoss(state) + state.recoveryTarget
+    ).toFixed(2)));
+  }
+
+  function recordRapidLossStreak(state, won, profitLoss) {
+    if (won) {
+      state.currentLossStreak = 0;
+      state.currentLossStreakAmount = 0;
+      return;
+    }
+
+    state.currentLossStreak += 1;
+    state.currentLossStreakAmount = Number((
+      state.currentLossStreakAmount + Math.max(0, -profitLoss)
+    ).toFixed(2));
+    if (state.currentLossStreak > state.maxLossStreak) {
+      state.maxLossStreak = state.currentLossStreak;
+      state.maxLossStreakAmount = state.currentLossStreakAmount;
+    }
+  }
+
+  function formatRapidLossStreak(state) {
+    return state.maxLossStreak + " consecutive " +
+      (state.maxLossStreak === 1 ? "loss" : "losses") + " — " +
+      displayMoney(state.maxLossStreakAmount) + " lost";
+  }
+
   function applyRapidOver1Settlement(state, won, wasRecovery) {
     var profitLoss = Number(state.lastResult && state.lastResult.pl) || 0;
     if (!wasRecovery && won) {
@@ -365,6 +401,11 @@
       accumulatedRecoveryLoss: 0,
       recoveryProfit: 0,
       recoveryTarget: Number(def.defaults && def.defaults.stake) || 1,
+      currentLossStreak: 0,
+      currentLossStreakAmount: 0,
+      maxLossStreak: 0,
+      maxLossStreakAmount: 0,
+      rapidContractStatus: "None",
       initialStake: def.defaults && def.defaults.stake ? Number(def.defaults.stake) : 1,
       intervalSeconds: Number.isFinite(interval) && interval > 0 ? interval : 5,
       intervalValue: interval,
@@ -1332,6 +1373,7 @@
     state.rapidPurchaseConfirmed = false;
     state.rapidPendingSettlement = null;
     state.activeContractId = null;
+    state.rapidContractStatus = "None";
     state.awaitingSettle = true;
     state.tradePhase = "quoting";
     state.statusText = tradeKind === "recovery" ? "Quoting recovery stake" : "Quoting normal trade";
@@ -1341,7 +1383,7 @@
       if (state.activeTradeId !== tradeId) return;
       state.lossStopped = true;
       state.statusText = state.rapidPurchaseConfirmed
-        ? "Settlement delayed — contract " + state.activeContractId + " remains monitored"
+        ? "Settlement delayed — contract remains monitored"
         : "Broker confirmation delayed — verify order status before restarting";
       if (state.running) stopBot(state, "settlementTimeout");
       else {
@@ -1361,7 +1403,7 @@
           throw stoppedBeforeRecoveryQuote;
         }
         var profitRate = Number(unitQuote && unitQuote.profitRate);
-        var targetProfit = state.accumulatedRecoveryLoss + state.recoveryTarget - state.recoveryProfit;
+        var targetProfit = getRapidRemainingRecoveryTarget(state);
         if (!Number.isFinite(profitRate) || profitRate <= 0 ||
             !Number.isFinite(targetProfit) || targetProfit <= 0) {
           throw new Error("Broker quote cannot support a positive recovery target");
@@ -1421,13 +1463,14 @@
           stakeError.orderStatusUnknown = true;
           throw stakeError;
         }
+        state.rapidContractStatus = "Settling";
         state.activeContractId = purchase.contractId;
         state.rapidActualStake = actualStake;
         state.totalStakeUsed = Number((state.totalStakeUsed + actualStake).toFixed(2));
         state.rapidPurchaseConfirmed = true;
         state.tradePhase = "active";
         state.statusText = (tradeKind === "recovery" ? "Recovery" : "Normal") +
-          " contract " + purchase.contractId + " settling";
+          " trade settling";
         renderBot(state);
         renderSummary();
         if (state.rapidPendingSettlement) {
@@ -1563,6 +1606,7 @@
       state.tradePhase = "submitting";
       state.activeTradeId = ++state.rapidTradeSequence;
       state.activeContractId = null;
+      state.rapidContractStatus = "None";
     }
     if (state.def.id === "freeBot" && state.tradeMode === "rise-fall") {
       state.martingale = 2;
@@ -1574,7 +1618,7 @@
     state._settleTimer = setTimeout(function () {
       if (state.def.id === "rapidOver1" && state.activeTradeId !== null) {
         state.statusText = state.activeContractId
-          ? "Settlement delayed — stopped; contract " + state.activeContractId + " is still monitored"
+          ? "Settlement delayed — stopped; contract is still monitored"
           : "Broker confirmation delayed — stopped; verify order status before restarting";
         state.lossStopped = true;
         if (state.running) stopBot(state, "settlementTimeout");
@@ -1631,9 +1675,10 @@
       if (state.def.id === "rapidOver1" && state.activeTradeId === rapidTradeId && state.awaitingSettle) {
         if (!purchase || !purchase.contractId) throw new Error("Broker did not confirm a contract identifier");
         state.activeContractId = purchase.contractId;
+        state.rapidContractStatus = "Settling";
         state.tradePhase = "active";
         state.statusText = (state.rapidTradeKind === "recovery" ? "Recovery" : "Normal") +
-          " contract " + purchase.contractId + " settling";
+          " trade settling";
         renderBot(state);
       }
       if (state.def.id === "over1AiPredictor" && state.awaitingSettle) {
@@ -1723,6 +1768,7 @@
     state.trades += 1;
     if (won) { state.wins += 1; playWinSound(); }
     else     { state.losses += 1; playLossSound(); }
+    if (state.def.id === "rapidOver1") recordRapidLossStreak(state, won, pl);
 
     state.lastResult = {
       won: won,
@@ -1742,6 +1788,7 @@
     if (state.def.id === "rapidOver1") {
       var wasRecovery = state.rapidTradeKind === "recovery";
       var nextAction = applyRapidOver1Settlement(state, won, wasRecovery);
+      state.rapidContractStatus = won ? "Won" : "Lost";
       state.rapidTradeKind = null;
       state.activeTradeId = null;
       state.activeContractId = null;
@@ -2058,6 +2105,11 @@
       state.accumulatedRecoveryLoss = 0;
       state.recoveryProfit = 0;
       state.recoveryTarget = state.initialStake;
+      state.currentLossStreak = 0;
+      state.currentLossStreakAmount = 0;
+      state.maxLossStreak = 0;
+      state.maxLossStreakAmount = 0;
+      state.rapidContractStatus = "None";
       state.rapidPurchaseConfirmed = false;
       state.rapidPendingSettlement = null;
       state.rapidActualStake = 0;
@@ -2425,6 +2477,7 @@
           '<div class="bot-stat"><span class="bot-stat-label">Wins</span><span class="bot-stat-val" id="wins-' + def.id + '">' + s.wins + '</span></div>' +
           '<div class="bot-stat"><span class="bot-stat-label">Losses</span><span class="bot-stat-val" id="losses-' + def.id + '">' + s.losses + '</span></div>' +
           '<div class="bot-stat"><span class="bot-stat-label">Win Rate</span><span class="bot-stat-val" id="wr-' + def.id + '">' + (s.trades ? ((s.wins / s.trades) * 100).toFixed(1) + '%' : '—') + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Maximum Loss Streak</span><span class="bot-stat-val" id="rapid-max-loss-streak">' + formatRapidLossStreak(s) + '</span></div>' +
         '</div>' +
         '<div class="bot-trade-status rapid-status-panel" id="rapid-execution-status">' +
           '<div class="bot-trade-status-title">Trade execution</div>' +
@@ -2435,10 +2488,10 @@
             '<div><span>Contract</span><strong>Over 1</strong></div>' +
             '<div><span>Current stake</span><strong id="rapid-current-stake">' + displayMoney(s.currentStake || s.stake) + '</strong></div>' +
             '<div><span>Total stake used</span><strong id="rapid-total-stake">' + displayMoney(s.totalStakeUsed) + '</strong></div>' +
-            '<div><span>Accumulated recovery loss</span><strong id="rapid-recovery-loss">' + displayMoney(s.accumulatedRecoveryLoss) + '</strong></div>' +
-            '<div><span>Recovery target</span><strong id="rapid-recovery-target">' + displayMoney(s.recoveryTarget) + '</strong></div>' +
+            '<div><span>Accumulated recovery loss</span><strong id="rapid-recovery-loss">' + displayMoney(getRapidOutstandingRecoveryLoss(s)) + '</strong></div>' +
+            '<div><span>Recovery target</span><strong id="rapid-recovery-target">' + displayMoney(getRapidRemainingRecoveryTarget(s)) + '</strong></div>' +
             '<div><span>Session profit / loss</span><strong id="rapid-session-pl">' + displaySignedMoney(s.sessionPL) + '</strong></div>' +
-            '<div><span>Active contract</span><strong id="rapid-contract-id">' + (s.activeContractId ? 'Contract ' + s.activeContractId : 'None') + '</strong></div>' +
+            '<div><span>Active contract</span><strong id="rapid-contract-id">' + s.rapidContractStatus + '</strong></div>' +
           '</div>' +
         '</div>' +
         lastHTML
@@ -2767,16 +2820,16 @@
       var rapidRecoveryTarget = document.getElementById("rapid-recovery-target");
       var rapidSessionPL = document.getElementById("rapid-session-pl");
       var rapidContract = document.getElementById("rapid-contract-id");
+      var rapidLossStreak = document.getElementById("rapid-max-loss-streak");
       if (rapidStatus) rapidStatus.textContent = state.statusText || "Ready";
       if (rapidSymbol) rapidSymbol.textContent = state.symbol;
       if (rapidStake) rapidStake.textContent = displayMoney(state.currentStake || state.stake);
       if (rapidTotalStake) rapidTotalStake.textContent = displayMoney(state.totalStakeUsed);
-      if (rapidRecoveryLoss) rapidRecoveryLoss.textContent = displayMoney(state.accumulatedRecoveryLoss);
-      if (rapidRecoveryTarget) rapidRecoveryTarget.textContent = displayMoney(state.recoveryTarget);
+      if (rapidRecoveryLoss) rapidRecoveryLoss.textContent = displayMoney(getRapidOutstandingRecoveryLoss(state));
+      if (rapidRecoveryTarget) rapidRecoveryTarget.textContent = displayMoney(getRapidRemainingRecoveryTarget(state));
       if (rapidSessionPL) rapidSessionPL.textContent = displaySignedMoney(state.sessionPL);
-      if (rapidContract) rapidContract.textContent = state.activeContractId
-        ? "Broker contract " + state.activeContractId
-        : "No active contract";
+      if (rapidContract) rapidContract.textContent = state.rapidContractStatus;
+      if (rapidLossStreak) rapidLossStreak.textContent = formatRapidLossStreak(state);
       updateRapidCountdown(state);
     }
 
@@ -2808,7 +2861,9 @@
           (state.lastResult.won ? "WIN " : "LOSS ") + displaySignedMoney(state.lastResult.pl) +
           " \u00b7 " + state.lastResult.selection.toUpperCase() +
           (state.lastResult.digit !== undefined ? " " + state.lastResult.digit : "");
-        lastRes.title = state.lastResult.contractId ? "Broker contract " + state.lastResult.contractId : "";
+        lastRes.title = def.id !== "rapidOver1" && state.lastResult.contractId
+          ? "Broker contract " + state.lastResult.contractId
+          : "";
       } else {
         lastWrap.style.display = "none";
       }
