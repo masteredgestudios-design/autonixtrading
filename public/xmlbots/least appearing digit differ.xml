@@ -84,7 +84,7 @@
         <field name="VAR" id="fJ~.6q%X-TisEdMAx^ap">Initial Stake</field>
         <value name="VALUE">
           <block type="math_number" id="0i.{.:PvM:^l22oL4Kj=">
-            <field name="NUM">1</field>
+            <field name="NUM">20</field>
           </block>
         </value>
         <next>
@@ -92,7 +92,7 @@
             <field name="VAR" id="l]^{9E}:c!Gy@rUS[}yU">Win Stake</field>
             <value name="VALUE">
               <block type="math_number" id="7GiAGo@L[ZzB*,0L0)Ex">
-                <field name="NUM">1</field>
+                <field name="NUM">20</field>
               </block>
             </value>
             <next>
