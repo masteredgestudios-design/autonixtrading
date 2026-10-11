@@ -262,6 +262,7 @@
   /* ─── Per-bot state ──────────────────────────────────────────── */
   var DEFAULT_OVER1_PREVIOUS_TICK_COUNT = 3;
   var RAPID_OVER1_CONTRACT_DURATION_TICKS = 1;
+  var RAPID_OVER1_RECOVERY_NET_PROFIT_RATE = 0.1765;
 
   function getRapidOutstandingRecoveryLoss(state) {
     return Math.max(0, Number((
@@ -272,12 +273,6 @@
   function getRapidRemainingRecoveryTarget(state) {
     if (!state.recoveryMode || state.accumulatedRecoveryLoss <= 0) return 0;
     return getRapidOutstandingRecoveryLoss(state);
-  }
-
-  function getRapidRequiredRecoveryProfit(state) {
-    return Number((
-      getRapidRemainingRecoveryTarget(state) + state.recoveryTarget
-    ).toFixed(2));
   }
 
   function recordRapidLossStreak(state, won, profitLoss) {
@@ -320,7 +315,7 @@
       ).toFixed(2));
       if (!wasRecovery) state.recoveryProfit = 0;
       state.recoveryMode = true;
-      state.statusText = "Calculating payout-aware recovery stake";
+      state.statusText = "Calculating fixed-rate recovery stake";
       return "recovery";
     }
 
@@ -1397,30 +1392,29 @@
       }
     }, 45000);
 
-    var proposalOptions = makeRapidProposalOptions(state, tradeKind === "recovery" ? 1 : state.currentStake);
-    var quotePromise = window.DerivWS.getProposal(proposalOptions);
+    var proposalOptions;
+    var quotePromise;
     if (tradeKind === "recovery") {
-      quotePromise = quotePromise.then(function (unitQuote) {
-        if (state.activeTradeId !== tradeId || !state.running) {
-          var stoppedBeforeRecoveryQuote = new Error("Bot stopped before the recovery order was submitted");
-          stoppedBeforeRecoveryQuote.notSent = true;
-          throw stoppedBeforeRecoveryQuote;
-        }
-        var profitRate = Number(unitQuote && unitQuote.profitRate);
-        var targetProfit = getRapidRequiredRecoveryProfit(state);
-        if (!Number.isFinite(profitRate) || profitRate <= 0 ||
-            !Number.isFinite(targetProfit) || targetProfit <= 0) {
-          throw new Error("Broker quote cannot support a positive recovery target");
-        }
-        var recoveryStake = Math.max(0.35, Math.ceil((targetProfit / profitRate) * 100) / 100);
-        if (!Number.isFinite(recoveryStake) || recoveryStake > 5000) {
-          throw new Error("Required recovery stake exceeds the broker's supported limit");
-        }
+      var outstandingLoss = getRapidOutstandingRecoveryLoss(state);
+      var recoveryStake = Math.max(
+        0.35,
+        Number((outstandingLoss / RAPID_OVER1_RECOVERY_NET_PROFIT_RATE).toFixed(2))
+      );
+      if (!Number.isFinite(recoveryStake) || recoveryStake > 5000) {
+        proposalOptions = makeRapidProposalOptions(state, state.currentStake);
+        quotePromise = Promise.reject(
+          new Error("Required recovery stake exceeds the broker's supported limit")
+        );
+      } else {
         state.currentStake = recoveryStake;
-        state.statusText = "Validating recovery stake against broker quote";
+        proposalOptions = makeRapidProposalOptions(state, recoveryStake);
+        state.statusText = "Quoting fixed-rate recovery stake";
         renderBot(state);
-        return quoteRapidRecoveryStake(state, tradeId, targetProfit, recoveryStake, 0);
-      });
+        quotePromise = quoteRapidRecoveryStake(state, tradeId, recoveryStake);
+      }
+    } else {
+      proposalOptions = makeRapidProposalOptions(state, state.currentStake);
+      quotePromise = window.DerivWS.getProposal(proposalOptions);
     }
 
     quotePromise.then(function (proposal) {
@@ -1544,7 +1538,7 @@
     return makeRapidProposalOptions(state, Number(proposal.amount));
   }
 
-  function quoteRapidRecoveryStake(state, tradeId, targetProfit, stake, attempt) {
+  function quoteRapidRecoveryStake(state, tradeId, stake) {
     var options = makeRapidProposalOptions(state, stake);
     return window.DerivWS.getProposal(options).then(function (proposal) {
       if (state.activeTradeId !== tradeId || !state.running) {
@@ -1552,25 +1546,14 @@
         stoppedError.notSent = true;
         throw stoppedError;
       }
+      if (Number(proposal.amount) !== stake) {
+        throw new Error("Broker proposal did not preserve the calculated recovery stake");
+      }
       var quotedProfit = Number(proposal.potentialProfit);
       if (!Number.isFinite(quotedProfit) || quotedProfit < 0) {
         throw new Error("Broker proposal did not include a valid potential profit");
       }
-      if (quotedProfit + 0.005 >= targetProfit) return proposal;
-      var profitRate = Number(proposal.profitRate);
-      if (!Number.isFinite(profitRate) || profitRate <= 0 || attempt >= 3) {
-        throw new Error("Broker payout cannot meet the configured recovery target at a permitted stake");
-      }
-      var recalculatedStake = Math.max(
-        stake + 0.01,
-        Math.ceil((targetProfit / profitRate) * 100) / 100
-      );
-      if (recalculatedStake > 5000 || recalculatedStake > LATEST_BALANCE) {
-        throw new Error("Required recovery stake exceeds the broker limit or available balance");
-      }
-      state.currentStake = recalculatedStake;
-      renderBot(state);
-      return quoteRapidRecoveryStake(state, tradeId, targetProfit, recalculatedStake, attempt + 1);
+      return proposal;
     });
   }
 
