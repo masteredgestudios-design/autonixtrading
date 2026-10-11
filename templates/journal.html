@@ -1163,7 +1163,10 @@
 }
 
 /* Journal page refresh */
-.autonix-page-wrapper .container { max-width: 1160px; }
+.autonix-page-wrapper .container {
+  width: min(94%, 2200px);
+  max-width: 2200px;
+}
 .journal-hero {
   min-height: 560px;
   display: flex;
@@ -1278,7 +1281,7 @@
   background: var(--bg-glass);
   box-shadow: 0 16px 42px rgba(0, 0, 0, .04);
 }
-.journal-table-wide, .challenge-table-wrap { max-width: 900px; }
+.journal-table-wide, .challenge-table-wrap { max-width: 1400px; }
 .journal-table { font-size: 14px; }
 .journal-table th {
   background: rgba(232, 0, 45, .08);
@@ -1318,7 +1321,7 @@
   box-shadow: 0 24px 70px rgba(0, 0, 0, .06);
 }
 .challenge-hero h2 { letter-spacing: -.05em; }
-.challenge-rules { max-width: 100%; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.challenge-rules { max-width: 100%; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .challenge-rules article { border-radius: 15px; }
 .challenge-route-nav {
   display: grid;
