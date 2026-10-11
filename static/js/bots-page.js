@@ -271,9 +271,13 @@
 
   function getRapidRemainingRecoveryTarget(state) {
     if (!state.recoveryMode || state.accumulatedRecoveryLoss <= 0) return 0;
-    return Math.max(0, Number((
-      getRapidOutstandingRecoveryLoss(state) + state.recoveryTarget
-    ).toFixed(2)));
+    return getRapidOutstandingRecoveryLoss(state);
+  }
+
+  function getRapidRequiredRecoveryProfit(state) {
+    return Number((
+      getRapidRemainingRecoveryTarget(state) + state.recoveryTarget
+    ).toFixed(2));
   }
 
   function recordRapidLossStreak(state, won, profitLoss) {
@@ -1403,7 +1407,7 @@
           throw stoppedBeforeRecoveryQuote;
         }
         var profitRate = Number(unitQuote && unitQuote.profitRate);
-        var targetProfit = getRapidRemainingRecoveryTarget(state);
+        var targetProfit = getRapidRequiredRecoveryProfit(state);
         if (!Number.isFinite(profitRate) || profitRate <= 0 ||
             !Number.isFinite(targetProfit) || targetProfit <= 0) {
           throw new Error("Broker quote cannot support a positive recovery target");

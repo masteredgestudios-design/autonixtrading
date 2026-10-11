@@ -70,6 +70,8 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(document.getElementById('last-res-rapidOver1').title).not.toContain(contractId);
     order.onSettle({ contractId, won, pl });
     await flushPromises();
+    expect(document.getElementById('rapid-contract-id').textContent).toBe(won ? 'Won' : 'Lost');
+    expect(rapidCard.outerHTML).not.toContain(contractId);
   }
 
   async function startWithStake(stake = '2') {
@@ -93,13 +95,13 @@ describe('Autonix Rapid Over 1 execution', () => {
     await confirmOrder(0, false, -2);
     await waitForOrderCount(2);
     expect(orders[1].proposal.amount).toBe(20);
-    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$4.00');
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$2.00');
 
     await confirmOrder(1, true, 1);
     await waitForOrderCount(3);
     expect(orders[2].proposal.amount).toBe(15);
     expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$1.00');
-    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$3.00');
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$1.00');
     expect(document.getElementById('rapid-total-stake').textContent).toBe('$22.00');
 
     await confirmOrder(2, true, 3);
@@ -119,6 +121,17 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(orders[3].options.stake).toBe(2);
   });
 
+  it('displays one dollar outstanding after a one-dollar loss while preserving the recovery profit objective', async () => {
+    await startWithStake('1');
+
+    await confirmOrder(0, false, -1);
+    await waitForOrderCount(2);
+
+    expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$1.00');
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$1.00');
+    expect(orders[1].proposal.amount).toBe(10);
+  });
+
   it('continues recovering repeated losses using the entire accumulated balance', async () => {
     await startWithStake();
     await confirmOrder(0, false, -2);
@@ -129,6 +142,7 @@ describe('Autonix Rapid Over 1 execution', () => {
     await waitForOrderCount(3);
     expect(orders[2].proposal.amount).toBe(120);
     expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$22.00');
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$22.00');
     expect(document.getElementById('rapid-total-stake').textContent).toBe('$22.00');
   });
 

@@ -68,12 +68,5 @@
 			"isBackground": false,
 			"problemMatcher": []
 		},
-		{
-			"label": "Temporary Rapid Over 1 focused tests",
-			"type": "shell",
-			"command": "npm test -- --runInBand tests/rapid-over1.test.js",
-			"isBackground": false,
-			"problemMatcher": []
-		}
 	]
 }
