@@ -150,6 +150,17 @@
       requiresActivation: false,
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16M7 15l3-5 3 3 4-7"/><path d="M19 5h2v2"/></svg>',
     },
+    {
+      id: "rapidOver1",
+      name: "Autonix Rapid Over 1",
+      tier: "ai",
+      duration: 1,
+      tradeType: "over-under",
+      defaults: { stake: 1, interval: 5, intervalUnit: "seconds" },
+      accent: "#22c55e",
+      requiresActivation: false,
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-6 4 12 2.5-6H21"/><circle cx="12" cy="12" r="9"/></svg>',
+    },
   ];
 
   /* ─── Activation state (session-only, no localStorage) ───────── */
@@ -250,8 +261,49 @@
 
   /* ─── Per-bot state ──────────────────────────────────────────── */
   var DEFAULT_OVER1_PREVIOUS_TICK_COUNT = 3;
+  var RAPID_OVER1_RECOVERY_MULTIPLIER = 6;
+
+  function getRapidOver1RecoveryStake(state) {
+    var baseStake = Number(state && state.initialStake != null ? state.initialStake : state && state.stake != null ? state.stake : 1);
+    return Number((baseStake * RAPID_OVER1_RECOVERY_MULTIPLIER).toFixed(2));
+  }
+
+  function applyRapidOver1Settlement(state, won) {
+    if (!state || state.def.id !== "rapidOver1") return state;
+
+    if (won) {
+      state.recoveryMode = false;
+      state.recoveryStep = 0;
+      state.currentStake = state.initialStake;
+      state.martStep = 0;
+      state.consecutiveLosses = 0;
+      state.statusText = "Rapid Over 1 recovered";
+      return state;
+    }
+
+    if (!state.recoveryMode) {
+      state.recoveryMode = true;
+      state.recoveryStep = 1;
+      state.currentStake = getRapidOver1RecoveryStake(state);
+      state.martStep += 1;
+      state.consecutiveLosses += 1;
+      state.statusText = "Rapid Over 1 recovery active";
+      return state;
+    }
+
+    state.recoveryMode = false;
+    state.recoveryStep = 0;
+    state.currentStake = state.initialStake;
+    state.lossStopped = true;
+    state.statusText = "Recovery exhausted";
+    state.martStep += 1;
+    state.consecutiveLosses += 1;
+    stopBot(state, "martCap");
+    return state;
+  }
 
   function makeState(def) {
+    var interval = Number((def && def.defaults && def.defaults.interval) || 5);
     return {
       def: def,
       running: false,
@@ -279,7 +331,7 @@
       riseFallAnalysis: null,
       riseFallResult: "",
       activeTradeSignal: null,
-      tickWindow: def.id === "over1AiPredictor" ? DEFAULT_OVER1_PREVIOUS_TICK_COUNT : 100,
+      tickWindow: def.id === "over1AiPredictor" || def.id === "rapidOver1" ? DEFAULT_OVER1_PREVIOUS_TICK_COUNT : 100,
       tradePhase: "idle",
       tradeMode: "over-under",
       analysisStatus: "idle",
@@ -305,6 +357,11 @@
       over1ConfidenceThreshold: 0.72,
       activeTrade: false,
       statusText: "Idle",
+      recoveryMode: false,
+      recoveryStep: 0,
+      initialStake: def.defaults && def.defaults.stake ? Number(def.defaults.stake) : 1,
+      intervalSeconds: Number.isFinite(interval) && interval > 0 ? interval : 5,
+      nextTradeAt: 0,
     };
   }
   var states = {};
@@ -1116,7 +1173,19 @@
     }
     if (id === "basicBot")  return decideBasicDiffers(state);
     if (id === "over1AiPredictor") return decideOver1AIPredictor(state);
+    if (id === "rapidOver1") return decideRapidOver1(state);
     return null;
+  }
+
+  function decideRapidOver1(state) {
+    var analysis = analyzeOver1PreviousTicks(tickBuffers[state.symbol] || [], state.tickWindow || DEFAULT_OVER1_PREVIOUS_TICK_COUNT);
+    if (!analysis.ready || !analysis.shouldTrade) return null;
+    return {
+      selection: "over",
+      digit: 1,
+      tradeType: "over-under",
+      reason: "Rapid Over 1 signal detected",
+    };
   }
 
   /* ─── Signal stability confirmation requirements per tier ────── */
@@ -1134,6 +1203,7 @@
       stopBot(state, "sl");
       return;
     }
+    if (state.def.id === "rapidOver1" && state.nextTradeAt && Date.now() < state.nextTradeAt) return;
 
     var sig = getDecision(state);
     var currentTicks = tickBuffers[state.symbol] || [];
@@ -1198,6 +1268,12 @@
       refreshOver1LiveAnalysis(state);
       renderOver1LiveAnalysis(state);
       renderOver1TradeStatus(state);
+    }
+    if (state.def.id === "rapidOver1") {
+      state.tradePhase = "executing";
+      state.statusText = "Rapid Over 1 trade executing";
+      state.recoveryMode = state.lastResult && !state.lastResult.won && !state.recoveryMode;
+      state.nextTradeAt = Date.now() + ((state.intervalSeconds || 5) * 1000);
     }
     if (state.def.id === "freeBot" && state.tradeMode === "rise-fall") {
       state.martingale = 2;
@@ -1301,7 +1377,42 @@
     }
     var tradeTime = new Date().toLocaleTimeString();
 
-    if (state.def.id === "over1AiPredictor") {
+    if (state.def.id === "rapidOver1") {
+      applyRapidOver1Settlement(state, won);
+      if (state.lossStopped) {
+        if (state._settleTimer) { clearTimeout(state._settleTimer); state._settleTimer = null; }
+        pushGlobalHistory({
+          time: tradeTime,
+          botName: state.def.name,
+          botId: state.def.id,
+          tradeType: "OVER 1",
+          stake: stake,
+          pl: pl,
+          won: won,
+        });
+        window.showToast && window.showToast(
+          "Rapid Over 1: recovery exhausted — bot halted",
+          "red", 3500
+        );
+        renderBot(state);
+        renderSummary();
+        return;
+      }
+      state.statusText = won ? "Rapid Over 1 recovered" : "Rapid Over 1 recovery active";
+      pushGlobalHistory({
+        time: tradeTime,
+        botName: state.def.name,
+        botId: state.def.id,
+        tradeType: "OVER 1",
+        stake: stake,
+        pl: pl,
+        won: won,
+      });
+      window.showToast && window.showToast(
+        "Rapid Over 1: " + (won ? "win" : "single recovery") + " recorded",
+        won ? "green" : "amber", 3500
+      );
+    } else if (state.def.id === "over1AiPredictor") {
       if (won) {
         state.currentStake = state.stake;
         state.martStep = 0;
@@ -1387,8 +1498,8 @@
   function startBot(state) {
     if (state.running) return;
     if (state.def.requiresActivation && !activationState[state.def.id]) return;
-    if (state.def.id === "over1AiPredictor" && state.lossStopped) {
-      window.showToast && window.showToast("Over 1 AI Predictor: Manual restart required after the loss stop.", "red", 4000);
+    if ((state.def.id === "over1AiPredictor" || state.def.id === "rapidOver1") && state.lossStopped) {
+      window.showToast && window.showToast(state.def.name + ": Manual restart required after the loss stop.", "red", 4000);
       return;
     }
     if (connState !== "connected") {
@@ -1413,6 +1524,20 @@
       state.tp = Math.max(0.01, parseFloat(tpEl && tpEl.value) || 5);
       state.martingale = Math.max(1, parseFloat(document.getElementById("input-martingale-" + state.def.id)?.value) || 4.5);
       state.sl = Math.max(0.01, parseFloat(slEl && slEl.value) || 100);
+    }
+    if (state.def.id === "rapidOver1") {
+      var intervalInput = document.getElementById("input-interval-" + state.def.id);
+      state.stake = Math.max(0.35, parseFloat(stakeEl && stakeEl.value) || Number(state.def.defaults.stake || 1));
+      state.initialStake = state.stake;
+      state.currentStake = state.stake;
+      state.intervalSeconds = Number(intervalInput && intervalInput.value) || Number(state.def.defaults.interval || 5);
+      state.martingale = 6;
+      state.maxMartSteps = 2;
+      state.tradeMode = "over-under";
+      state.recoveryMode = false;
+      state.recoveryStep = 0;
+      state.nextTradeAt = Date.now() + (state.intervalSeconds * 1000);
+      state.statusText = "Waiting for next rapid entry";
     }
     if (twEl) state.tickWindow = parseInt(twEl.value, 10)   || state.tickWindow || 100;
     if (state.stake < 0.35) state.stake = 0.35;
@@ -1447,6 +1572,9 @@
     state.tradePhase = "idle";
     state.analysisStatus = "idle";
     state.currentSignal = state.currentSignal || null;
+    if (state.def.id === "rapidOver1") {
+      state.nextTradeAt = 0;
+    }
     if (state.def.id === "over1AiPredictor" && !state.lossStopped && reason === "tp") {
       state.takeProfitReached = true;
       state.statusText = "Take profit reached";
@@ -1460,6 +1588,11 @@
       state.lossStopped = true;
       state.statusText = "STOP LOSS REACHED";
       state.currentSignal = "STOP LOSS REACHED — MANUAL RESET REQUIRED";
+    }
+    if (state.def.id === "rapidOver1" && reason === "martCap") {
+      state.lossStopped = true;
+      state.statusText = "Recovery exhausted";
+      state.currentSignal = "RECOVERY EXHAUSTED — MANUAL RESET REQUIRED";
     }
 
     var msgs = {
@@ -1491,12 +1624,16 @@
     state.losses = 0;
     state.history = [];
     state.lastResult = null;
-    state.currentStake = state.stake;
+    state.initialStake = Number(state.stake) || Number(state.def.defaults.stake) || 1;
+    state.currentStake = state.initialStake;
     state.martStep = 0;
     state.consecutiveLosses = 0;
     state.cooldownUntil = 0;
     state.currentSignal = null;
     state.tradePhase = "idle";
+    state.recoveryMode = false;
+    state.recoveryStep = 0;
+    state.nextTradeAt = 0;
     state.lossStopped = false;
     state.takeProfitReached = false;
     state.modelHistory = [];
@@ -1520,6 +1657,9 @@
     if (state.def.id === "over1AiPredictor") {
       state.statusText = "Analyzing";
       state.analysisStatus = "analyzing";
+    }
+    if (state.def.id === "rapidOver1") {
+      state.statusText = "Waiting for next rapid entry";
     }
     window.showToast && window.showToast(state.def.name + " session reset", "neutral", 1800);
     renderBot(state);
@@ -1667,6 +1807,22 @@
       '</label>' +
         tickWindowSelectHTML(def.id, s.tickWindow) +
       '</div>';
+    var rapidInputsHTML =
+      tickwinRow +
+      '<div class="bot-inputs-grid">' +
+        '<label class="bot-input-field">' +
+          '<span class="bot-input-label">Symbol</span>' +
+          optsHTML +
+        '</label>' +
+        '<label class="bot-input-field">' +
+          '<span class="bot-input-label">Stake (USD)</span>' +
+          '<input type="number" min="0.35" step="0.5" value="' + (s.initialStake || s.stake || def.defaults.stake) + '" id="input-stake-' + def.id + '" />' +
+        '</label>' +
+        '<label class="bot-input-field">' +
+          '<span class="bot-input-label">Interval (seconds)</span>' +
+          '<input type="number" min="1" step="1" value="' + (s.intervalSeconds || def.defaults.interval || 5) + '" id="input-interval-' + def.id + '" />' +
+        '</label>' +
+      '</div>';
     var inputsHTML =
       tickwinRow +
       '<div class="bot-inputs-grid">' +
@@ -1688,6 +1844,7 @@
         '</label>' +
         (def.id === "over1AiPredictor" ? '<label class="bot-input-field"><span class="bot-input-label">Stop Loss</span><input type="number" min="0.01" step="0.5" value="' + (s.sl || def.defaults.sl) + '" id="input-sl-' + def.id + '" /><span class="bot-input-hint">Maximum cumulative session loss</span></label>' : '') +
       '</div>';
+    var resolvedInputsHTML = def.id === "rapidOver1" ? rapidInputsHTML : inputsHTML;
 
     var actionsHTML =
       '<div class="bot-actions">' +
@@ -1832,6 +1989,42 @@
             '<div><span>Session P/L</span><strong id="trade-pl-' + def.id + '">' + displaySignedMoney(s.sessionPL) + '</strong></div>' +
             '<div><span>Wins / Losses</span><strong id="trade-record-' + def.id + '">' + s.wins + ' / ' + s.losses + '</strong></div>' +
           '</div>' +
+        '</div>' +
+        digitFreqHTML
+      );
+    }
+
+    if (def.id === "rapidOver1") {
+      return (
+        '<div class="bot-card-header">' +
+          '<div class="bot-card-icon">' + def.icon + '</div>' +
+          '<div class="bot-card-title-wrap">' +
+            '<span class="bot-tier-badge bot-tier-ai">AI</span>' +
+            '<h2 class="bot-card-name">' + def.name + '</h2>' +
+            '<p class="bot-card-tagline">Rapid single-recovery Over 1 trading cycle</p>' +
+          '</div>' +
+          '<span class="bot-status-pill stopped" id="status-' + def.id + '">' +
+            '<span class="bot-status-dot"></span>' +
+            '<span class="bot-status-text">Stopped</span>' +
+          '</span>' +
+        '</div>' +
+        rapidInputsHTML +
+        actionsHTML +
+        '<div class="bot-stats-grid">' +
+          '<div class="bot-stat"><span class="bot-stat-label">P / L</span><span class="bot-stat-val" id="pl-' + def.id + '">' + displaySignedMoney(s.sessionPL) + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Trades</span><span class="bot-stat-val" id="trades-' + def.id + '">' + s.trades + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Wins</span><span class="bot-stat-val" id="wins-' + def.id + '">' + s.wins + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Losses</span><span class="bot-stat-val" id="losses-' + def.id + '">' + s.losses + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Win Rate</span><span class="bot-stat-val" id="wr-' + def.id + '">' + (s.trades ? ((s.wins / s.trades) * 100).toFixed(1) + '%' : '—') + '</span></div>' +
+        '</div>' +
+        '<div class="bot-live-analysis state-' + (live.stateClass || 'analyzing') + '" id="live-analysis-' + def.id + '">' +
+          '<div class="bot-live-analysis-head"><span>Rapid Over 1</span><strong id="live-status-' + def.id + '">' + (s.statusText || live.status || 'Waiting for tick data') + '</strong></div>' +
+          '<div class="bot-live-analysis-grid">' +
+            '<div class="bot-live-value"><span>Market</span><strong id="live-market-' + def.id + '">' + live.market + '</strong></div>' +
+            '<div class="bot-live-value"><span>Last Digit</span><strong id="live-digit-' + def.id + '">' + live.lastDigit + '</strong></div>' +
+            '<div class="bot-live-value"><span>Next Trade</span><strong id="live-count-' + def.id + '">' + (s.nextTradeAt ? Math.max(0, Math.ceil((s.nextTradeAt - Date.now()) / 1000)) + 's' : 'ready') + '</strong></div>' +
+          '</div>' +
+          '<div class="bot-live-ticks"><span>Recovery</span><strong id="live-digits-' + def.id + '">' + (s.recoveryMode ? 'Recovery step ' + s.recoveryStep : 'Normal cycle') + '</strong><small id="live-tick-progress-' + def.id + '">' + (s.currentStake ? 'Stake: $' + Number(s.currentStake).toFixed(2) : '') + '</small></div>' +
         '</div>' +
         digitFreqHTML
       );

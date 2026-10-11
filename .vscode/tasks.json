@@ -53,6 +53,20 @@
 			],
 			"isBackground": true,
 			"problemMatcher": []
+		},
+		{
+			"label": "Run targeted Jest test",
+			"type": "shell",
+			"command": "npm test -- --runInBand tests/over1-ai-predictor.test.js",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Run targeted Jest test with exit code",
+			"type": "shell",
+			"command": "npm test -- --runInBand tests/over1-ai-predictor.test.js ; echo EXIT_CODE:$?",
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }
