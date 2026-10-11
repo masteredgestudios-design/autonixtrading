@@ -493,7 +493,7 @@
    *          currency, barrier? }
    * onSettle(result): called exactly once when the contract settles.
    */
-  function buyContract(opts, onSettle) {
+  function getContractProposal(opts) {
     if (!state.authorized) {
       return Promise.reject(new Error("Not authorized — please log in first"));
     }
@@ -509,11 +509,6 @@
        These are two different field names for the same concept; each server
        rejects the other's field name with InputValidationFailed. */
     var symbolField = isNewApi ? "underlying_symbol" : "symbol";
-    if (typeof opts.activationCheck === "function" && !opts.activationCheck()) {
-      var activationError = new Error("Bot activation expired before purchase submission");
-      activationError.notSent = true;
-      return Promise.reject(activationError);
-    }
     var proposal = {
       proposal: 1,
       amount: opts.stake,
@@ -533,36 +528,54 @@
       proposal.barrier = String(opts.barrier);
     }
 
-    /* Step 1 — proposal */
     return sendRequest(proposal)
       .then(function (propMsg) {
         var prop = propMsg.proposal;
         if (!prop || !prop.id) throw new Error("No proposal returned from Deriv");
-        var proposalDetails = {
+        var askPrice = Number(prop.ask_price);
+        var payout = Number(prop.payout);
+        if (!Number.isFinite(askPrice) || askPrice <= 0 ||
+            !Number.isFinite(payout) || payout < 0) {
+          throw new Error("Broker proposal did not include valid price and payout values");
+        }
+        return {
           id: prop.id,
-          payout: prop.payout,
-          ask_price: prop.ask_price,
+          amount: Number(opts.stake),
+          payout: payout,
+          ask_price: askPrice,
+          potentialProfit: payout - askPrice,
+          profitRate: (payout - askPrice) / askPrice,
           contract_type: prop.contract_type || contractType,
           symbol: prop.symbol || prop.underlying || opts.symbol,
           barrier: prop.barrier !== undefined ? prop.barrier : String(opts.digit),
           duration: opts.duration || 5,
           currency: prop.currency || opts.currency || state.currency || "USD",
         };
-        return Promise.resolve(
-          typeof opts.onProposal === "function" ? opts.onProposal(proposalDetails) : null
-        ).then(function () {
-          if (typeof opts.activationCheck === "function" && !opts.activationCheck()) {
-            var activationExpired = new Error("Bot activation expired before purchase submission");
-            activationExpired.notSent = true;
-            throw activationExpired;
-          }
-          return sendRequest({ buy: prop.id, price: opts.stake }).then(function (buyMsg) {
-            return { message: buyMsg, proposal: proposalDetails };
-          });
-        });
       })
-      .then(function (purchase) {
-        var buyMsg = purchase.message;
+  }
+
+  function buyFromContractProposal(opts, proposalDetails, onSettle) {
+    if (!state.authorized) {
+      return Promise.reject(new Error("Not authorized — please log in first"));
+    }
+    if (!proposalDetails || !proposalDetails.id || !Number.isFinite(Number(proposalDetails.ask_price))) {
+      return Promise.reject(new Error("A valid broker proposal is required before purchase"));
+    }
+    if (typeof opts.activationCheck === "function" && !opts.activationCheck()) {
+      var activationError = new Error("Bot activation expired before purchase submission");
+      activationError.notSent = true;
+      return Promise.reject(activationError);
+    }
+    return Promise.resolve(
+      typeof opts.onProposal === "function" ? opts.onProposal(proposalDetails) : null
+    ).then(function () {
+      if (typeof opts.activationCheck === "function" && !opts.activationCheck()) {
+        var activationExpired = new Error("Bot activation expired before purchase submission");
+        activationExpired.notSent = true;
+        throw activationExpired;
+      }
+      return sendRequest({ buy: proposalDetails.id, price: Number(proposalDetails.ask_price) });
+    }).then(function (buyMsg) {
         var buyData = buyMsg.buy;
         if (!buyData) throw new Error("No buy data returned");
 
@@ -575,10 +588,24 @@
         return {
           contractId: contractId,
           buyPrice: buyData.buy_price,
-          proposal: purchase.proposal,
+          proposal: proposalDetails,
           buy: buyData,
         };
       });
+  }
+
+  function getProposal(opts) {
+    return getContractProposal(opts);
+  }
+
+  function buyContractFromProposal(opts, proposalDetails, onSettle) {
+    return buyFromContractProposal(opts, proposalDetails, onSettle);
+  }
+
+  function buyContract(opts, onSettle) {
+    return getContractProposal(opts).then(function (proposalDetails) {
+      return buyFromContractProposal(opts, proposalDetails, onSettle);
+    });
   }
 
   /* ── Disconnect ─────────────────────────────────────────────── */
@@ -613,6 +640,8 @@
     subscribeTicks: subscribeTicks,
     unsubscribeTicks: unsubscribeTicks,
     getHistory: getHistory,
+    getProposal: getProposal,
+    buyContractFromProposal: buyContractFromProposal,
     buyContract: buyContract,
     watchContract: watchContract,
       requestBalance: requestBalance,

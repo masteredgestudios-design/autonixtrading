@@ -61,7 +61,7 @@ describe('DerivWS shared tick subscriptions', () => {
     socket.onopen();
 
     const settled = jest.fn();
-    const purchasePromise = window.DerivWS.buyContract({
+    const options = {
       tradeType: 'over-under',
       selection: 'over',
       stake: 1,
@@ -69,7 +69,8 @@ describe('DerivWS shared tick subscriptions', () => {
       symbol: '1HZ10V',
       digit: 1,
       currency: 'USD',
-    }, settled);
+    };
+    const proposalPromise = window.DerivWS.getProposal(options);
     const proposalRequest = socket.sent.find((message) => message.proposal === 1);
     expect(proposalRequest).toEqual(expect.objectContaining({
       underlying_symbol: '1HZ10V',
@@ -90,7 +91,18 @@ describe('DerivWS shared tick subscriptions', () => {
     }) });
     await Promise.resolve();
     await Promise.resolve();
+    const proposal = await proposalPromise;
+    expect(proposal).toEqual(expect.objectContaining({
+      amount: 1,
+      ask_price: 1,
+      payout: 1.9,
+      potentialProfit: 0.9,
+      profitRate: 0.9,
+    }));
 
+    const purchasePromise = window.DerivWS.buyContractFromProposal(options, proposal, settled);
+    await Promise.resolve();
+    await Promise.resolve();
     const buyRequest = socket.sent.find((message) => message.buy === 'proposal-1');
     expect(buyRequest).toEqual(expect.objectContaining({ price: 1 }));
     socket.onmessage({ data: JSON.stringify({

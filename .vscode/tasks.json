@@ -67,6 +67,13 @@
 			"command": "npm test -- --runInBand tests/over1-ai-predictor.test.js ; echo EXIT_CODE:$?",
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "Temporary Rapid Over 1 focused tests",
+			"type": "shell",
+			"command": "npm test -- --runInBand tests/rapid-over1.test.js tests/deriv-ws-ticks.test.js",
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }

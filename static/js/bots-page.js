@@ -262,31 +262,46 @@
   /* ─── Per-bot state ──────────────────────────────────────────── */
   var DEFAULT_OVER1_PREVIOUS_TICK_COUNT = 3;
   var RAPID_OVER1_CONTRACT_DURATION_TICKS = 1;
-  var RAPID_OVER1_RECOVERY_MULTIPLIER = 6;
-
-  function getRapidOver1RecoveryStake(state) {
-    var baseStake = Number(state && state.initialStake != null ? state.initialStake : state && state.stake != null ? state.stake : 1);
-    return Number((baseStake * RAPID_OVER1_RECOVERY_MULTIPLIER).toFixed(2));
-  }
 
   function applyRapidOver1Settlement(state, won, wasRecovery) {
-    state.recoveryMode = false;
-    state.recoveryStep = 0;
-    state.currentStake = state.initialStake;
+    var profitLoss = Number(state.lastResult && state.lastResult.pl) || 0;
+    if (!wasRecovery && won) {
+      state.accumulatedRecoveryLoss = 0;
+      state.recoveryProfit = 0;
+      state.recoveryMode = false;
+      state.currentStake = state.initialStake;
+      state.statusText = "Trade won — normal trading";
+      return "next";
+    }
 
-    if (!won && !wasRecovery) {
+    if (!won) {
+      state.accumulatedRecoveryLoss = Number((
+        state.accumulatedRecoveryLoss + Math.max(0, -profitLoss)
+      ).toFixed(2));
+      if (!wasRecovery) state.recoveryProfit = 0;
       state.recoveryMode = true;
-      state.recoveryStep = 1;
-      state.currentStake = getRapidOver1RecoveryStake(state);
-      state.martStep = 1;
-      state.consecutiveLosses = 1;
-      state.statusText = "Starting one recovery trade";
+      state.statusText = "Calculating payout-aware recovery stake";
       return "recovery";
     }
 
-    state.martStep = 0;
-    state.consecutiveLosses = 0;
-    state.statusText = wasRecovery ? "Recovery settled" : "Trade won";
+    if (wasRecovery) {
+      state.recoveryProfit = Number((state.recoveryProfit + Math.max(0, profitLoss)).toFixed(2));
+      var recoveryOwed = state.accumulatedRecoveryLoss + state.recoveryTarget;
+      if (state.recoveryProfit + 0.005 >= recoveryOwed) {
+        state.accumulatedRecoveryLoss = 0;
+        state.recoveryProfit = 0;
+        state.recoveryMode = false;
+        state.currentStake = state.initialStake;
+        state.statusText = "Recovery target achieved — normal trading";
+        return "next";
+      }
+      state.recoveryMode = true;
+      state.statusText = "Recovery continues — outstanding target remains";
+      return "recovery";
+    }
+
+    state.currentStake = state.initialStake;
+    state.statusText = "Trade settled";
     return "next";
   }
 
@@ -346,7 +361,10 @@
       activeTrade: false,
       statusText: "Idle",
       recoveryMode: false,
-      recoveryStep: 0,
+      totalStakeUsed: 0,
+      accumulatedRecoveryLoss: 0,
+      recoveryProfit: 0,
+      recoveryTarget: Number(def.defaults && def.defaults.stake) || 1,
       initialStake: def.defaults && def.defaults.stake ? Number(def.defaults.stake) : 1,
       intervalSeconds: Number.isFinite(interval) && interval > 0 ? interval : 5,
       intervalValue: interval,
@@ -356,6 +374,8 @@
       rapidTradeSequence: 0,
       activeTradeId: null,
       rapidTradeKind: null,
+      rapidPurchaseConfirmed: false,
+      rapidPendingSettlement: null,
     };
   }
   var states = {};
@@ -1247,7 +1267,7 @@
     var countdown = document.getElementById("rapid-countdown");
     if (!countdown) return;
     if (!state.running) {
-      countdown.textContent = "Stopped";
+      countdown.textContent = state.statusText === "Ready" ? "Ready" : "Stopped";
     } else if (state.awaitingSettle) {
       countdown.textContent = "Waiting for settlement";
     } else if (state.nextTradeAt) {
@@ -1276,12 +1296,13 @@
         state.rapidCountdownTimerId = null;
         if (!state.running || state.awaitingSettle) return;
         if (Date.now() < state.nextTradeAt) {
+          renderBot(state);
           armTimer();
           return;
         }
         state.nextTradeAt = 0;
         executeRapidTrade(state, "normal");
-      }, Math.min(remainingMs, 2147483647));
+      }, Math.min(1000, remainingMs));
     }
     armTimer();
     renderBot(state);
@@ -1289,34 +1310,220 @@
 
   function executeRapidTrade(state, tradeKind) {
     if (!state.running || state.awaitingSettle) return;
-    if (state.currentStake > 5000) {
-      state.statusText = "Stake exceeds the broker limit — trading stopped";
-      state.lossStopped = true;
-      stopBot(state, "orderError");
-      return;
-    }
     if (!isAuthed()) {
       state.statusText = "Broker disconnected — trading stopped";
       stopBot(state, "connection");
       return;
     }
-    if (!Number.isFinite(LATEST_BALANCE)) {
+    if (!Number.isFinite(LATEST_BALANCE) || LATEST_BALANCE < 0) {
       state.statusText = "Balance unavailable — trading stopped";
       stopBot(state, "balanceUnavailable");
       return;
     }
-    if (LATEST_BALANCE < state.currentStake) {
-      state.statusText = "Insufficient balance for " + (tradeKind === "recovery" ? "recovery" : "next") + " trade";
-      stopBot(state, "insufficientBalance");
+    if (!window.DerivWS || typeof window.DerivWS.getProposal !== "function" ||
+        typeof window.DerivWS.buyContractFromProposal !== "function") {
+      state.statusText = "Broker payout quotes unavailable — trading stopped";
+      stopBot(state, "orderError");
       return;
     }
 
     state.rapidTradeKind = tradeKind;
-    state.statusText = tradeKind === "recovery" ? "Submitting recovery trade" : "Submitting normal trade";
-    placeBotTrade(state, {
-      selection: "over",
-      digit: 1,
+    state.activeTradeId = ++state.rapidTradeSequence;
+    state.rapidPurchaseConfirmed = false;
+    state.rapidPendingSettlement = null;
+    state.activeContractId = null;
+    state.awaitingSettle = true;
+    state.tradePhase = "quoting";
+    state.statusText = tradeKind === "recovery" ? "Quoting recovery stake" : "Quoting normal trade";
+    var tradeId = state.activeTradeId;
+    if (state._settleTimer) clearTimeout(state._settleTimer);
+    state._settleTimer = setTimeout(function () {
+      if (state.activeTradeId !== tradeId) return;
+      state.lossStopped = true;
+      state.statusText = state.rapidPurchaseConfirmed
+        ? "Settlement delayed — contract " + state.activeContractId + " remains monitored"
+        : "Broker confirmation delayed — verify order status before restarting";
+      if (state.running) stopBot(state, "settlementTimeout");
+      else {
+        state._settleTimer = null;
+        renderBot(state);
+        renderSummary();
+      }
+    }, 45000);
+
+    var proposalOptions = makeRapidProposalOptions(state, tradeKind === "recovery" ? 1 : state.currentStake);
+    var quotePromise = window.DerivWS.getProposal(proposalOptions);
+    if (tradeKind === "recovery") {
+      quotePromise = quotePromise.then(function (unitQuote) {
+        if (state.activeTradeId !== tradeId || !state.running) {
+          var stoppedBeforeRecoveryQuote = new Error("Bot stopped before the recovery order was submitted");
+          stoppedBeforeRecoveryQuote.notSent = true;
+          throw stoppedBeforeRecoveryQuote;
+        }
+        var profitRate = Number(unitQuote && unitQuote.profitRate);
+        var targetProfit = state.accumulatedRecoveryLoss + state.recoveryTarget - state.recoveryProfit;
+        if (!Number.isFinite(profitRate) || profitRate <= 0 ||
+            !Number.isFinite(targetProfit) || targetProfit <= 0) {
+          throw new Error("Broker quote cannot support a positive recovery target");
+        }
+        var recoveryStake = Math.max(0.35, Math.ceil((targetProfit / profitRate) * 100) / 100);
+        if (!Number.isFinite(recoveryStake) || recoveryStake > 5000) {
+          throw new Error("Required recovery stake exceeds the broker's supported limit");
+        }
+        state.currentStake = recoveryStake;
+        state.statusText = "Validating recovery stake against broker quote";
+        renderBot(state);
+        return quoteRapidRecoveryStake(state, tradeId, targetProfit, recoveryStake, 0);
+      });
+    }
+
+    quotePromise.then(function (proposal) {
+      if (state.activeTradeId !== tradeId || !state.running) {
+        var stoppedBeforePurchase = new Error("Bot stopped before the order was submitted");
+        stoppedBeforePurchase.notSent = true;
+        throw stoppedBeforePurchase;
+      }
+      var purchasePrice = Number(proposal && proposal.ask_price);
+      if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
+        throw new Error("Broker returned an invalid contract purchase price");
+      }
+      if (purchasePrice > LATEST_BALANCE) {
+        throw new Error("Insufficient balance for the broker-quoted contract price");
+      }
+      state.statusText = tradeKind === "recovery" ? "Submitting recovery trade" : "Submitting normal trade";
+      state.tradePhase = "submitting";
+      renderBot(state);
+      return window.DerivWS.buyContractFromProposal(
+        proposalOptionsForProposal(state, proposal),
+        proposal,
+        function (result) {
+          if (state.activeTradeId !== tradeId) return;
+          if (!state.rapidPurchaseConfirmed) {
+            state.rapidPendingSettlement = result;
+            return;
+          }
+          handleSettlement(state, {
+            selection: "over",
+            digit: 1,
+            tradeType: "over-under",
+          }, state.rapidActualStake, result, tradeId);
+        }
+      ).then(function (purchase) {
+        if (state.activeTradeId !== tradeId) return;
+        if (!purchase || !purchase.contractId) {
+          var confirmationError = new Error("Broker did not confirm a contract identifier");
+          confirmationError.orderStatusUnknown = true;
+          throw confirmationError;
+        }
+        var actualStake = Number(purchase.buyPrice);
+        if (!Number.isFinite(actualStake) || actualStake <= 0) {
+          var stakeError = new Error("Broker did not confirm the actual purchase amount");
+          stakeError.orderStatusUnknown = true;
+          throw stakeError;
+        }
+        state.activeContractId = purchase.contractId;
+        state.rapidActualStake = actualStake;
+        state.totalStakeUsed = Number((state.totalStakeUsed + actualStake).toFixed(2));
+        state.rapidPurchaseConfirmed = true;
+        state.tradePhase = "active";
+        state.statusText = (tradeKind === "recovery" ? "Recovery" : "Normal") +
+          " contract " + purchase.contractId + " settling";
+        renderBot(state);
+        renderSummary();
+        if (state.rapidPendingSettlement) {
+          var pendingResult = state.rapidPendingSettlement;
+          state.rapidPendingSettlement = null;
+          handleSettlement(state, {
+            selection: "over",
+            digit: 1,
+            tradeType: "over-under",
+          }, actualStake, pendingResult, tradeId);
+        }
+      });
+    }).catch(function (error) {
+      if (state.activeTradeId !== tradeId) return;
+      var message = error && error.message ? error.message : "Rapid Over 1 order failed";
+      console.error("[Autonix] Rapid Over 1 trade error:", message);
+      var submittingOrder = state.tradePhase === "submitting";
+      var definitelyNotPurchased = !state.rapidPurchaseConfirmed &&
+        (!submittingOrder || (error && (error.apiRejected || error.notSent)));
+      var intentionallyStopped = !state.running && !!(error && error.notSent);
+      var orderStatusUnknown = !!(error && (
+        error.orderStatusUnknown || (submittingOrder && error.requestTimedOut)
+      ));
+      if (definitelyNotPurchased) {
+        state.activeTradeId = null;
+        state.rapidTradeKind = null;
+        state.awaitingSettle = false;
+        state.rapidPendingSettlement = null;
+        state.tradePhase = "idle";
+        if (state._settleTimer) {
+          clearTimeout(state._settleTimer);
+          state._settleTimer = null;
+        }
+      } else if (orderStatusUnknown) {
+        state.lossStopped = true;
+      }
+      state.statusText = intentionallyStopped
+        ? "Stopped"
+        : orderStatusUnknown
+          ? "Order status unknown — verify broker status before restarting"
+          : "Trade failed: " + message;
+      if (state.running) stopBot(state, "orderError");
+      else {
+        renderBot(state);
+        if (!intentionallyStopped) {
+          window.showToast && window.showToast(state.def.name + ": " + state.statusText, "red", 4500);
+        }
+      }
+    });
+    renderBot(state);
+  }
+
+  function makeRapidProposalOptions(state, stake) {
+    var account = window.SESSION_DATA && window.SESSION_DATA.activeAccount;
+    return {
       tradeType: "over-under",
+      selection: "over",
+      stake: stake,
+      duration: RAPID_OVER1_CONTRACT_DURATION_TICKS,
+      symbol: state.symbol,
+      digit: 1,
+      currency: account && account.currency || "USD",
+    };
+  }
+
+  function proposalOptionsForProposal(state, proposal) {
+    return makeRapidProposalOptions(state, Number(proposal.amount));
+  }
+
+  function quoteRapidRecoveryStake(state, tradeId, targetProfit, stake, attempt) {
+    var options = makeRapidProposalOptions(state, stake);
+    return window.DerivWS.getProposal(options).then(function (proposal) {
+      if (state.activeTradeId !== tradeId || !state.running) {
+        var stoppedError = new Error("Bot stopped before the recovery order was submitted");
+        stoppedError.notSent = true;
+        throw stoppedError;
+      }
+      var quotedProfit = Number(proposal.potentialProfit);
+      if (!Number.isFinite(quotedProfit) || quotedProfit < 0) {
+        throw new Error("Broker proposal did not include a valid potential profit");
+      }
+      if (quotedProfit + 0.005 >= targetProfit) return proposal;
+      var profitRate = Number(proposal.profitRate);
+      if (!Number.isFinite(profitRate) || profitRate <= 0 || attempt >= 3) {
+        throw new Error("Broker payout cannot meet the configured recovery target at a permitted stake");
+      }
+      var recalculatedStake = Math.max(
+        stake + 0.01,
+        Math.ceil((targetProfit / profitRate) * 100) / 100
+      );
+      if (recalculatedStake > 5000 || recalculatedStake > LATEST_BALANCE) {
+        throw new Error("Required recovery stake exceeds the broker limit or available balance");
+      }
+      state.currentStake = recalculatedStake;
+      renderBot(state);
+      return quoteRapidRecoveryStake(state, tradeId, targetProfit, recalculatedStake, attempt + 1);
     });
   }
 
@@ -1696,20 +1903,19 @@
       }
       state.stake = parsedStake;
       state.initialStake = state.stake;
-      state.currentStake = state.stake;
+      state.recoveryTarget = state.stake;
+      state.currentStake = state.recoveryMode ? state.currentStake : state.stake;
       state.intervalValue = intervalValue;
       state.intervalUnit = intervalUnit;
       state.intervalSeconds = intervalValue * unitSeconds[intervalUnit];
       state.tradeMode = "over-under";
-      state.recoveryMode = false;
-      state.recoveryStep = 0;
       state.nextTradeAt = 0;
-      state.statusText = "Submitting first normal trade";
+      state.statusText = state.recoveryMode ? "Resuming payout-aware recovery" : "Submitting first normal trade";
     }
     if (twEl) state.tickWindow = parseInt(twEl.value, 10)   || state.tickWindow || 100;
     if (state.stake < 0.35) state.stake = 0.35;
     if (state.def.id === "freeBot" && state.tradeMode === "rise-fall") state.martingale = 2;
-    state.currentStake = state.stake;
+    if (state.def.id !== "rapidOver1" || !state.recoveryMode) state.currentStake = state.stake;
     state.martStep = 0;
     state.consecutiveLosses = 0;
     state.cooldownUntil = 0;
@@ -1729,7 +1935,7 @@
     renderBot(state);
     renderSummary();
 
-    if (state.def.id === "rapidOver1") executeRapidTrade(state, "normal");
+    if (state.def.id === "rapidOver1") executeRapidTrade(state, state.recoveryMode ? "recovery" : "normal");
     else botTick(state);
   }
 
@@ -1816,7 +2022,6 @@
     state.currentSignal = null;
     state.tradePhase = "idle";
     state.recoveryMode = false;
-    state.recoveryStep = 0;
     state.nextTradeAt = 0;
     if (state.rapidCountdownTimerId) {
       clearTimeout(state.rapidCountdownTimerId);
@@ -1849,6 +2054,17 @@
       state.analysisStatus = "analyzing";
     }
     if (state.def.id === "rapidOver1") {
+      state.totalStakeUsed = 0;
+      state.accumulatedRecoveryLoss = 0;
+      state.recoveryProfit = 0;
+      state.recoveryTarget = state.initialStake;
+      state.rapidPurchaseConfirmed = false;
+      state.rapidPendingSettlement = null;
+      state.rapidActualStake = 0;
+      if (state._settleTimer) {
+        clearTimeout(state._settleTimer);
+        state._settleTimer = null;
+      }
       state.statusText = "Ready";
     }
     window.showToast && window.showToast(state.def.name + " session reset", "neutral", 1800);
@@ -2218,6 +2434,10 @@
             '<div><span>Next normal trade</span><strong id="rapid-countdown">Ready</strong></div>' +
             '<div><span>Contract</span><strong>Over 1</strong></div>' +
             '<div><span>Current stake</span><strong id="rapid-current-stake">' + displayMoney(s.currentStake || s.stake) + '</strong></div>' +
+            '<div><span>Total stake used</span><strong id="rapid-total-stake">' + displayMoney(s.totalStakeUsed) + '</strong></div>' +
+            '<div><span>Accumulated recovery loss</span><strong id="rapid-recovery-loss">' + displayMoney(s.accumulatedRecoveryLoss) + '</strong></div>' +
+            '<div><span>Recovery target</span><strong id="rapid-recovery-target">' + displayMoney(s.recoveryTarget) + '</strong></div>' +
+            '<div><span>Session profit / loss</span><strong id="rapid-session-pl">' + displaySignedMoney(s.sessionPL) + '</strong></div>' +
             '<div><span>Active contract</span><strong id="rapid-contract-id">' + (s.activeContractId ? 'Contract ' + s.activeContractId : 'None') + '</strong></div>' +
           '</div>' +
         '</div>' +
@@ -2542,10 +2762,18 @@
       var rapidStatus = document.getElementById("rapid-status-label");
       var rapidSymbol = document.getElementById("rapid-symbol");
       var rapidStake = document.getElementById("rapid-current-stake");
+      var rapidTotalStake = document.getElementById("rapid-total-stake");
+      var rapidRecoveryLoss = document.getElementById("rapid-recovery-loss");
+      var rapidRecoveryTarget = document.getElementById("rapid-recovery-target");
+      var rapidSessionPL = document.getElementById("rapid-session-pl");
       var rapidContract = document.getElementById("rapid-contract-id");
       if (rapidStatus) rapidStatus.textContent = state.statusText || "Ready";
       if (rapidSymbol) rapidSymbol.textContent = state.symbol;
       if (rapidStake) rapidStake.textContent = displayMoney(state.currentStake || state.stake);
+      if (rapidTotalStake) rapidTotalStake.textContent = displayMoney(state.totalStakeUsed);
+      if (rapidRecoveryLoss) rapidRecoveryLoss.textContent = displayMoney(state.accumulatedRecoveryLoss);
+      if (rapidRecoveryTarget) rapidRecoveryTarget.textContent = displayMoney(state.recoveryTarget);
+      if (rapidSessionPL) rapidSessionPL.textContent = displaySignedMoney(state.sessionPL);
       if (rapidContract) rapidContract.textContent = state.activeContractId
         ? "Broker contract " + state.activeContractId
         : "No active contract";
