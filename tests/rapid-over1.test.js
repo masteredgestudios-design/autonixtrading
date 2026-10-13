@@ -111,6 +111,7 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(document.getElementById('rapid-session-pl').textContent).toBe('+$2.00');
     expect(document.getElementById('rapid-countdown').textContent).toBe('5s');
     expect(document.getElementById('rapid-contract-id').textContent).toBe('Won');
+    expect(document.getElementById('rapid-current-stake').textContent).toBe('$2.00');
     expect(rapidCard.textContent).not.toMatch(/analysis|signal|last digit|digit frequency/i);
     expect(rapidCard.textContent).not.toMatch(/multiplier|1 tick/i);
 
@@ -146,6 +147,38 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(document.getElementById('rapid-recovery-target').textContent).toBe('$6.67');
     expect(document.getElementById('rapid-total-stake').textContent).toBe('$6.67');
     expect(document.getElementById('rapid-current-stake').textContent).toBe('$37.79');
+  });
+
+  it('uses the configured initial stake after recovery across repeated cycles and consecutive losses', async () => {
+    await startWithStake('3.25');
+
+    await confirmOrder(0, false, -3.25);
+    await waitForOrderCount(2);
+    expect(orders[1].proposal.amount).toBe(18.41);
+
+    await confirmOrder(1, true, 3.25);
+    await waitForOrderCount(3);
+    expect(orders[2].proposal.amount).toBe(0.35);
+
+    await confirmOrder(2, true, 3.25);
+    expect(document.getElementById('rapid-current-stake').textContent).toBe('$3.25');
+    jest.advanceTimersByTime(5000);
+    await waitForOrderCount(4);
+    expect(orders[3].options.stake).toBe(3.25);
+
+    await confirmOrder(3, false, -6);
+    await waitForOrderCount(5);
+    expect(orders[4].proposal.amount).toBe(33.99);
+
+    await confirmOrder(4, false, -33.99);
+    await waitForOrderCount(6);
+    expect(orders[5].proposal.amount).toBe(226.57);
+
+    await confirmOrder(5, true, 43.25);
+    expect(document.getElementById('rapid-current-stake').textContent).toBe('$3.25');
+    jest.advanceTimersByTime(5000);
+    await waitForOrderCount(7);
+    expect(orders[6].options.stake).toBe(3.25);
   });
 
   it('records the maximum confirmed loss streak and resets it only with the session', async () => {

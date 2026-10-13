@@ -304,6 +304,7 @@
       state.accumulatedRecoveryLoss = 0;
       state.recoveryProfit = 0;
       state.recoveryMode = false;
+      state.recoveryStake = 0;
       state.currentStake = state.initialStake;
       state.statusText = "Trade won — normal trading";
       return "next";
@@ -326,6 +327,7 @@
         state.accumulatedRecoveryLoss = 0;
         state.recoveryProfit = 0;
         state.recoveryMode = false;
+        state.recoveryStake = 0;
         state.currentStake = state.initialStake;
         state.statusText = "Recovery target achieved — normal trading";
         return "next";
@@ -352,6 +354,7 @@
       martingale: def.martingale || def.martingaleOverUnder || 4.5,
       maxMartSteps: def.maxMartSteps || def.maxMartStepsOverUnder || 6,
       currentStake: def.defaults.stake,
+      recoveryStake: 0,
       martStep: 0,
       consecutiveLosses: 0,
       sessionPL: 0,
@@ -1350,6 +1353,10 @@
 
   function executeRapidTrade(state, tradeKind) {
     if (!state.running || state.awaitingSettle) return;
+    if (tradeKind === "normal") {
+      state.recoveryStake = 0;
+      state.currentStake = state.initialStake;
+    }
     if (!isAuthed()) {
       state.statusText = "Broker disconnected — trading stopped";
       stopBot(state, "connection");
@@ -1406,14 +1413,15 @@
           new Error("Required recovery stake exceeds the broker's supported limit")
         );
       } else {
-        state.currentStake = recoveryStake;
-        proposalOptions = makeRapidProposalOptions(state, recoveryStake);
+        state.recoveryStake = recoveryStake;
+        state.currentStake = state.recoveryStake;
+        proposalOptions = makeRapidProposalOptions(state, state.recoveryStake);
         state.statusText = "Quoting fixed-rate recovery stake";
         renderBot(state);
-        quotePromise = quoteRapidRecoveryStake(state, tradeId, recoveryStake);
+        quotePromise = quoteRapidRecoveryStake(state, tradeId, state.recoveryStake);
       }
     } else {
-      proposalOptions = makeRapidProposalOptions(state, state.currentStake);
+      proposalOptions = makeRapidProposalOptions(state, state.initialStake);
       quotePromise = window.DerivWS.getProposal(proposalOptions);
     }
 
@@ -2050,6 +2058,7 @@
     state.lastResult = null;
     state.initialStake = Number(state.stake) || Number(state.def.defaults.stake) || 1;
     state.currentStake = state.initialStake;
+    state.recoveryStake = 0;
     state.martStep = 0;
     state.consecutiveLosses = 0;
     state.cooldownUntil = 0;
@@ -2787,7 +2796,12 @@
       plEl.className = "bot-stat-val " + (state.sessionPL >= 0 ? "pos" : "neg");
     }
     var currentStakeEl = document.getElementById("current-stake-" + def.id);
-    if (currentStakeEl) currentStakeEl.textContent = "$" + Number(state.currentStake || state.stake).toFixed(2);
+    if (currentStakeEl) {
+      var displayedStake = isRapidOver1
+        ? (state.recoveryMode ? state.recoveryStake || state.currentStake : state.initialStake)
+        : state.currentStake || state.stake;
+      currentStakeEl.textContent = "$" + Number(displayedStake).toFixed(2);
+    }
     var trEl = document.getElementById("trades-"  + def.id); if (trEl) trEl.textContent = state.trades;
     var wiEl = document.getElementById("wins-"    + def.id); if (wiEl) wiEl.textContent = state.wins;
     var loEl = document.getElementById("losses-"  + def.id); if (loEl) loEl.textContent = state.losses;
@@ -2810,7 +2824,12 @@
       var rapidLossStreak = document.getElementById("rapid-max-loss-streak");
       if (rapidStatus) rapidStatus.textContent = state.statusText || "Ready";
       if (rapidSymbol) rapidSymbol.textContent = state.symbol;
-      if (rapidStake) rapidStake.textContent = displayMoney(state.currentStake || state.stake);
+      if (rapidStake) {
+        var nextRapidStake = state.recoveryMode
+          ? state.recoveryStake || state.currentStake
+          : state.initialStake;
+        rapidStake.textContent = displayMoney(nextRapidStake);
+      }
       if (rapidTotalStake) rapidTotalStake.textContent = displayMoney(state.totalStakeUsed);
       if (rapidRecoveryLoss) rapidRecoveryLoss.textContent = displayMoney(getRapidOutstandingRecoveryLoss(state));
       if (rapidRecoveryTarget) rapidRecoveryTarget.textContent = displayMoney(getRapidRemainingRecoveryTarget(state));
