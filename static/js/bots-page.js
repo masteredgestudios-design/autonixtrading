@@ -1321,18 +1321,18 @@
     }
   }
 
-  function scheduleRapidTrade(state) {
+  function scheduleRapidTrade(state, tradeKind) {
     if (!state.running || state.awaitingSettle) return;
     if (state.rapidCountdownTimerId) clearTimeout(state.rapidCountdownTimerId);
     state.nextTradeAt = Date.now() + state.intervalSeconds * 1000;
-    state.statusText = "Next normal trade scheduled";
+    state.statusText = "Next " + tradeKind + " trade scheduled";
     function armTimer() {
       var remainingMs = state.nextTradeAt - Date.now();
       if (remainingMs <= 0) {
         state.rapidCountdownTimerId = null;
         if (!state.running || state.awaitingSettle) return;
         state.nextTradeAt = 0;
-        executeRapidTrade(state, "normal");
+        executeRapidTrade(state, tradeKind);
         return;
       }
       state.rapidCountdownTimerId = setTimeout(function () {
@@ -1344,7 +1344,7 @@
           return;
         }
         state.nextTradeAt = 0;
-        executeRapidTrade(state, "normal");
+        executeRapidTrade(state, tradeKind);
       }, Math.min(1000, remainingMs));
     }
     armTimer();
@@ -1804,10 +1804,8 @@
       renderBot(state);
       renderSummary();
 
-      if (state.running && nextAction === "recovery") {
-        executeRapidTrade(state, "recovery");
-      } else if (state.running && nextAction === "next") {
-        scheduleRapidTrade(state);
+      if (state.running && (nextAction === "recovery" || nextAction === "next")) {
+        scheduleRapidTrade(state, nextAction === "recovery" ? "recovery" : "normal");
       }
       return;
     } else if (state.def.id === "over1AiPredictor") {
@@ -1952,7 +1950,7 @@
       state.intervalSeconds = intervalValue * unitSeconds[intervalUnit];
       state.tradeMode = "over-under";
       state.nextTradeAt = 0;
-      state.statusText = state.recoveryMode ? "Resuming payout-aware recovery" : "Submitting first normal trade";
+      state.statusText = state.recoveryMode ? "Recovery trade scheduled" : "First normal trade scheduled";
     }
     if (twEl) state.tickWindow = parseInt(twEl.value, 10)   || state.tickWindow || 100;
     if (state.stake < 0.35) state.stake = 0.35;
@@ -1977,7 +1975,9 @@
     renderBot(state);
     renderSummary();
 
-    if (state.def.id === "rapidOver1") executeRapidTrade(state, state.recoveryMode ? "recovery" : "normal");
+    if (state.def.id === "rapidOver1") {
+      scheduleRapidTrade(state, state.recoveryMode ? "recovery" : "normal");
+    }
     else botTick(state);
   }
 
@@ -2480,7 +2480,7 @@
           '<div class="bot-trade-status-grid">' +
             '<div><span>Broker status</span><strong id="rapid-status-label">' + (s.statusText || 'Ready') + '</strong></div>' +
             '<div><span>Symbol</span><strong id="rapid-symbol">' + s.symbol + '</strong></div>' +
-            '<div><span>Next normal trade</span><strong id="rapid-countdown">Ready</strong></div>' +
+            '<div><span>Next trade</span><strong id="rapid-countdown">Ready</strong></div>' +
             '<div><span>Contract</span><strong>Over 1</strong></div>' +
             '<div><span>Current stake</span><strong id="rapid-current-stake">' + displayMoney(s.currentStake || s.stake) + '</strong></div>' +
             '<div><span>Total stake used</span><strong id="rapid-total-stake">' + displayMoney(s.totalStakeUsed) + '</strong></div>' +

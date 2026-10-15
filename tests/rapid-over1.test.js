@@ -55,6 +55,11 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(orders).toHaveLength(count);
   }
 
+  async function waitForNextOrderCount(count, delay = 5000) {
+    jest.advanceTimersByTime(delay);
+    await waitForOrderCount(count);
+  }
+
   async function confirmOrder(index, won, pl) {
     const order = orders[index];
     const contractId = `rapid-contract-${index}`;
@@ -78,7 +83,9 @@ describe('Autonix Rapid Over 1 execution', () => {
     document.getElementById('input-stake-rapidOver1').value = stake;
     expect(document.getElementById('rapid-recovery-target').textContent).toBe('$0.00');
     document.getElementById('start-rapidOver1').click();
-    await waitForOrderCount(1);
+    expect(orders).toHaveLength(0);
+    expect(quoteRequests).toHaveLength(0);
+    await waitForNextOrderCount(1);
   }
 
   it('recalculates after a partial recovery win and tracks purchased stake separately', async () => {
@@ -93,12 +100,16 @@ describe('Autonix Rapid Over 1 execution', () => {
       stake: 2,
     }));
     await confirmOrder(0, false, -2);
-    await waitForOrderCount(2);
+    expect(orders).toHaveLength(1);
+    expect(quoteRequests).toHaveLength(1);
+    expect(document.getElementById('rapid-countdown').textContent).toBe('5s');
+    await waitForNextOrderCount(2);
+    expect(quoteRequests).toHaveLength(2);
     expect(orders[1].proposal.amount).toBe(11.33);
     expect(document.getElementById('rapid-recovery-target').textContent).toBe('$2.00');
 
     await confirmOrder(1, true, 1);
-    await waitForOrderCount(3);
+    await waitForNextOrderCount(3);
     expect(orders[2].proposal.amount).toBe(5.67);
     expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$1.00');
     expect(document.getElementById('rapid-recovery-target').textContent).toBe('$1.00');
@@ -126,7 +137,7 @@ describe('Autonix Rapid Over 1 execution', () => {
     await startWithStake('1');
 
     await confirmOrder(0, false, -1);
-    await waitForOrderCount(2);
+    await waitForNextOrderCount(2);
 
     expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$1.00');
     expect(document.getElementById('rapid-recovery-target').textContent).toBe('$1.00');
@@ -137,11 +148,11 @@ describe('Autonix Rapid Over 1 execution', () => {
   it('continues recovering repeated losses using the entire accumulated balance', async () => {
     await startWithStake('1');
     await confirmOrder(0, false, -1);
-    await waitForOrderCount(2);
+    await waitForNextOrderCount(2);
     expect(orders[1].proposal.amount).toBe(5.67);
 
     await confirmOrder(1, false, -5.67);
-    await waitForOrderCount(3);
+    await waitForNextOrderCount(3);
     expect(orders[2].proposal.amount).toBe(37.79);
     expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$6.67');
     expect(document.getElementById('rapid-recovery-target').textContent).toBe('$6.67');
@@ -153,11 +164,12 @@ describe('Autonix Rapid Over 1 execution', () => {
     await startWithStake('3.25');
 
     await confirmOrder(0, false, -3.25);
-    await waitForOrderCount(2);
+    expect(orders).toHaveLength(1);
+    await waitForNextOrderCount(2);
     expect(orders[1].proposal.amount).toBe(18.41);
 
     await confirmOrder(1, true, 3.25);
-    await waitForOrderCount(3);
+    await waitForNextOrderCount(3);
     expect(orders[2].proposal.amount).toBe(0.35);
 
     await confirmOrder(2, true, 3.25);
@@ -167,11 +179,11 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(orders[3].options.stake).toBe(3.25);
 
     await confirmOrder(3, false, -6);
-    await waitForOrderCount(5);
+    await waitForNextOrderCount(5);
     expect(orders[4].proposal.amount).toBe(33.99);
 
     await confirmOrder(4, false, -33.99);
-    await waitForOrderCount(6);
+    await waitForNextOrderCount(6);
     expect(orders[5].proposal.amount).toBe(226.57);
 
     await confirmOrder(5, true, 43.25);
@@ -185,11 +197,11 @@ describe('Autonix Rapid Over 1 execution', () => {
     await startWithStake();
 
     await confirmOrder(0, false, -1);
-    await waitForOrderCount(2);
+    await waitForNextOrderCount(2);
     await confirmOrder(1, false, -5);
-    await waitForOrderCount(3);
+    await waitForNextOrderCount(3);
     await confirmOrder(2, false, -10);
-    await waitForOrderCount(4);
+    await waitForNextOrderCount(4);
     expect(document.getElementById('rapid-max-loss-streak').textContent)
       .toBe('3 consecutive losses — $16.00 lost');
 
@@ -199,13 +211,13 @@ describe('Autonix Rapid Over 1 execution', () => {
       .toBe('3 consecutive losses — $16.00 lost');
 
     document.getElementById('start-rapidOver1').click();
-    await waitForOrderCount(5);
+    await waitForNextOrderCount(5);
     expect(document.getElementById('rapid-max-loss-streak').textContent)
       .toBe('3 consecutive losses — $16.00 lost');
     await confirmOrder(4, false, -2);
-    await waitForOrderCount(6);
+    await waitForNextOrderCount(6);
     await confirmOrder(5, false, -4);
-    await waitForOrderCount(7);
+    await waitForNextOrderCount(7);
     expect(document.getElementById('rapid-max-loss-streak').textContent)
       .toBe('3 consecutive losses — $16.00 lost');
 
@@ -213,13 +225,13 @@ describe('Autonix Rapid Over 1 execution', () => {
     jest.advanceTimersByTime(5000);
     await waitForOrderCount(8);
     await confirmOrder(7, false, -1);
-    await waitForOrderCount(9);
+    await waitForNextOrderCount(9);
     await confirmOrder(8, false, -2);
-    await waitForOrderCount(10);
+    await waitForNextOrderCount(10);
     await confirmOrder(9, false, -3);
-    await waitForOrderCount(11);
+    await waitForNextOrderCount(11);
     await confirmOrder(10, false, -4);
-    await waitForOrderCount(12);
+    await waitForNextOrderCount(12);
     expect(document.getElementById('rapid-max-loss-streak').textContent)
       .toBe('4 consecutive losses — $10.00 lost');
 
@@ -234,7 +246,7 @@ describe('Autonix Rapid Over 1 execution', () => {
     document.getElementById('input-interval-rapidOver1').value = '1';
     document.getElementById('input-interval-unit-rapidOver1').value = 'minutes';
     document.getElementById('start-rapidOver1').click();
-    await waitForOrderCount(1);
+    await waitForNextOrderCount(1, 60000);
     await confirmOrder(0, true, 1);
 
     expect(document.getElementById('rapid-countdown').textContent).toBe('01:00');
@@ -245,7 +257,7 @@ describe('Autonix Rapid Over 1 execution', () => {
 
   it('cancels the scheduled normal trade when stopped during countdown', async () => {
     document.getElementById('start-rapidOver1').click();
-    await waitForOrderCount(1);
+    await waitForNextOrderCount(1);
     await confirmOrder(0, true, 1);
     document.getElementById('start-rapidOver1').click();
 
@@ -260,6 +272,8 @@ describe('Autonix Rapid Over 1 execution', () => {
       resolveProposal = resolve;
     }));
     document.getElementById('start-rapidOver1').click();
+    jest.advanceTimersByTime(5000);
+    await flushPromises();
     document.getElementById('start-rapidOver1').click();
     resolveProposal({
       id: 'proposal-stopped',
@@ -274,13 +288,13 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(document.getElementById('rapid-countdown').textContent).toBe('Stopped');
 
     document.getElementById('start-rapidOver1').click();
-    await waitForOrderCount(1);
+    await waitForNextOrderCount(1);
   });
 
   it('does not start another recovery after Stop during an active recovery contract', async () => {
     await startWithStake();
     await confirmOrder(0, false, -2);
-    await waitForOrderCount(2);
+    await waitForNextOrderCount(2);
     document.getElementById('start-rapidOver1').click();
     await confirmOrder(1, false, -20);
     expect(orders).toHaveLength(2);
