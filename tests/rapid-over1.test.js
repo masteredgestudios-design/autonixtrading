@@ -170,7 +170,10 @@ describe('Autonix Rapid Over 1 execution', () => {
 
     await confirmOrder(1, true, 3.25);
     await waitForNextOrderCount(3);
-    expect(orders[2].proposal.amount).toBe(0.35);
+    expect(orders[2].options.stake).toBe(3.25);
+    expect(document.getElementById('rapid-recovery-loss').textContent).toBe('$0.00');
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$0.00');
+    expect(document.getElementById('rapid-current-stake').textContent).toBe('$3.25');
 
     await confirmOrder(2, true, 3.25);
     expect(document.getElementById('rapid-current-stake').textContent).toBe('$3.25');

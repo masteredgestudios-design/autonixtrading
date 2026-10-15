@@ -322,7 +322,7 @@
 
     if (wasRecovery) {
       state.recoveryProfit = Number((state.recoveryProfit + Math.max(0, profitLoss)).toFixed(2));
-      var recoveryOwed = state.accumulatedRecoveryLoss + state.recoveryTarget;
+      var recoveryOwed = state.accumulatedRecoveryLoss;
       if (state.recoveryProfit + 0.005 >= recoveryOwed) {
         state.accumulatedRecoveryLoss = 0;
         state.recoveryProfit = 0;
@@ -402,7 +402,6 @@
       totalStakeUsed: 0,
       accumulatedRecoveryLoss: 0,
       recoveryProfit: 0,
-      recoveryTarget: Number(def.defaults && def.defaults.stake) || 1,
       currentLossStreak: 0,
       currentLossStreakAmount: 0,
       maxLossStreak: 0,
@@ -1943,7 +1942,6 @@
       }
       state.stake = parsedStake;
       state.initialStake = state.stake;
-      state.recoveryTarget = state.stake;
       state.currentStake = state.recoveryMode ? state.currentStake : state.stake;
       state.intervalValue = intervalValue;
       state.intervalUnit = intervalUnit;
@@ -2100,7 +2098,6 @@
       state.totalStakeUsed = 0;
       state.accumulatedRecoveryLoss = 0;
       state.recoveryProfit = 0;
-      state.recoveryTarget = state.initialStake;
       state.currentLossStreak = 0;
       state.currentLossStreakAmount = 0;
       state.maxLossStreak = 0;
