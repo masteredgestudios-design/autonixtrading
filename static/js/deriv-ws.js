@@ -173,12 +173,19 @@
     }
   }
 
-  /* Dispatch a POC to the registered callback and clean up when sold */
+  function isContractSettled(poc) {
+    if (!poc) return false;
+    var status = String(poc.status || "").toLowerCase();
+    return poc.is_sold === true || poc.is_sold === 1 || poc.is_sold === "1" ||
+      status === "won" || status === "lost" || status === "sold";
+  }
+
+  /* Dispatch a POC to the registered callback and clean up when settled */
   function _dispatchPOC(contractId, poc) {
     var fn = state.contractCbs[contractId];
     if (!fn) return;
     fn(poc);
-    if (poc.is_sold || poc.status === "sold") {
+    if (isContractSettled(poc)) {
       delete state.contractCbs[contractId];
       /* Cancel the POC subscription stream to keep things tidy */
       var subId = state.pocSubIds[contractId];
@@ -212,26 +219,9 @@
       delete state.pocSubIds[contractId];
     }
     var id = nextReqId();
-    /* Register a dummy pending handler so the first POC response (which
-       carries the req_id) resolves cleanly and doesn't stay pending forever */
+    /* The shared onMessage path dispatches the first POC response after this resolves. */
     state.pendingReqs[id] = {
-      resolve: function (msg) {
-        /* First POC message from this subscription — hand it to onMessage */
-        if (msg.proposal_open_contract) {
-          var poc = msg.proposal_open_contract;
-          if (poc && poc.contract_id) {
-            if (msg.subscription && msg.subscription.id) {
-              state.pocSubIds[poc.contract_id] = msg.subscription.id;
-            }
-            if (state.contractCbs[poc.contract_id]) {
-              _dispatchPOC(poc.contract_id, poc);
-            } else {
-              if (!state.pocBuffer[poc.contract_id]) state.pocBuffer[poc.contract_id] = [];
-              state.pocBuffer[poc.contract_id].push(poc);
-            }
-          }
-        }
-      },
+      resolve: function () {},
       reject: function () {},
     };
     send({ proposal_open_contract: 1, subscribe: 1, contract_id: contractId, req_id: id });
@@ -241,11 +231,12 @@
     if (!state.authorized || !state.connected) return null;
     var settled = false;
     state.contractCbs[contractId] = function (poc) {
-      if (settled || !(poc.is_sold || poc.status === "sold")) return;
+      if (settled || !isContractSettled(poc)) return;
       settled = true;
       var profit = parseFloat(poc.profit) || 0;
+      var status = String(poc.status || "").toLowerCase();
       onSettle({
-        won: profit > 0,
+        won: status === "won" || (status !== "lost" && profit > 0),
         pl: profit,
         contractId: String(contractId),
         buyPrice: poc.buy_price,
@@ -483,8 +474,8 @@
    *
    * RACE CONDITION FIX:
    *   For 1-tick contracts, Deriv streams proposal_open_contract with
-   *   is_sold:true almost instantly — often before the buy response
-   *   returns.  We now:
+   *   a terminal status almost instantly — sometimes before the buy response
+   *   returns and sometimes without is_sold:true. We now:
    *     1. Register the settle callback immediately after getting contractId.
    *     2. Drain any POC messages that arrived while the callback was absent.
    *     3. Subscribe explicitly to POC for the contractId (belt-and-suspenders).

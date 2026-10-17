@@ -108,7 +108,7 @@ describe('DerivWS shared tick subscriptions', () => {
     socket.onmessage({ data: JSON.stringify({
       msg_type: 'proposal_open_contract',
       proposal_open_contract: {
-        contract_id: 'contract-1', is_sold: true, status: 'sold',
+        contract_id: 'contract-1', status: 'won',
         profit: 0.42, buy_price: 1, sell_price: 1.42, payout: 1.9,
       },
     }) });
@@ -129,6 +129,38 @@ describe('DerivWS shared tick subscriptions', () => {
       pl: 0.42,
       contractId: 'contract-1',
     }));
+  });
+
+  it('recognizes won and lost statuses as settled and cleans up subscriptions', () => {
+    const results = [
+      { contractId: 'contract-won', status: 'won', profit: 0.42 },
+      { contractId: 'contract-lost', status: 'lost', profit: -1 },
+    ];
+    const callbacks = results.map(() => jest.fn());
+    results.forEach((result, index) => {
+      window.DerivWS.watchContract(result.contractId, callbacks[index]);
+      const subscription = socket.sent.find((message) =>
+        message.proposal_open_contract === 1 && message.contract_id === result.contractId
+      );
+      const settlementMessage = {
+        msg_type: 'proposal_open_contract',
+        req_id: subscription.req_id,
+        subscription: { id: `poc-${result.contractId}` },
+        proposal_open_contract: result,
+      };
+      socket.onmessage({ data: JSON.stringify(settlementMessage) });
+      expect(window.DerivWS.getState().pocSubIds).not.toHaveProperty(result.contractId);
+      expect(window.DerivWS.getState().pocBuffer).not.toHaveProperty(result.contractId);
+    });
+
+    expect(callbacks[0]).toHaveBeenCalledTimes(1);
+    expect(callbacks[0]).toHaveBeenCalledWith(expect.objectContaining({ won: true, pl: 0.42 }));
+    expect(callbacks[1]).toHaveBeenCalledTimes(1);
+    expect(callbacks[1]).toHaveBeenCalledWith(expect.objectContaining({ won: false, pl: -1 }));
+    expect(socket.sent).toEqual(expect.arrayContaining([
+      { forget: 'poc-contract-won' },
+      { forget: 'poc-contract-lost' },
+    ]));
   });
 
   it('does not buy a Basic proposal after its activation expires', async () => {
