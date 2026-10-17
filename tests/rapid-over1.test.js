@@ -1,6 +1,8 @@
 describe('Autonix Rapid Over 1 execution', () => {
   let orders;
   let quoteRequests;
+  let tickListener;
+  let tickListenerSymbol;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -8,13 +10,19 @@ describe('Autonix Rapid Over 1 execution', () => {
     jest.resetModules();
     orders = [];
     quoteRequests = [];
+    tickListener = null;
+    tickListenerSymbol = null;
     document.body.innerHTML = '<div id="bots-grid"></div><div id="bot-cards-render-target"></div>';
     window.SESSION_DATA = { isAuthenticated: true, activeAccount: { currency: 'USD' } };
     window.DerivWS = {
       isAuthorized: () => true,
       getState: () => ({ connected: true, authorized: true }),
       getHistory: () => Promise.resolve([]),
-      subscribeTicks: jest.fn(),
+      subscribeTicks: jest.fn((symbol, callback) => {
+        tickListenerSymbol = symbol;
+        tickListener = callback;
+        return jest.fn();
+      }),
       getProposal: jest.fn((options) => {
         quoteRequests.push(options.stake);
         const profitRate = 0.2;
@@ -57,7 +65,21 @@ describe('Autonix Rapid Over 1 execution', () => {
 
   async function waitForNextOrderCount(count, delay = 5000) {
     jest.advanceTimersByTime(delay);
+    await flushPromises();
+    publishOver1Signal();
     await waitForOrderCount(count);
+  }
+
+  function publishOver1Signal(symbol = tickListenerSymbol) {
+    if (!tickListener) return;
+    const currentEpoch = Math.floor(Date.now() / 1000);
+    for (let index = 0; index < 200; index += 1) {
+      tickListener({
+        quote: `1.0${2 + (index % 8)}`,
+        epoch: currentEpoch - (199 - index),
+        symbol,
+      });
+    }
   }
 
   async function confirmOrder(index, won, pl) {
@@ -160,7 +182,24 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(document.getElementById('rapid-current-stake').textContent).toBe('$37.79');
   });
 
-  it('analyzes a fresh symbol-specific Over 1 window without enabling live filtering', () => {
+  it('does not enter recovery on interval expiry alone, then enters when fresh tick data qualifies', async () => {
+    await startWithStake('1');
+    await confirmOrder(0, false, -1);
+
+    jest.advanceTimersByTime(5000);
+    await flushPromises();
+    expect(orders).toHaveLength(1);
+    expect(document.getElementById('rapid-countdown').textContent)
+      .toBe('Waiting for recovery signal');
+
+    publishOver1Signal();
+    await waitForOrderCount(2);
+    expect(orders[1].options.stake).toBe(5.67);
+    publishOver1Signal();
+    expect(orders).toHaveLength(2);
+  });
+
+  it('analyzes a fresh symbol-specific Over 1 window for recovery entry', () => {
     const prediction = window.AutonixRapidOver1Prediction;
     const ticks = Array.from({ length: prediction.windowSize }, (_, index) => ({
       price: 1.02 + (index % 8) / 100,
@@ -182,7 +221,7 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(signal.digitCounts.reduce((sum, count) => sum + count, 0))
       .toBe(prediction.windowSize);
     expect(signal.digitFrequencies).toHaveLength(10);
-    expect(prediction.liveEntryFilterEnabled).toBe(false);
+    expect(prediction.liveEntryFilterEnabled).toBe(true);
   });
 
   it('rejects stale, short, or weak recovery-entry samples', () => {

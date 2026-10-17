@@ -285,9 +285,9 @@
   var RAPID_OVER1_CONTRACT_DURATION_TICKS = 1;
   var RAPID_OVER1_RECOVERY_NET_PROFIT_RATE = 0.1765;
   var RAPID_OVER1_PREDICTION_WINDOW = 200;
-  var RAPID_OVER1_BASELINE_OVER1_RATE = 0.9;
+  var RAPID_OVER1_BASELINE_OVER1_RATE = 0.8;
   var RAPID_OVER1_PREDICTION_Z = 1.96;
-  var RAPID_OVER1_LIVE_ENTRY_FILTER_ENABLED = false;
+  var RAPID_OVER1_LIVE_ENTRY_FILTER_ENABLED = true;
 
   function getRapidOutstandingRecoveryLoss(state) {
     return Math.max(0, Number((
@@ -448,6 +448,7 @@
       rapidReconcileInFlight: false,
       rapidReconnectTimerId: null,
       rapidRecoveryPrediction: null,
+      rapidRecoveryEntryArmed: false,
       rapidRunningDurationMs: 0,
       rapidRunningSince: null,
       rapidRuntimeTimerId: null,
@@ -495,6 +496,7 @@
               state.rapidRecoveryPrediction = evaluateRapidRecoveryEntry(
                 tickBuffers[symbol], Date.now(), state.symbol
               );
+              attemptRapidRecoveryEntry(state);
             }
           });
         })
@@ -516,7 +518,11 @@
         var price = parseFloat(tick.quote);
         if (!isFinite(price)) return;
         var buf = tickBuffers[symbol];
-        buf.push({ price: price, time: tick.epoch * 1000 });
+        buf.push({
+          price: price,
+          time: tick.epoch * 1000,
+          receivedAt: Date.now(),
+        });
         if (buf.length > TICK_WINDOW) buf.shift();
         BOT_DEFS.forEach(function (def) {
           var state = states[def.id];
@@ -525,6 +531,8 @@
             state.rapidRecoveryPrediction = evaluateRapidRecoveryEntry(
               tickBuffers[symbol], Date.now(), state.symbol
             );
+            attemptRapidRecoveryEntry(state);
+            if (state.rapidRecoveryEntryArmed) renderBot(state);
             return;
           }
           if (def.id === "over1AiPredictor") {
@@ -581,8 +589,11 @@
       : 0;
     var lowerBound = sampleSize ? (center - margin) / denominator : 0;
     var currentTime = Number.isFinite(Number(now)) ? Number(now) : Date.now();
-    var fresh = !!latestTick && currentTime >= Number(latestTick.time) &&
-      currentTime - Number(latestTick.time) <= 5000;
+    var latestObservedAt = latestTick && Number.isFinite(Number(latestTick.receivedAt))
+      ? Number(latestTick.receivedAt)
+      : latestTick && Number(latestTick.time);
+    var fresh = !!latestTick && currentTime >= latestObservedAt &&
+      currentTime - latestObservedAt <= 5000;
     return {
       ready: sampleSize === RAPID_OVER1_PREDICTION_WINDOW && fresh,
       shouldEnter: sampleSize === RAPID_OVER1_PREDICTION_WINDOW && fresh &&
@@ -1630,6 +1641,8 @@
       countdown.textContent = state.statusText === "Ready" ? "Ready" : "Stopped";
     } else if (state.awaitingSettle) {
       countdown.textContent = "Waiting for settlement";
+    } else if (state.rapidRecoveryEntryArmed) {
+      countdown.textContent = "Waiting for recovery signal";
     } else if (state.nextTradeAt) {
       var remainingMs = state.nextTradeAt - Date.now();
       countdown.textContent = remainingMs <= 0 ? "Executing\u2026" : formatRapidCountdown(remainingMs);
@@ -1641,6 +1654,7 @@
   function scheduleRapidTrade(state, tradeKind) {
     if (!state.running || state.awaitingSettle) return;
     if (state.rapidCountdownTimerId) clearTimeout(state.rapidCountdownTimerId);
+    state.rapidRecoveryEntryArmed = false;
     state.nextTradeAt = Date.now() + state.intervalSeconds * 1000;
     state.statusText = "Next " + tradeKind + " trade scheduled";
     function armTimer() {
@@ -1649,7 +1663,11 @@
         state.rapidCountdownTimerId = null;
         if (!state.running || state.awaitingSettle) return;
         state.nextTradeAt = 0;
-        executeRapidTrade(state, tradeKind);
+        if (tradeKind === "recovery") {
+          armRapidRecoveryEntry(state);
+        } else {
+          executeRapidTrade(state, tradeKind);
+        }
         return;
       }
       state.rapidCountdownTimerId = setTimeout(function () {
@@ -1661,11 +1679,42 @@
           return;
         }
         state.nextTradeAt = 0;
-        executeRapidTrade(state, tradeKind);
+        if (tradeKind === "recovery") {
+          armRapidRecoveryEntry(state);
+        } else {
+          executeRapidTrade(state, tradeKind);
+        }
       }, Math.min(1000, remainingMs));
     }
     armTimer();
     renderBot(state);
+  }
+
+  function armRapidRecoveryEntry(state) {
+    if (!state.running || !state.recoveryMode || state.awaitingSettle ||
+        state.activeTradeId !== null) return;
+    state.rapidRecoveryEntryArmed = true;
+    state.statusText = "Recovery interval elapsed — waiting for a fresh Over 1 entry signal";
+    attemptRapidRecoveryEntry(state);
+    renderBot(state);
+  }
+
+  function attemptRapidRecoveryEntry(state) {
+    if (!state.running || !state.recoveryMode || !state.rapidRecoveryEntryArmed ||
+        state.awaitingSettle || state.activeTradeId !== null) return;
+    var prediction = evaluateRapidRecoveryEntry(
+      tickBuffers[state.symbol] || [], Date.now(), state.symbol
+    );
+    state.rapidRecoveryPrediction = prediction;
+    if (!prediction.shouldEnter || prediction.symbol !== state.symbol) {
+      state.statusText = prediction.fresh
+        ? "Monitoring " + state.symbol + " for recovery entry conditions"
+        : "Waiting for fresh " + state.symbol + " tick data for recovery entry";
+      return;
+    }
+    state.rapidRecoveryEntryArmed = false;
+    state.statusText = "Recovery entry conditions met — submitting trade";
+    executeRapidTrade(state, "recovery");
   }
 
   function scheduleRapidReconciliation(state, tradeId) {
@@ -1685,7 +1734,10 @@
         ? window.DerivWS.getState() : null;
       if (isAuthed() && connection && connection.connected && Number.isFinite(LATEST_BALANCE)) {
         var nextTradeKind = tradeKind || (state.recoveryMode ? "recovery" : "normal");
-        if (executeImmediately) executeRapidTrade(state, nextTradeKind);
+        if (nextTradeKind === "recovery" && executeImmediately) {
+          armRapidRecoveryEntry(state);
+        }
+        else if (executeImmediately) executeRapidTrade(state, nextTradeKind);
         else scheduleRapidTrade(state, nextTradeKind);
       } else {
         waitForRapidReconnect(state, tradeKind, executeImmediately);
@@ -2447,7 +2499,7 @@
     state.takeProfitReached = false;
     state.activeTrade = false;
 
-    if (state.def.id !== "rapidOver1") ensureSymbolStream(state.symbol);
+    ensureSymbolStream(state.symbol);
     window.showToast && window.showToast(state.def.name + " started", "green", 2000);
     renderBot(state);
     renderSummary();
@@ -2475,6 +2527,7 @@
         clearTimeout(state.rapidReconnectTimerId);
         state.rapidReconnectTimerId = null;
       }
+      state.rapidRecoveryEntryArmed = false;
       if (state._settleTimer && state.activeTradeId === null) {
         clearTimeout(state._settleTimer);
         state._settleTimer = null;
@@ -2554,6 +2607,7 @@
       state.rapidCountdownTimerId = null;
     }
     state.rapidTradeKind = null;
+    state.rapidRecoveryEntryArmed = false;
     state.activeContractId = null;
     state.lossStopped = false;
     state.takeProfitReached = false;
