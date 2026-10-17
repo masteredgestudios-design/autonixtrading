@@ -269,4 +269,139 @@ describe('DerivWS shared tick subscriptions', () => {
       contractId: 'contract-saved',
     }));
   });
+
+  it('reattaches active contract monitoring after reconnecting', () => {
+    jest.useFakeTimers();
+    window.DerivWS.disconnect();
+    socket = {
+      readyState: 0,
+      sent: [],
+      send(message) { this.sent.push(JSON.parse(message)); },
+      close() {},
+    };
+    window.DerivWS.connect(
+      '1234', null, 'VRTC12345', null,
+      'wss://api.derivws.com/trading/v1/options/ws?otp=first-otp', 'USD',
+    );
+    socket.readyState = 1;
+    socket.onopen();
+
+    const settled = jest.fn();
+    window.DerivWS.watchContract('contract-reconnect', settled);
+    expect(socket.sent.some((message) => message.proposal_open_contract === 1)).toBe(true);
+    socket.onclose();
+    window.DerivWS.disconnect();
+
+    socket = {
+      readyState: 0,
+      sent: [],
+      send(message) { this.sent.push(JSON.parse(message)); },
+      close() {},
+    };
+    window.DerivWS.connect(
+      '1234', null, 'VRTC12345', null,
+      'wss://api.derivws.com/trading/v1/options/ws?otp=second-otp', 'USD',
+    );
+    socket.readyState = 1;
+    socket.onopen();
+
+    expect(socket.sent.some((message) =>
+      message.proposal_open_contract === 1 && message.contract_id === 'contract-reconnect'
+    )).toBe(true);
+  });
+
+  it('finds a uniquely matching settled contract after a lost buy response', async () => {
+    jest.useFakeTimers();
+    window.DerivWS.disconnect();
+    socket = {
+      readyState: 0,
+      sent: [],
+      send(message) { this.sent.push(JSON.parse(message)); },
+      close() {},
+    };
+    window.DerivWS.connect(
+      '1234', null, 'VRTC12345', null,
+      'wss://api.derivws.com/trading/v1/options/ws?otp=fresh-otp', 'USD',
+    );
+    socket.readyState = 1;
+    socket.onopen();
+
+    const submittedAt = Math.floor(Date.now() / 1000);
+    const verification = window.DerivWS.reconcileContract({
+      submittedAt,
+      buyPrice: 2,
+      contractType: 'DIGITOVER',
+      symbol: '1HZ100V',
+      barrier: '1',
+    });
+    const portfolioRequest = socket.sent.find((message) => message.portfolio === 1);
+    const profitTableRequest = socket.sent.find((message) => message.profit_table === 1);
+    socket.onmessage({ data: JSON.stringify({
+      msg_type: 'portfolio',
+      req_id: portfolioRequest.req_id,
+      portfolio: { contracts: [] },
+    }) });
+    socket.onmessage({ data: JSON.stringify({
+      msg_type: 'profit_table',
+      req_id: profitTableRequest.req_id,
+      profit_table: {
+        transactions: [{
+          contract_id: 'reconciled-contract',
+          contract_type: 'DIGITOVER',
+          underlying: '1HZ100V',
+          barrier: '1',
+          buy_price: 2,
+          purchase_time: submittedAt,
+          profit: -2,
+        }],
+      },
+    }) });
+
+    await expect(verification).resolves.toEqual(expect.objectContaining({
+      status: 'settled',
+      contractId: 'reconciled-contract',
+      won: false,
+      pl: -2,
+    }));
+  });
+
+  it('checks a known contract directly when settlement notifications were missed', async () => {
+    jest.useFakeTimers();
+    window.DerivWS.disconnect();
+    socket = {
+      readyState: 0,
+      sent: [],
+      send(message) { this.sent.push(JSON.parse(message)); },
+      close() {},
+    };
+    window.DerivWS.connect(
+      '1234', null, 'VRTC12345', null,
+      'wss://api.derivws.com/trading/v1/options/ws?otp=fresh-otp', 'USD',
+    );
+    socket.readyState = 1;
+    socket.onopen();
+
+    const verification = window.DerivWS.reconcileContract({ contractId: 'missed-settlement' });
+    const request = socket.sent.find((message) =>
+      message.proposal_open_contract === 1 && message.contract_id === 'missed-settlement'
+    );
+    expect(request).not.toHaveProperty('subscribe');
+    socket.onmessage({ data: JSON.stringify({
+      msg_type: 'proposal_open_contract',
+      req_id: request.req_id,
+      proposal_open_contract: {
+        contract_id: 'missed-settlement',
+        status: 'lost',
+        profit: -1,
+        buy_price: 1,
+      },
+    }) });
+
+    await expect(verification).resolves.toEqual(expect.objectContaining({
+      status: 'settled',
+      contractId: 'missed-settlement',
+      won: false,
+      pl: -1,
+    }));
+  });
 });

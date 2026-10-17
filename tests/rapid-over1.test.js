@@ -27,8 +27,8 @@ describe('Autonix Rapid Over 1 execution', () => {
           profitRate,
         });
       }),
-      buyContractFromProposal: jest.fn((options, proposal, onSettle) => new Promise((resolve) => {
-        orders.push({ options, proposal, onSettle, resolve });
+      buyContractFromProposal: jest.fn((options, proposal, onSettle) => new Promise((resolve, reject) => {
+        orders.push({ options, proposal, onSettle, resolve, reject });
       })),
     };
 
@@ -302,5 +302,50 @@ describe('Autonix Rapid Over 1 execution', () => {
     await confirmOrder(1, false, -20);
     expect(orders).toHaveLength(2);
     expect(document.getElementById('rapid-countdown').textContent).toBe('Stopped');
+  });
+
+  it('recovers a submitted contract after a WebSocket disconnect without buying twice', async () => {
+    await startWithStake();
+    const disconnectError = new Error('WebSocket disconnected while request was pending');
+    disconnectError.connectionInterrupted = true;
+    disconnectError.requestSent = true;
+    window.DerivWS.reconcileContract = jest.fn().mockResolvedValue({
+      status: 'settled',
+      contractId: 'rapid-recovered-contract',
+      won: false,
+      pl: -2,
+      buyPrice: 2,
+    });
+    orders[0].reject(disconnectError);
+    await flushPromises();
+
+    expect(window.DerivWS.reconcileContract).toHaveBeenCalledWith(expect.objectContaining({
+      buyPrice: 2,
+      contractType: 'DIGITOVER',
+      symbol: expect.any(String),
+      barrier: '1',
+    }));
+    expect(orders).toHaveLength(1);
+    expect(document.getElementById('rapid-session-pl').textContent).toBe('-$2.00');
+    expect(document.getElementById('rapid-recovery-target').textContent).toBe('$2.00');
+    expect(document.getElementById('rapid-contract-id').textContent).toBe('Lost');
+
+    await waitForNextOrderCount(2);
+    expect(orders[1].proposal.amount).toBe(11.33);
+  });
+
+  it('keeps an unverified submitted order locked instead of retrying it', async () => {
+    await startWithStake();
+    const disconnectError = new Error('WebSocket disconnected while request was pending');
+    disconnectError.connectionInterrupted = true;
+    disconnectError.requestSent = true;
+    window.DerivWS.reconcileContract = jest.fn().mockResolvedValue({ status: 'not_found' });
+    orders[0].reject(disconnectError);
+    await flushPromises();
+
+    jest.advanceTimersByTime(15000);
+    await flushPromises();
+    expect(orders).toHaveLength(1);
+    expect(document.getElementById('rapid-countdown').textContent).toBe('Waiting for settlement');
   });
 });

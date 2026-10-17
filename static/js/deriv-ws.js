@@ -48,26 +48,49 @@
     return true;
   }
 
+  function rejectPendingRequests(message, connectionInterrupted) {
+    Object.keys(state.pendingReqs).forEach(function (reqId) {
+      var pending = state.pendingReqs[reqId];
+      delete state.pendingReqs[reqId];
+      var error = new Error(message);
+      error.connectionInterrupted = !!connectionInterrupted;
+      error.requestSent = !!pending.requestSent;
+      pending.reject(error);
+    });
+  }
+
   function sendRequest(payload) {
     return new Promise(function (resolve, reject) {
       var id = nextReqId();
       payload.req_id = id;
       var timeoutId = setTimeout(function () {
+        var pending = state.pendingReqs[id];
         delete state.pendingReqs[id];
         var error = new Error("Deriv request timed out");
         error.requestTimedOut = true;
+        error.requestSent = !!(pending && pending.requestSent);
         reject(error);
       }, 15000);
       state.pendingReqs[id] = {
+        requestSent: false,
         resolve: function (value) { clearTimeout(timeoutId); resolve(value); },
         reject: function (error) { clearTimeout(timeoutId); reject(error); },
       };
-      if (!send(payload)) {
+      try {
+        if (send(payload)) {
+          state.pendingReqs[id].requestSent = true;
+          return;
+        }
         delete state.pendingReqs[id];
         clearTimeout(timeoutId);
         var sendError = new Error("WebSocket not open");
         sendError.notSent = true;
         reject(sendError);
+      } catch (error) {
+        delete state.pendingReqs[id];
+        clearTimeout(timeoutId);
+        error.notSent = true;
+        reject(error);
       }
     });
   }
@@ -213,6 +236,7 @@
 
   /* Explicitly subscribe to proposal_open_contract for a specific contract */
   function subscribeContractPOC(contractId) {
+    if (!state.authorized || !state.connected) return;
     var previousSubId = state.pocSubIds[contractId];
     if (previousSubId) {
       send({ forget: previousSubId });
@@ -221,14 +245,24 @@
     var id = nextReqId();
     /* The shared onMessage path dispatches the first POC response after this resolves. */
     state.pendingReqs[id] = {
+      requestSent: false,
       resolve: function () {},
       reject: function () {},
     };
-    send({ proposal_open_contract: 1, subscribe: 1, contract_id: contractId, req_id: id });
+    try {
+      if (send({ proposal_open_contract: 1, subscribe: 1, contract_id: contractId, req_id: id })) {
+        state.pendingReqs[id].requestSent = true;
+      } else {
+        delete state.pendingReqs[id];
+      }
+    } catch (error) {
+      delete state.pendingReqs[id];
+      console.error("[DerivWS] Contract subscription failed:", error);
+    }
   }
 
   function watchContract(contractId, onSettle) {
-    if (!state.authorized || !state.connected) return null;
+    if (!contractId || typeof onSettle !== "function") return null;
     var settled = false;
     state.contractCbs[contractId] = function (poc) {
       if (settled || !isContractSettled(poc)) return;
@@ -259,6 +293,112 @@
     };
   }
 
+  function reconcileContract(options) {
+    if (!state.authorized || !state.connected) {
+      var disconnectedError = new Error("Deriv connection is unavailable for contract verification");
+      disconnectedError.connectionInterrupted = true;
+      disconnectedError.notSent = true;
+      return Promise.reject(disconnectedError);
+    }
+    if (options && options.contractId) {
+      return sendRequest({
+        proposal_open_contract: 1,
+        contract_id: options.contractId,
+      }).then(function (response) {
+        var contract = response.proposal_open_contract;
+        if (!contract || String(contract.contract_id) !== String(options.contractId)) {
+          throw new Error("Deriv returned no status for the active contract");
+        }
+        if (!isContractSettled(contract)) {
+          return { status: "open", contractId: String(options.contractId) };
+        }
+        var profit = Number(contract.profit);
+        if (!Number.isFinite(profit)) {
+          return { status: "unconfirmed", contractId: String(options.contractId) };
+        }
+        var status = String(contract.status || "").toLowerCase();
+        return {
+          status: "settled",
+          contractId: String(options.contractId),
+          won: status === "won" || (status !== "lost" && profit > 0),
+          pl: profit,
+          buyPrice: Number(contract.buy_price),
+          sellPrice: contract.sell_price,
+          payout: contract.payout,
+        };
+      });
+    }
+    var submittedAt = Number(options && options.submittedAt);
+    var expectedPrice = Number(options && options.buyPrice);
+    if (!Number.isFinite(submittedAt) || !Number.isFinite(expectedPrice) ||
+        !options.symbol || !options.contractType || options.barrier === undefined) {
+      return Promise.reject(new Error("Contract verification requires the submitted trade details"));
+    }
+    return Promise.all([
+      sendRequest({ portfolio: 1 }),
+      sendRequest({
+        profit_table: 1,
+        description: 1,
+        date_from: Math.max(0, submittedAt - 2),
+        limit: 500,
+      }),
+    ]).then(function (responses) {
+      var portfolio = responses[0].portfolio;
+      var profitTable = responses[1].profit_table;
+      if (!portfolio || !Array.isArray(portfolio.contracts) ||
+          !profitTable || !Array.isArray(profitTable.transactions)) {
+        throw new Error("Deriv returned incomplete contract verification data");
+      }
+      var openContracts = portfolio.contracts;
+      var closedContracts = profitTable.transactions;
+      var possibleContracts = {};
+      openContracts.concat(closedContracts).forEach(function (contract) {
+        if (!contract || !contract.contract_id || contract.contract_type !== options.contractType) return;
+        var price = Number(contract.buy_price);
+        if (!Number.isFinite(price) || Math.abs(price - expectedPrice) > 0.01) return;
+        var purchaseTime = Number(contract.purchase_time || contract.transaction_time);
+        if (!Number.isFinite(purchaseTime) || purchaseTime < submittedAt - 2 ||
+            purchaseTime > Math.floor(Date.now() / 1000) + 2) return;
+        var underlying = contract.underlying || contract.symbol;
+        var exactMatch = underlying === options.symbol &&
+          String(contract.barrier) === String(options.barrier);
+        var contractId = String(contract.contract_id);
+        if (!possibleContracts[contractId] || exactMatch) {
+          possibleContracts[contractId] = { contract: contract, exactMatch: exactMatch };
+        }
+      });
+      var contractIds = Object.keys(possibleContracts);
+      if (contractIds.length !== 1) {
+        return { status: contractIds.length ? "ambiguous" : "not_found" };
+      }
+      var candidate = possibleContracts[contractIds[0]];
+      if (!candidate.exactMatch) return { status: "inconclusive" };
+      var contract = candidate.contract;
+      var contractId = contractIds[0];
+      var isOpenContract = openContracts.some(function (entry) {
+        return String(entry.contract_id) === contractId;
+      });
+      if (isOpenContract) return { status: "open", contractId: contractId };
+      var isInProfitTable = closedContracts.some(function (entry) {
+        return String(entry.contract_id) === contractId;
+      });
+      var profit = Number(contract.profit);
+      if ((!isInProfitTable && !isContractSettled(contract)) || !Number.isFinite(profit)) {
+        return { status: "unconfirmed", contractId: contractId };
+      }
+      return {
+        status: "settled",
+        contractId: contractId,
+        won: String(contract.status || "").toLowerCase() === "won" ||
+          (String(contract.status || "").toLowerCase() !== "lost" && profit > 0),
+        pl: profit,
+        buyPrice: Number(contract.buy_price),
+        sellPrice: contract.sell_price,
+        payout: contract.payout,
+      };
+    });
+  }
+
   /* ── Post-authorize setup ───────────────────────────────────── */
   function afterAuthorize(acc) {
     var balReqId = nextReqId();
@@ -276,6 +416,9 @@
     if (acc.balance !== undefined) {
       syncBalance(acc.balance, acc.currency, acc.loginid);
     }
+    Object.keys(state.contractCbs).forEach(function (contractId) {
+      subscribeContractPOC(contractId);
+    });
   }
 
   /* ── Sync balance to Flask session + global event ───────────── */
@@ -335,7 +478,9 @@
     state.currency = currency || state.currency || null;
 
     if (state.ws) {
-      try { state.ws.close(); } catch (e) {}
+      var previousSocket = state.ws;
+      state.ws = null;
+      try { previousSocket.close(); } catch (e) {}
     }
 
      /* Public chart/tick streaming uses the same Options endpoint as the
@@ -347,6 +492,7 @@
     state.authorized = false;
 
     ws.onopen = function () {
+      if (ws !== state.ws) return;
       state.connected = true;
       state.reconnectCount = 0;
 
@@ -364,20 +510,25 @@
       }
     };
 
-    ws.onmessage = onMessage;
-    ws.onerror = function () {};
+    ws.onmessage = function (event) {
+      if (ws === state.ws) onMessage(event);
+    };
+    ws.onerror = function () {
+      if (ws === state.ws) {
+        try { ws.close(); } catch (error) {
+          console.error("[DerivWS] Failed to close errored socket:", error);
+          ws.onclose();
+        }
+      }
+    };
     ws.onclose = function () {
+      if (ws !== state.ws) return;
       state.connected = false;
       state.authorized = false;
-      Object.keys(state.pendingReqs).forEach(function (reqId) {
-        var pending = state.pendingReqs[reqId];
-        delete state.pendingReqs[reqId];
-        var error = new Error("WebSocket disconnected while request was pending");
-        error.connectionInterrupted = true;
-        pending.reject(error);
-      });
+      rejectPendingRequests("WebSocket disconnected while request was pending", true);
       state.tickSubIds = {};
       state.tickSubPending = {};
+      state.pocSubIds = {};
       scheduleReconnect();
     };
   }
@@ -386,6 +537,7 @@
     if (state.reconnectCount >= MAX_RECONNECTS) return;
     if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
     state.reconnectTimer = setTimeout(function () {
+      state.reconnectTimer = null;
       state.reconnectCount++;
 
       if (state.wsUrl) {
@@ -602,13 +754,19 @@
   /* ── Disconnect ─────────────────────────────────────────────── */
   function disconnect() {
     if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+    state.reconnectTimer = null;
     state.reconnectCount = MAX_RECONNECTS;
     if (state.ws) {
-      try { state.ws.close(); } catch (e) {}
+      var socket = state.ws;
       state.ws = null;
+      try { socket.close(); } catch (e) {}
     }
     state.connected = false;
     state.authorized = false;
+    rejectPendingRequests("Deriv connection was closed", true);
+    state.tickSubIds = {};
+    state.tickSubPending = {};
+    state.pocSubIds = {};
   }
 
   function requestBalance() {
@@ -635,7 +793,8 @@
     buyContractFromProposal: buyContractFromProposal,
     buyContract: buyContract,
     watchContract: watchContract,
-      requestBalance: requestBalance,
+    reconcileContract: reconcileContract,
+    requestBalance: requestBalance,
     isAuthorized: isAuthorized,
     getState: getState,
   };

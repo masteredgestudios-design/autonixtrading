@@ -418,6 +418,11 @@
       rapidTradeKind: null,
       rapidPurchaseConfirmed: false,
       rapidPendingSettlement: null,
+      rapidBuyIntent: null,
+      rapidReconcileTimerId: null,
+      rapidReconcileInFlight: false,
+      rapidNoMatchCount: 0,
+      rapidReconnectTimerId: null,
     };
   }
   var states = {};
@@ -1350,6 +1355,144 @@
     renderBot(state);
   }
 
+  function scheduleRapidReconciliation(state, tradeId) {
+    if (state.rapidReconcileTimerId || state.activeTradeId !== tradeId) return;
+    state.rapidReconcileTimerId = setTimeout(function () {
+      state.rapidReconcileTimerId = null;
+      reconcileRapidTrade(state, tradeId);
+    }, 5000);
+  }
+
+  function waitForRapidReconnect(state) {
+    if (state.rapidReconnectTimerId || !state.running) return;
+    state.rapidReconnectTimerId = setTimeout(function () {
+      state.rapidReconnectTimerId = null;
+      if (!state.running || state.activeTradeId !== null) return;
+      var connection = window.DerivWS && window.DerivWS.getState
+        ? window.DerivWS.getState() : null;
+      if (isAuthed() && connection && connection.connected) {
+        scheduleRapidTrade(state, state.recoveryMode ? "recovery" : "normal");
+      } else {
+        waitForRapidReconnect(state);
+      }
+    }, 1000);
+  }
+
+  function reconcileRapidTrade(state, tradeId) {
+    if (state.activeTradeId !== tradeId || state.rapidReconcileInFlight ||
+        (!state.rapidBuyIntent && !state.activeContractId)) return;
+    if (!window.DerivWS || typeof window.DerivWS.reconcileContract !== "function") {
+      state.statusText = "Order submitted — verification unavailable; no repeat trade will be placed";
+      renderBot(state);
+      scheduleRapidReconciliation(state, tradeId);
+      return;
+    }
+    state.rapidReconcileInFlight = true;
+    state.statusText = "Verifying submitted trade before continuing";
+    renderBot(state);
+    var verificationRequest = state.activeContractId
+      ? { contractId: state.activeContractId }
+      : state.rapidBuyIntent;
+    window.DerivWS.reconcileContract(verificationRequest).then(function (result) {
+      if (state.activeTradeId !== tradeId) return;
+      if (result.status === "open" || result.status === "settled") {
+        var wasAlreadyConfirmed = state.rapidPurchaseConfirmed;
+        var actualStake = Number(result.buyPrice ||
+          (state.rapidBuyIntent && state.rapidBuyIntent.buyPrice) || state.rapidActualStake);
+        state.rapidNoMatchCount = 0;
+        state.activeContractId = result.contractId;
+        state.rapidActualStake = actualStake;
+        state.rapidContractStatus = result.status === "open" ? "Settling" : "Settled";
+        state.rapidPurchaseConfirmed = true;
+        state.rapidBuyIntent = null;
+        state.tradePhase = result.status === "open" ? "active" : "settling";
+        if (!wasAlreadyConfirmed) {
+          state.totalStakeUsed = Number((state.totalStakeUsed + actualStake).toFixed(2));
+        }
+        if (result.status === "settled") {
+          handleSettlement(state, {
+            selection: "over",
+            digit: 1,
+            tradeType: "over-under",
+          }, actualStake, result, tradeId);
+          return;
+        }
+        state.statusText = "Recovered submitted contract — monitoring settlement";
+        if (!wasAlreadyConfirmed && typeof window.DerivWS.watchContract === "function") {
+          window.DerivWS.watchContract(result.contractId, function (settlement) {
+            if (state.activeTradeId !== tradeId) return;
+            handleSettlement(state, {
+              selection: "over",
+              digit: 1,
+              tradeType: "over-under",
+            }, actualStake, settlement, tradeId);
+          });
+        }
+        if (state.rapidPendingSettlement) {
+          var pendingSettlement = state.rapidPendingSettlement;
+          state.rapidPendingSettlement = null;
+          if (state.activeTradeId === tradeId) {
+            handleSettlement(state, {
+              selection: "over",
+              digit: 1,
+              tradeType: "over-under",
+            }, actualStake, pendingSettlement, tradeId);
+            return;
+          }
+        }
+        scheduleRapidReconciliation(state, tradeId);
+        renderBot(state);
+        renderSummary();
+        return;
+      }
+      if (result.status === "not_found") {
+        state.rapidNoMatchCount += 1;
+        var submittedAtMs = Number(state.rapidBuyIntent.submittedAt) * 1000;
+        if (state.rapidNoMatchCount >= 3 && Date.now() - submittedAtMs >= 45000) {
+          var retryKind = state.rapidTradeKind || (state.recoveryMode ? "recovery" : "normal");
+          state.activeTradeId = null;
+          state.rapidTradeKind = null;
+          state.rapidBuyIntent = null;
+          state.awaitingSettle = false;
+          state.tradePhase = "idle";
+          state.rapidReconcileInFlight = false;
+          if (state.rapidReconcileTimerId) {
+            clearTimeout(state.rapidReconcileTimerId);
+            state.rapidReconcileTimerId = null;
+          }
+          if (state._settleTimer) {
+            clearTimeout(state._settleTimer);
+            state._settleTimer = null;
+          }
+          state.statusText = "No matching contract found after repeated broker checks — resuming safely";
+          if (state.running) scheduleRapidTrade(state, retryKind);
+          renderBot(state);
+          renderSummary();
+          return;
+        }
+      } else {
+        state.rapidNoMatchCount = 0;
+      }
+      state.statusText = result.status === "ambiguous"
+        ? "Multiple matching contracts — verification required; no repeat trade will be placed"
+        : result.status === "not_found"
+          ? "Submitted trade not found yet — checking broker history again"
+          : "Submitted trade not yet confirmed — checking broker history again";
+      scheduleRapidReconciliation(state, tradeId);
+    }).catch(function (error) {
+      if (state.activeTradeId !== tradeId) return;
+      console.error("[Autonix] Rapid Over 1 contract verification failed:", error);
+      state.statusText = "Broker verification interrupted — reconnecting; no repeat trade will be placed";
+      scheduleRapidReconciliation(state, tradeId);
+    }).then(function () {
+      state.rapidReconcileInFlight = false;
+      if (state.activeTradeId === tradeId) {
+        renderBot(state);
+        renderSummary();
+      }
+    });
+  }
+
   function executeRapidTrade(state, tradeKind) {
     if (!state.running || state.awaitingSettle) return;
     if (tradeKind === "normal") {
@@ -1386,16 +1529,12 @@
     if (state._settleTimer) clearTimeout(state._settleTimer);
     state._settleTimer = setTimeout(function () {
       if (state.activeTradeId !== tradeId) return;
-      state.lossStopped = true;
       state.statusText = state.rapidPurchaseConfirmed
         ? "Settlement delayed — contract remains monitored"
-        : "Broker confirmation delayed — verify order status before restarting";
-      if (state.running) stopBot(state, "settlementTimeout");
-      else {
-        state._settleTimer = null;
-        renderBot(state);
-        renderSummary();
-      }
+        : "Broker confirmation delayed — checking submitted order before any retry";
+      reconcileRapidTrade(state, tradeId);
+      renderBot(state);
+      renderSummary();
     }, 45000);
 
     var proposalOptions;
@@ -1439,6 +1578,14 @@
       }
       state.statusText = tradeKind === "recovery" ? "Submitting recovery trade" : "Submitting normal trade";
       state.tradePhase = "submitting";
+      state.rapidBuyIntent = {
+        submittedAt: Math.floor(Date.now() / 1000),
+        buyPrice: Number(proposal.ask_price),
+        contractType: "DIGITOVER",
+        symbol: state.symbol,
+        barrier: "1",
+      };
+      state.rapidNoMatchCount = 0;
       renderBot(state);
       return window.DerivWS.buyContractFromProposal(
         proposalOptionsForProposal(state, proposal),
@@ -1473,6 +1620,7 @@
         state.rapidActualStake = actualStake;
         state.totalStakeUsed = Number((state.totalStakeUsed + actualStake).toFixed(2));
         state.rapidPurchaseConfirmed = true;
+        state.rapidBuyIntent = null;
         state.tradePhase = "active";
         state.statusText = (tradeKind === "recovery" ? "Recovery" : "Normal") +
           " trade settling";
@@ -1497,11 +1645,14 @@
         (!submittingOrder || (error && (error.apiRejected || error.notSent)));
       var intentionallyStopped = !state.running && !!(error && error.notSent);
       var orderStatusUnknown = !!(error && (
-        error.orderStatusUnknown || (submittingOrder && error.requestTimedOut)
+        error.orderStatusUnknown || (submittingOrder &&
+          ((error.requestTimedOut && error.requestSent) ||
+           (error.connectionInterrupted && error.requestSent)))
       ));
       if (definitelyNotPurchased) {
         state.activeTradeId = null;
         state.rapidTradeKind = null;
+        state.rapidBuyIntent = null;
         state.awaitingSettle = false;
         state.rapidPendingSettlement = null;
         state.tradePhase = "idle";
@@ -1510,7 +1661,24 @@
           state._settleTimer = null;
         }
       } else if (orderStatusUnknown) {
-        state.lossStopped = true;
+        state.tradePhase = "verifying";
+        state.statusText = "Order submission interrupted — reconnecting and verifying before continuing";
+        reconcileRapidTrade(state, tradeId);
+        renderBot(state);
+        renderSummary();
+        return;
+      }
+      if (definitelyNotPurchased && !state.running) {
+        if (intentionallyStopped) state.statusText = "Stopped";
+        renderBot(state);
+        return;
+      }
+      if (definitelyNotPurchased && error && error.connectionInterrupted) {
+        state.statusText = "Disconnected before purchase — waiting to reconnect before retrying";
+        waitForRapidReconnect(state);
+        renderBot(state);
+        renderSummary();
+        return;
       }
       state.statusText = intentionallyStopped
         ? "Stopped"
@@ -1753,6 +1921,13 @@
     state.activeTrade = false;
     state.activeTradeSignal = null;
     if (state._settleTimer) { clearTimeout(state._settleTimer); state._settleTimer = null; }
+    if (state.rapidReconcileTimerId) {
+      clearTimeout(state.rapidReconcileTimerId);
+      state.rapidReconcileTimerId = null;
+    }
+    state.rapidBuyIntent = null;
+    state.rapidReconcileInFlight = false;
+    state.rapidNoMatchCount = 0;
 
     var won = !!result.won;
     var pl  = parseFloat(result.pl) || 0;
@@ -1990,6 +2165,10 @@
       if (state.rapidCountdownTimerId) {
         clearTimeout(state.rapidCountdownTimerId);
         state.rapidCountdownTimerId = null;
+      }
+      if (state.rapidReconnectTimerId) {
+        clearTimeout(state.rapidReconnectTimerId);
+        state.rapidReconnectTimerId = null;
       }
       if (state._settleTimer && state.activeTradeId === null) {
         clearTimeout(state._settleTimer);
