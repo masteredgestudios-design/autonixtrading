@@ -69,6 +69,27 @@
   var connState = "unknown";
   var _connTimeoutId = null;
   function isAuthed() { return !!(window.DerivWS && window.DerivWS.isAuthorized()); }
+  function isInsufficientBalanceError(error) {
+    var code = String(error && error.apiCode || "").toLowerCase();
+    var message = String(error && error.message || "").toLowerCase();
+    return code.indexOf("insufficientbalance") !== -1 ||
+      (message.indexOf("insufficient") !== -1 && message.indexOf("balance") !== -1);
+  }
+  function isTemporaryBrokerError(error) {
+    if (!error) return false;
+    if (error.connectionInterrupted || error.requestTimedOut || error.networkError) return true;
+    var code = String(error.apiCode || "").toLowerCase();
+    return ["ratelimit", "servererror", "serviceunavailable", "marketisclosed",
+      "marketissuspended", "systemmaintenance", "internalerror"].indexOf(code) !== -1;
+  }
+  function isAuthenticationError(error) {
+    if (error && error.connectionInterrupted) return false;
+    if (error && error.authenticationFailed) return true;
+    var code = String(error && error.apiCode || "").toLowerCase();
+    var message = String(error && error.message || "").toLowerCase();
+    return code.indexOf("authorization") !== -1 || code.indexOf("authentication") !== -1 ||
+      message.indexOf("not authorized") !== -1 || message.indexOf("authentication") !== -1;
+  }
   function setConnState(s) {
     if (connState === s) return;
     connState = s;
@@ -421,7 +442,6 @@
       rapidBuyIntent: null,
       rapidReconcileTimerId: null,
       rapidReconcileInFlight: false,
-      rapidNoMatchCount: 0,
       rapidReconnectTimerId: null,
       rapidRunningDurationMs: 0,
       rapidRunningSince: null,
@@ -1408,17 +1428,19 @@
     }, 5000);
   }
 
-  function waitForRapidReconnect(state) {
+  function waitForRapidReconnect(state, tradeKind, executeImmediately) {
     if (state.rapidReconnectTimerId || !state.running) return;
     state.rapidReconnectTimerId = setTimeout(function () {
       state.rapidReconnectTimerId = null;
       if (!state.running || state.activeTradeId !== null) return;
       var connection = window.DerivWS && window.DerivWS.getState
         ? window.DerivWS.getState() : null;
-      if (isAuthed() && connection && connection.connected) {
-        scheduleRapidTrade(state, state.recoveryMode ? "recovery" : "normal");
+      if (isAuthed() && connection && connection.connected && Number.isFinite(LATEST_BALANCE)) {
+        var nextTradeKind = tradeKind || (state.recoveryMode ? "recovery" : "normal");
+        if (executeImmediately) executeRapidTrade(state, nextTradeKind);
+        else scheduleRapidTrade(state, nextTradeKind);
       } else {
-        waitForRapidReconnect(state);
+        waitForRapidReconnect(state, tradeKind, executeImmediately);
       }
     }, 1000);
   }
@@ -1444,7 +1466,6 @@
         var wasAlreadyConfirmed = state.rapidPurchaseConfirmed;
         var actualStake = Number(result.buyPrice ||
           (state.rapidBuyIntent && state.rapidBuyIntent.buyPrice) || state.rapidActualStake);
-        state.rapidNoMatchCount = 0;
         state.activeContractId = result.contractId;
         state.rapidActualStake = actualStake;
         state.rapidContractStatus = result.status === "open" ? "Settling" : "Settled";
@@ -1490,34 +1511,6 @@
         renderSummary();
         return;
       }
-      if (result.status === "not_found") {
-        state.rapidNoMatchCount += 1;
-        var submittedAtMs = Number(state.rapidBuyIntent.submittedAt) * 1000;
-        if (state.rapidNoMatchCount >= 3 && Date.now() - submittedAtMs >= 45000) {
-          var retryKind = state.rapidTradeKind || (state.recoveryMode ? "recovery" : "normal");
-          state.activeTradeId = null;
-          state.rapidTradeKind = null;
-          state.rapidBuyIntent = null;
-          state.awaitingSettle = false;
-          state.tradePhase = "idle";
-          state.rapidReconcileInFlight = false;
-          if (state.rapidReconcileTimerId) {
-            clearTimeout(state.rapidReconcileTimerId);
-            state.rapidReconcileTimerId = null;
-          }
-          if (state._settleTimer) {
-            clearTimeout(state._settleTimer);
-            state._settleTimer = null;
-          }
-          state.statusText = "No matching contract found after repeated broker checks — resuming safely";
-          if (state.running) scheduleRapidTrade(state, retryKind);
-          renderBot(state);
-          renderSummary();
-          return;
-        }
-      } else {
-        state.rapidNoMatchCount = 0;
-      }
       state.statusText = result.status === "ambiguous"
         ? "Multiple matching contracts — verification required; no repeat trade will be placed"
         : result.status === "not_found"
@@ -1545,13 +1538,15 @@
       state.currentStake = state.initialStake;
     }
     if (!isAuthed()) {
-      state.statusText = "Broker disconnected — trading stopped";
-      stopBot(state, "connection");
+      state.statusText = "Broker disconnected — waiting to reconnect";
+      waitForRapidReconnect(state, tradeKind, true);
+      renderBot(state);
       return;
     }
     if (!Number.isFinite(LATEST_BALANCE) || LATEST_BALANCE < 0) {
-      state.statusText = "Balance unavailable — trading stopped";
-      stopBot(state, "balanceUnavailable");
+      state.statusText = "Waiting for confirmed account balance";
+      waitForRapidReconnect(state, tradeKind, true);
+      renderBot(state);
       return;
     }
     if (!window.DerivWS || typeof window.DerivWS.getProposal !== "function" ||
@@ -1630,7 +1625,6 @@
         symbol: state.symbol,
         barrier: "1",
       };
-      state.rapidNoMatchCount = 0;
       renderBot(state);
       return window.DerivWS.buyContractFromProposal(
         proposalOptionsForProposal(state, proposal),
@@ -1679,12 +1673,15 @@
             digit: 1,
             tradeType: "over-under",
           }, actualStake, pendingResult, tradeId);
+        } else {
+          scheduleRapidReconciliation(state, tradeId);
         }
       });
     }).catch(function (error) {
       if (state.activeTradeId !== tradeId) return;
       var message = error && error.message ? error.message : "Rapid Over 1 order failed";
       console.error("[Autonix] Rapid Over 1 trade error:", message);
+      var retryKind = state.rapidTradeKind || tradeKind;
       var submittingOrder = state.tradePhase === "submitting";
       var definitelyNotPurchased = !state.rapidPurchaseConfirmed &&
         (!submittingOrder || (error && (error.apiRejected || error.notSent)));
@@ -1694,6 +1691,29 @@
           ((error.requestTimedOut && error.requestSent) ||
            (error.connectionInterrupted && error.requestSent)))
       ));
+      if (definitelyNotPurchased && isInsufficientBalanceError(error)) {
+        state.activeTradeId = null;
+        state.rapidTradeKind = null;
+        state.rapidBuyIntent = null;
+        state.awaitingSettle = false;
+        state.rapidPendingSettlement = null;
+        if (state._settleTimer) {
+          clearTimeout(state._settleTimer);
+          state._settleTimer = null;
+        }
+        state.statusText = "Insufficient balance — trading stopped";
+        stopBot(state, "insufficientBalance");
+        return;
+      }
+      if (definitelyNotPurchased && isAuthenticationError(error)) {
+        state.activeTradeId = null;
+        state.rapidTradeKind = null;
+        state.rapidBuyIntent = null;
+        state.awaitingSettle = false;
+        state.statusText = "Account authentication required — trading stopped";
+        stopBot(state, "auth");
+        return;
+      }
       if (definitelyNotPurchased) {
         state.activeTradeId = null;
         state.rapidTradeKind = null;
@@ -1718,9 +1738,9 @@
         renderBot(state);
         return;
       }
-      if (definitelyNotPurchased && error && error.connectionInterrupted) {
-        state.statusText = "Disconnected before purchase — waiting to reconnect before retrying";
-        waitForRapidReconnect(state);
+      if (definitelyNotPurchased && isTemporaryBrokerError(error)) {
+        state.statusText = "Temporary broker interruption — waiting to retry";
+        waitForRapidReconnect(state, retryKind, false);
         renderBot(state);
         renderSummary();
         return;
@@ -1945,18 +1965,9 @@
           result.pl === null || result.pl === undefined || String(result.pl).trim() === "" ||
           !Number.isFinite(Number(result.pl)) ||
           contractId === null || contractId === undefined || String(contractId).trim() === "") {
-        state.awaitingSettle = false;
-        state.tradePhase = "idle";
-        state.lossStopped = true;
-        state.statusText = "Settlement data unconfirmed — trading halted";
-        if (state._settleTimer) {
-          clearTimeout(state._settleTimer);
-          state._settleTimer = null;
-        }
-        if (state.running) stopBot(state, "orderError");
-        state.statusText = "Settlement data unconfirmed — trading halted";
+        state.statusText = "Settlement data incomplete — verifying contract with broker";
+        reconcileRapidTrade(state, rapidTradeId);
         renderBot(state);
-        window.showToast && window.showToast(state.def.name + ": broker settlement data was incomplete; trading halted", "red", 4500);
         return;
       }
       state.activeContractId = contractId;
@@ -1972,7 +1983,6 @@
     }
     state.rapidBuyIntent = null;
     state.rapidReconcileInFlight = false;
-    state.rapidNoMatchCount = 0;
 
     var won = !!result.won;
     var pl  = parseFloat(result.pl) || 0;
@@ -2224,6 +2234,7 @@
       state.nextTradeAt = 0;
       if (reason === "manual") state.statusText = "Stopped";
       if (reason === "connection") state.statusText = "Broker disconnected — trading stopped";
+      if (reason === "auth") state.statusText = state.statusText || "Account authentication required — trading stopped";
       if (reason === "balanceUnavailable") state.statusText = "Balance unavailable — trading stopped";
       if (reason === "insufficientBalance") state.statusText = "Insufficient balance — trading stopped";
       if (reason === "settlementTimeout" && !state.statusText) state.statusText = "Settlement delayed — trading stopped";
@@ -3293,12 +3304,23 @@
       var st = window.DerivWS.getState();
       var authed = !!(st && st.authorized);
       if (lastAuthed && !authed) {
-        BOT_DEFS.forEach(function (d) { if (states[d.id].running) stopBot(states[d.id], "connection"); });
+        BOT_DEFS.forEach(function (d) {
+          if (d.id !== "rapidOver1" && states[d.id].running) stopBot(states[d.id], "connection");
+        });
         setConnState(isAuth ? "connecting" : "disconnected");
       }
       lastAuthed = authed;
     }, 2500);
   }
+
+  document.addEventListener("derivAuthenticationRequired", function (event) {
+    setConnState("disconnected");
+    var rapidState = states.rapidOver1;
+    if (rapidState && rapidState.running) {
+      rapidState.statusText = event.detail && event.detail.message || "Account authentication required";
+      stopBot(rapidState, "auth");
+    }
+  });
 
   /* ─── Balance event ──────────────────────────────────────────── */
   document.addEventListener("derivBalance", function (e) {

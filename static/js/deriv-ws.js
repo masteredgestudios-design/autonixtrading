@@ -9,7 +9,7 @@
 
   var WS_URL = "wss://ws.derivws.com/websockets/v3?app_id=";
   var RECONNECT_DELAY = 3000;
-  var MAX_RECONNECTS = 10;
+  var MAX_RECONNECT_DELAY = 30000;
 
   var state = {
     ws: null,
@@ -28,6 +28,7 @@
     pocSubIds: {},      // contractId -> subscriptionId (for cleanup)
     reconnectCount: 0,
     reconnectTimer: null,
+    authenticationBlocked: false,
     tickSubIds: {},     // symbol -> subscriptionId
     tickSubPending: {}, // symbol -> subscription request in flight
     tickListenerId: 1,
@@ -85,12 +86,15 @@
         clearTimeout(timeoutId);
         var sendError = new Error("WebSocket not open");
         sendError.notSent = true;
+        sendError.connectionInterrupted = true;
         reject(sendError);
       } catch (error) {
         delete state.pendingReqs[id];
         clearTimeout(timeoutId);
-        error.notSent = true;
-        reject(error);
+        var sendError = error instanceof Error ? error : new Error(String(error));
+        sendError.notSent = true;
+        sendError.connectionInterrupted = true;
+        reject(sendError);
       }
     });
   }
@@ -114,6 +118,16 @@
       if (msg.error) {
         var apiError = new Error(msg.error.message || "Deriv API error");
         apiError.apiRejected = true;
+        apiError.apiCode = msg.error.code || "";
+        var apiCode = String(apiError.apiCode).toLowerCase();
+        if (apiCode.indexOf("authorization") !== -1 ||
+            apiCode.indexOf("authentication") !== -1 ||
+            apiCode.indexOf("invalidtoken") !== -1) {
+          state.authenticationBlocked = true;
+          document.dispatchEvent(new CustomEvent("derivAuthenticationRequired", {
+            detail: { message: apiError.message },
+          }));
+        }
         cb.reject(apiError);
       } else {
         cb.resolve(msg);
@@ -122,7 +136,13 @@
     }
 
     if (type === "authorize") {
-      if (!msg.error) {
+      if (msg.error) {
+        var authorizeError = msg.error;
+        state.authenticationBlocked = true;
+        document.dispatchEvent(new CustomEvent("derivAuthenticationRequired", {
+          detail: { message: authorizeError.message || "Account authorization failed" },
+        }));
+      } else {
         state.authorized = true;
         var acc = msg.authorize;
         state.accountId = acc.loginid;
@@ -476,6 +496,7 @@
     state.balanceCb = onBalance || null;
     state.wsUrl = wsUrl || null;
     state.currency = currency || state.currency || null;
+    state.authenticationBlocked = false;
 
     if (state.ws) {
       var previousSocket = state.ws;
@@ -534,27 +555,43 @@
   }
 
   function scheduleReconnect() {
-    if (state.reconnectCount >= MAX_RECONNECTS) return;
+    if (state.authenticationBlocked) return;
     if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
+    var delay = Math.min(RECONNECT_DELAY * Math.pow(2, state.reconnectCount), MAX_RECONNECT_DELAY);
     state.reconnectTimer = setTimeout(function () {
       state.reconnectTimer = null;
       state.reconnectCount++;
 
       if (state.wsUrl) {
         fetch("/auth/otp-url", { credentials: "include" })
-          .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+          .then(function (r) {
+            if (r.status === 401 || r.status === 403) {
+              var authError = new Error("Authentication expired; reconnect requires account login");
+              authError.authenticationFailed = true;
+              throw authError;
+            }
+            return r.ok ? r.json() : Promise.reject(new Error("OTP refresh failed: " + r.status));
+          })
           .then(function (data) {
             var freshUrl = (data && data.wsUrl) ? data.wsUrl : state.wsUrl;
             state.wsUrl = freshUrl;
             connect(state.appId, state.token, state.accountId, state.balanceCb, freshUrl, state.currency);
           })
-          .catch(function () {
+          .catch(function (error) {
+            if (error && error.authenticationFailed) {
+              state.authenticationBlocked = true;
+              state.reconnectCount = 0;
+              document.dispatchEvent(new CustomEvent("derivAuthenticationRequired", {
+                detail: { message: error.message },
+              }));
+              return;
+            }
             connect(state.appId, state.token, state.accountId, state.balanceCb, state.wsUrl, state.currency);
           });
       } else {
         connect(state.appId, state.token, state.accountId, state.balanceCb, null, state.currency);
       }
-    }, RECONNECT_DELAY);
+    }, delay);
   }
 
   /* ── Public tick API ────────────────────────────────────────── */
@@ -638,7 +675,11 @@
    */
   function getContractProposal(opts) {
     if (!state.authorized) {
-      return Promise.reject(new Error("Not authorized — please log in first"));
+      var authorizationError = new Error("Not authorized — please log in first");
+      authorizationError.notSent = true;
+      authorizationError.connectionInterrupted = !state.connected;
+      authorizationError.authenticationFailed = state.connected;
+      return Promise.reject(authorizationError);
     }
     var isNewApi = !!(state.wsUrl && state.wsUrl.indexOf("api.derivws.com") !== -1);
     var typeMap = (isNewApi ? CONTRACT_TYPE_MAP_NEW : CONTRACT_TYPE_MAP_LEGACY)[opts.tradeType];
@@ -699,7 +740,11 @@
 
   function buyFromContractProposal(opts, proposalDetails, onSettle) {
     if (!state.authorized) {
-      return Promise.reject(new Error("Not authorized — please log in first"));
+      var authorizationError = new Error("Not authorized — please log in first");
+      authorizationError.notSent = true;
+      authorizationError.connectionInterrupted = !state.connected;
+      authorizationError.authenticationFailed = state.connected;
+      return Promise.reject(authorizationError);
     }
     if (!proposalDetails || !proposalDetails.id || !Number.isFinite(Number(proposalDetails.ask_price))) {
       return Promise.reject(new Error("A valid broker proposal is required before purchase"));
@@ -755,7 +800,7 @@
   function disconnect() {
     if (state.reconnectTimer) clearTimeout(state.reconnectTimer);
     state.reconnectTimer = null;
-    state.reconnectCount = MAX_RECONNECTS;
+    state.reconnectCount = 0;
     if (state.ws) {
       var socket = state.ws;
       state.ws = null;

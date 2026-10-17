@@ -385,4 +385,58 @@ describe('Autonix Rapid Over 1 execution', () => {
     await confirmOrder(1, true, 1);
     expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:10');
   });
+
+  it('keeps the bot running through a disconnection at the next-trade time', async () => {
+    let authorized = true;
+    window.DerivWS.isAuthorized = jest.fn(() => authorized);
+    await startWithStake();
+    await confirmOrder(0, true, 1);
+
+    authorized = false;
+    jest.advanceTimersByTime(5000);
+    await flushPromises();
+    expect(orders).toHaveLength(1);
+    expect(document.getElementById('status-rapidOver1').textContent).toContain('Running');
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:10');
+
+    authorized = true;
+    jest.advanceTimersByTime(1000);
+    await waitForOrderCount(2);
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:11');
+  });
+
+  it('halts on a broker-confirmed insufficient balance without retrying', async () => {
+    await startWithStake();
+    const insufficientBalance = new Error('Insufficient balance for requested contract');
+    insufficientBalance.apiRejected = true;
+    insufficientBalance.apiCode = 'InsufficientBalance';
+    orders[0].reject(insufficientBalance);
+    await flushPromises();
+
+    expect(document.getElementById('rapid-status-label').textContent)
+      .toBe('Insufficient balance — trading stopped');
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:05');
+    jest.advanceTimersByTime(60000);
+    await flushPromises();
+    expect(orders).toHaveLength(1);
+  });
+
+  it('does not resume trading automatically after Stop during reconnect wait', async () => {
+    let authorized = true;
+    window.DerivWS.isAuthorized = jest.fn(() => authorized);
+    document.getElementById('start-rapidOver1').click();
+    authorized = false;
+    jest.advanceTimersByTime(5000);
+    await flushPromises();
+
+    expect(orders).toHaveLength(0);
+    expect(document.getElementById('status-rapidOver1').textContent).toContain('Running');
+    document.getElementById('start-rapidOver1').click();
+    authorized = true;
+    jest.advanceTimersByTime(10000);
+    await flushPromises();
+
+    expect(orders).toHaveLength(0);
+    expect(document.getElementById('status-rapidOver1').textContent).toContain('Stopped');
+  });
 });
