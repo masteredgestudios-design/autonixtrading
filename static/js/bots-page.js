@@ -423,6 +423,9 @@
       rapidReconcileInFlight: false,
       rapidNoMatchCount: 0,
       rapidReconnectTimerId: null,
+      rapidRunningDurationMs: 0,
+      rapidRunningSince: null,
+      rapidRuntimeTimerId: null,
     };
   }
   var states = {};
@@ -1310,6 +1313,48 @@
       String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
   }
 
+  function formatRapidRunningTime(durationMs) {
+    var totalSeconds = Math.floor(Math.max(0, durationMs) / 1000);
+    var hours = Math.floor(totalSeconds / 3600);
+    var minutes = Math.floor((totalSeconds % 3600) / 60);
+    var seconds = totalSeconds % 60;
+    return String(hours).padStart(2, "0") + ":" +
+      String(minutes).padStart(2, "0") + ":" +
+      String(seconds).padStart(2, "0");
+  }
+
+  function updateRapidRunningTime(state) {
+    var timer = document.getElementById("rapid-running-time");
+    if (!timer) return;
+    var elapsed = state.rapidRunningDurationMs;
+    if (state.running && state.rapidRunningSince !== null) {
+      elapsed += Date.now() - state.rapidRunningSince;
+    }
+    timer.textContent = formatRapidRunningTime(elapsed);
+  }
+
+  function startRapidRunningTime(state) {
+    if (state.rapidRunningSince === null) state.rapidRunningSince = Date.now();
+    if (!state.rapidRuntimeTimerId) {
+      state.rapidRuntimeTimerId = setInterval(function () {
+        updateRapidRunningTime(state);
+      }, 1000);
+    }
+    updateRapidRunningTime(state);
+  }
+
+  function pauseRapidRunningTime(state) {
+    if (state.rapidRunningSince !== null) {
+      state.rapidRunningDurationMs += Date.now() - state.rapidRunningSince;
+      state.rapidRunningSince = null;
+    }
+    if (state.rapidRuntimeTimerId) {
+      clearInterval(state.rapidRuntimeTimerId);
+      state.rapidRuntimeTimerId = null;
+    }
+    updateRapidRunningTime(state);
+  }
+
   function updateRapidCountdown(state) {
     var countdown = document.getElementById("rapid-countdown");
     if (!countdown) return;
@@ -2133,6 +2178,7 @@
     state.consecutiveLosses = 0;
     state.cooldownUntil = 0;
     state.running = true;
+    if (state.def.id === "rapidOver1") startRapidRunningTime(state);
     state.awaitingSettle = false;
     state.tradePhase = "idle";
     state.analysisStatus = state.def.id === "rapidOver1" ? "idle" : "analyzing";
@@ -2157,6 +2203,7 @@
   function stopBot(state, reason) {
     if (!state.running && reason !== "loss") return;
     state.running = false;
+    if (state.def.id === "rapidOver1") pauseRapidRunningTime(state);
     state.awaitingSettle = false;
     state.tradePhase = "idle";
     state.analysisStatus = "idle";
@@ -2274,6 +2321,12 @@
       state.analysisStatus = "analyzing";
     }
     if (state.def.id === "rapidOver1") {
+      state.rapidRunningDurationMs = 0;
+      state.rapidRunningSince = null;
+      if (state.rapidRuntimeTimerId) {
+        clearInterval(state.rapidRuntimeTimerId);
+        state.rapidRuntimeTimerId = null;
+      }
       state.totalStakeUsed = 0;
       state.accumulatedRecoveryLoss = 0;
       state.recoveryProfit = 0;
@@ -2650,6 +2703,7 @@
           '<div class="bot-stat"><span class="bot-stat-label">Losses</span><span class="bot-stat-val" id="losses-' + def.id + '">' + s.losses + '</span></div>' +
           '<div class="bot-stat"><span class="bot-stat-label">Win Rate</span><span class="bot-stat-val" id="wr-' + def.id + '">' + (s.trades ? ((s.wins / s.trades) * 100).toFixed(1) + '%' : '—') + '</span></div>' +
           '<div class="bot-stat"><span class="bot-stat-label">Maximum Loss Streak</span><span class="bot-stat-val" id="rapid-max-loss-streak">' + formatRapidLossStreak(s) + '</span></div>' +
+          '<div class="bot-stat"><span class="bot-stat-label">Bot Running Time</span><span class="bot-stat-val" id="rapid-running-time">' + formatRapidRunningTime(s.rapidRunningDurationMs) + '</span></div>' +
         '</div>' +
         '<div class="bot-trade-status rapid-status-panel" id="rapid-execution-status">' +
           '<div class="bot-trade-status-title">Trade execution</div>' +
@@ -2998,6 +3052,7 @@
       var rapidSessionPL = document.getElementById("rapid-session-pl");
       var rapidContract = document.getElementById("rapid-contract-id");
       var rapidLossStreak = document.getElementById("rapid-max-loss-streak");
+      var rapidRunningTime = document.getElementById("rapid-running-time");
       if (rapidStatus) rapidStatus.textContent = state.statusText || "Ready";
       if (rapidSymbol) rapidSymbol.textContent = state.symbol;
       if (rapidStake) {
@@ -3012,6 +3067,7 @@
       if (rapidSessionPL) rapidSessionPL.textContent = displaySignedMoney(state.sessionPL);
       if (rapidContract) rapidContract.textContent = state.rapidContractStatus;
       if (rapidLossStreak) rapidLossStreak.textContent = formatRapidLossStreak(state);
+      if (rapidRunningTime) updateRapidRunningTime(state);
       updateRapidCountdown(state);
     }
 

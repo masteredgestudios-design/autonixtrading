@@ -348,4 +348,41 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(orders).toHaveLength(1);
     expect(document.getElementById('rapid-countdown').textContent).toBe('Waiting for settlement');
   });
+
+  it('pauses and resumes the timestamp-based running timer, then resets it with the session', async () => {
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:00');
+    document.getElementById('start-rapidOver1').click();
+    jest.advanceTimersByTime(3725);
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:03');
+
+    document.getElementById('start-rapidOver1').click();
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:03');
+    jest.advanceTimersByTime(10000);
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:03');
+
+    document.getElementById('start-rapidOver1').click();
+    jest.advanceTimersByTime(1250);
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:04');
+    document.getElementById('reset-rapidOver1').click();
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:00');
+    jest.advanceTimersByTime(2000);
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:00');
+  });
+
+  it('keeps counting across recovery trades and a temporary authorization interruption', async () => {
+    let authorized = true;
+    window.DerivWS.isAuthorized = jest.fn(() => authorized);
+    await startWithStake();
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:05');
+    await confirmOrder(0, false, -2);
+
+    authorized = false;
+    jest.advanceTimersByTime(2000);
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:07');
+    authorized = true;
+    await waitForNextOrderCount(2, 3000);
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:10');
+    await confirmOrder(1, true, 1);
+    expect(document.getElementById('rapid-running-time').textContent).toBe('00:00:10');
+  });
 });
