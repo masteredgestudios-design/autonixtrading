@@ -155,6 +155,21 @@ describe('Autonix Rapid Over 1 execution', () => {
     expect(orders[3].options.stake).toBe(2);
   });
 
+  it('executes normal trades on the configured interval without waiting for a signal', async () => {
+    document.getElementById('input-stake-rapidOver1').value = '1';
+    document.getElementById('start-rapidOver1').click();
+
+    expect(document.getElementById('rapid-countdown').textContent).toBe('5s');
+    jest.advanceTimersByTime(5000);
+    await waitForOrderCount(1);
+
+    await confirmOrder(0, true, 1);
+    expect(document.getElementById('rapid-countdown').textContent).toBe('5s');
+    jest.advanceTimersByTime(5000);
+    await waitForOrderCount(2);
+    expect(orders[1].options.stake).toBe(1);
+  });
+
   it('displays one dollar outstanding after a one-dollar loss while preserving the recovery profit objective', async () => {
     await startWithStake('1');
 

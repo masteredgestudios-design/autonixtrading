@@ -330,6 +330,8 @@
       state.recoveryProfit = 0;
       state.recoveryMode = false;
       state.recoveryStake = 0;
+      state.rapidRecoveryEntryArmed = false;
+      state.rapidRecoveryPrediction = null;
       state.currentStake = state.initialStake;
       state.statusText = "Trade won — normal trading";
       return "next";
@@ -353,6 +355,8 @@
         state.recoveryProfit = 0;
         state.recoveryMode = false;
         state.recoveryStake = 0;
+        state.rapidRecoveryEntryArmed = false;
+        state.rapidRecoveryPrediction = null;
         state.currentStake = state.initialStake;
         state.statusText = "Recovery target achieved — normal trading";
         return "next";
@@ -463,6 +467,17 @@
   var tickBuffers = {};
   var TICK_WINDOW = 1000;
 
+  function refreshRapidRecoveryPrediction(state, symbol) {
+    if (!state.recoveryMode) {
+      state.rapidRecoveryPrediction = null;
+      return null;
+    }
+    state.rapidRecoveryPrediction = evaluateRapidRecoveryEntry(
+      tickBuffers[symbol] || [], Date.now(), symbol
+    );
+    return state.rapidRecoveryPrediction;
+  }
+
   function ensureSymbolStream(symbol) {
     if (tickBuffers[symbol]) return;
     tickBuffers[symbol] = [];
@@ -493,9 +508,7 @@
               refreshOver1LiveAnalysis(state);
               renderOver1LiveAnalysis(state);
             } else if (def.id === "rapidOver1" && state.symbol === symbol) {
-              state.rapidRecoveryPrediction = evaluateRapidRecoveryEntry(
-                tickBuffers[symbol], Date.now(), state.symbol
-              );
+              refreshRapidRecoveryPrediction(state, state.symbol);
               attemptRapidRecoveryEntry(state);
             }
           });
@@ -508,9 +521,7 @@
               refreshOver1LiveAnalysis(state);
               renderOver1LiveAnalysis(state);
             } else if (def.id === "rapidOver1" && state.symbol === symbol) {
-              state.rapidRecoveryPrediction = evaluateRapidRecoveryEntry(
-                tickBuffers[symbol], Date.now(), state.symbol
-              );
+              refreshRapidRecoveryPrediction(state, state.symbol);
             }
           });
         });
@@ -528,9 +539,7 @@
           var state = states[def.id];
           if (state.symbol !== symbol) return;
           if (def.id === "rapidOver1") {
-            state.rapidRecoveryPrediction = evaluateRapidRecoveryEntry(
-              tickBuffers[symbol], Date.now(), state.symbol
-            );
+            refreshRapidRecoveryPrediction(state, state.symbol);
             attemptRapidRecoveryEntry(state);
             if (state.rapidRecoveryEntryArmed) renderBot(state);
             return;
@@ -1702,10 +1711,7 @@
   function attemptRapidRecoveryEntry(state) {
     if (!state.running || !state.recoveryMode || !state.rapidRecoveryEntryArmed ||
         state.awaitingSettle || state.activeTradeId !== null) return;
-    var prediction = evaluateRapidRecoveryEntry(
-      tickBuffers[state.symbol] || [], Date.now(), state.symbol
-    );
-    state.rapidRecoveryPrediction = prediction;
+    var prediction = refreshRapidRecoveryPrediction(state, state.symbol);
     if (!prediction.shouldEnter || prediction.symbol !== state.symbol) {
       state.statusText = prediction.fresh
         ? "Monitoring " + state.symbol + " for recovery entry conditions"
@@ -3118,9 +3124,7 @@
         s.symbol = e.target.value;
         ensureSymbolStream(s.symbol);
         if (def.id === "rapidOver1") {
-          s.rapidRecoveryPrediction = evaluateRapidRecoveryEntry(
-            tickBuffers[s.symbol] || [], Date.now(), s.symbol
-          );
+          refreshRapidRecoveryPrediction(s, s.symbol);
         }
         if (def.id === "over1AiPredictor") {
           refreshOver1LiveAnalysis(s);
