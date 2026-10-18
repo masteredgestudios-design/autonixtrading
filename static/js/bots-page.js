@@ -284,10 +284,6 @@
   var DEFAULT_OVER1_PREVIOUS_TICK_COUNT = 3;
   var RAPID_OVER1_CONTRACT_DURATION_TICKS = 1;
   var RAPID_OVER1_RECOVERY_NET_PROFIT_RATE = 0.1765;
-  var RAPID_OVER1_PREDICTION_WINDOW = 200;
-  var RAPID_OVER1_BASELINE_OVER1_RATE = 0.8;
-  var RAPID_OVER1_PREDICTION_Z = 1.96;
-  var RAPID_OVER1_LIVE_ENTRY_FILTER_ENABLED = true;
 
   function getRapidOutstandingRecoveryLoss(state) {
     return Math.max(0, Number((
@@ -330,8 +326,6 @@
       state.recoveryProfit = 0;
       state.recoveryMode = false;
       state.recoveryStake = 0;
-      state.rapidRecoveryEntryArmed = false;
-      state.rapidRecoveryPrediction = null;
       state.currentStake = state.initialStake;
       state.statusText = "Trade won — normal trading";
       return "next";
@@ -355,8 +349,6 @@
         state.recoveryProfit = 0;
         state.recoveryMode = false;
         state.recoveryStake = 0;
-        state.rapidRecoveryEntryArmed = false;
-        state.rapidRecoveryPrediction = null;
         state.currentStake = state.initialStake;
         state.statusText = "Recovery target achieved — normal trading";
         return "next";
@@ -451,8 +443,6 @@
       rapidReconcileTimerId: null,
       rapidReconcileInFlight: false,
       rapidReconnectTimerId: null,
-      rapidRecoveryPrediction: null,
-      rapidRecoveryEntryArmed: false,
       rapidRunningDurationMs: 0,
       rapidRunningSince: null,
       rapidRuntimeTimerId: null,
@@ -466,17 +456,6 @@
   /* ─── Tick buffers ───────────────────────────────────────────── */
   var tickBuffers = {};
   var TICK_WINDOW = 1000;
-
-  function refreshRapidRecoveryPrediction(state, symbol) {
-    if (!state.recoveryMode) {
-      state.rapidRecoveryPrediction = null;
-      return null;
-    }
-    state.rapidRecoveryPrediction = evaluateRapidRecoveryEntry(
-      tickBuffers[symbol] || [], Date.now(), symbol
-    );
-    return state.rapidRecoveryPrediction;
-  }
 
   function ensureSymbolStream(symbol) {
     if (tickBuffers[symbol]) return;
@@ -507,9 +486,6 @@
             if (def.id === "over1AiPredictor" && state.symbol === symbol) {
               refreshOver1LiveAnalysis(state);
               renderOver1LiveAnalysis(state);
-            } else if (def.id === "rapidOver1" && state.symbol === symbol) {
-              refreshRapidRecoveryPrediction(state, state.symbol);
-              attemptRapidRecoveryEntry(state);
             }
           });
         })
@@ -520,8 +496,6 @@
             if (def.id === "over1AiPredictor" && state.symbol === symbol) {
               refreshOver1LiveAnalysis(state);
               renderOver1LiveAnalysis(state);
-            } else if (def.id === "rapidOver1" && state.symbol === symbol) {
-              refreshRapidRecoveryPrediction(state, state.symbol);
             }
           });
         });
@@ -538,12 +512,6 @@
         BOT_DEFS.forEach(function (def) {
           var state = states[def.id];
           if (state.symbol !== symbol) return;
-          if (def.id === "rapidOver1") {
-            refreshRapidRecoveryPrediction(state, state.symbol);
-            attemptRapidRecoveryEntry(state);
-            if (state.rapidRecoveryEntryArmed) renderBot(state);
-            return;
-          }
           if (def.id === "over1AiPredictor") {
             refreshOver1LiveAnalysis(state);
             renderOver1LiveAnalysis(state);
@@ -566,236 +534,6 @@
   function lastDigit(price) {
     var s = price.toFixed(2);
     return parseInt(s.charAt(s.length - 1), 10);
-  }
-
-  function evaluateRapidRecoveryEntry(ticks, now, symbol) {
-    var validTicks = Array.isArray(ticks) ? ticks.filter(function (tick) {
-      return tick && tick.price !== null && tick.price !== undefined &&
-        String(tick.price).trim() !== "" && Number.isFinite(Number(tick.price)) &&
-        Number.isFinite(Number(tick.time));
-    }) : [];
-    var windowTicks = validTicks.slice(-RAPID_OVER1_PREDICTION_WINDOW);
-    var latestTick = windowTicks.length ? windowTicks[windowTicks.length - 1] : null;
-    var digits = windowTicks.map(function (tick) { return lastDigit(Number(tick.price)); });
-    var digitCounts = new Array(10).fill(0);
-    digits.forEach(function (digit) { digitCounts[digit]++; });
-    var overCount = digits.filter(function (digit) { return digit >= 2; }).length;
-    var recentDigits = digits.slice(-20);
-    var recentOverCount = recentDigits.filter(function (digit) { return digit >= 2; }).length;
-    var sampleSize = digits.length;
-    var proportion = sampleSize ? overCount / sampleSize : 0;
-    var recentOverFrequency = recentDigits.length
-      ? recentOverCount / recentDigits.length : 0;
-    var zSquared = RAPID_OVER1_PREDICTION_Z * RAPID_OVER1_PREDICTION_Z;
-    var denominator = sampleSize ? 1 + zSquared / sampleSize : 1;
-    var center = sampleSize
-      ? proportion + zSquared / (2 * sampleSize)
-      : 0;
-    var margin = sampleSize
-      ? RAPID_OVER1_PREDICTION_Z * Math.sqrt(
-        (proportion * (1 - proportion) + zSquared / (4 * sampleSize)) / sampleSize
-      )
-      : 0;
-    var lowerBound = sampleSize ? (center - margin) / denominator : 0;
-    var currentTime = Number.isFinite(Number(now)) ? Number(now) : Date.now();
-    var latestObservedAt = latestTick && Number.isFinite(Number(latestTick.receivedAt))
-      ? Number(latestTick.receivedAt)
-      : latestTick && Number(latestTick.time);
-    var fresh = !!latestTick && currentTime >= latestObservedAt &&
-      currentTime - latestObservedAt <= 5000;
-    return {
-      ready: sampleSize === RAPID_OVER1_PREDICTION_WINDOW && fresh,
-      shouldEnter: sampleSize === RAPID_OVER1_PREDICTION_WINDOW && fresh &&
-        lowerBound > RAPID_OVER1_BASELINE_OVER1_RATE,
-      sampleSize: sampleSize,
-      overCount: overCount,
-      digitCounts: digitCounts,
-      digitFrequencies: digitCounts.map(function (count) {
-        return sampleSize ? count / sampleSize : 0;
-      }),
-      overFrequency: proportion,
-      recentOverFrequency: recentOverFrequency,
-      shortTermFrequencyChange: recentOverFrequency - proportion,
-      lowerBound: lowerBound,
-      fresh: fresh,
-      symbol: symbol || latestTick && latestTick.symbol || null,
-    };
-  }
-
-  function simulateRapidRecoveryEntries(ticks, options, usePrediction) {
-    var opts = options || {};
-    var sample = Array.isArray(ticks) ? ticks.filter(function (tick) {
-      return tick && Number.isFinite(Number(tick.price)) && Number.isFinite(Number(tick.time));
-    }).slice().sort(function (left, right) {
-      return Number(left.time) - Number(right.time);
-    }) : [];
-    var stake = Math.max(0.35, Number(opts.initialStake) || 1);
-    var accumulatedLoss = 0;
-    var recoveryProfit = 0;
-    var inRecovery = false;
-    var recoveryStartedAt = 0;
-    var pendingRecoveryDelay = 0;
-    var recoveryExposure = 0;
-    var consecutiveLosses = 0;
-    var nextEntryIndex = 0;
-    var lastSettlementTime = null;
-    var intervalMs = Math.max(0, Number(opts.intervalSeconds) || 0) * 1000;
-    var result = {
-      trades: 0,
-      wins: 0,
-      losses: 0,
-      recoveryTrades: 0,
-      recoveryWins: 0,
-      recoveryCyclesStarted: 0,
-      recoveryCyclesRecovered: 0,
-      recoveryEntryDelayMs: 0,
-      recoveryEntryDelays: 0,
-      netProfitLoss: 0,
-      maximumConsecutiveLosses: 0,
-      maximumRecoveryExposure: 0,
-      totalStake: 0,
-      samples: 0,
-    };
-
-    while (nextEntryIndex < sample.length - 1) {
-      var entryIndex = nextEntryIndex;
-      if (lastSettlementTime !== null) {
-        var dueTime = lastSettlementTime + intervalMs;
-        while (entryIndex < sample.length - 1 &&
-            Number(sample[entryIndex].time) < dueTime) entryIndex++;
-      }
-      if (entryIndex >= sample.length - 1) break;
-
-      if (inRecovery) {
-        pendingRecoveryDelay = Math.max(
-          0, Number(sample[entryIndex].time) - recoveryStartedAt
-        );
-      }
-      if (usePrediction && inRecovery) {
-        var signal = evaluateRapidRecoveryEntry(
-          sample.slice(Math.max(0, entryIndex - RAPID_OVER1_PREDICTION_WINDOW), entryIndex),
-          Number(sample[entryIndex].time)
-        );
-        if (!signal.shouldEnter) {
-          nextEntryIndex = entryIndex + 1;
-          continue;
-        }
-      }
-
-      var isRecoveryTrade = inRecovery;
-      var tradeStake = isRecoveryTrade
-        ? Math.max(0.35, Number((Math.max(0, accumulatedLoss - recoveryProfit) /
-          RAPID_OVER1_RECOVERY_NET_PROFIT_RATE).toFixed(2)))
-        : stake;
-      if (!Number.isFinite(tradeStake) || tradeStake > 5000) break;
-      var won = lastDigit(Number(sample[entryIndex + 1].price)) >= 2;
-      var profitLoss = won
-        ? Number((tradeStake * RAPID_OVER1_RECOVERY_NET_PROFIT_RATE).toFixed(2))
-        : -tradeStake;
-
-      result.trades++;
-      result.samples++;
-      result.totalStake = Number((result.totalStake + tradeStake).toFixed(2));
-      result.netProfitLoss = Number((result.netProfitLoss + profitLoss).toFixed(2));
-      if (isRecoveryTrade) {
-        result.recoveryTrades++;
-        if (result.recoveryEntryDelays === result.recoveryCyclesStarted) {
-          result.recoveryEntryDelayMs += pendingRecoveryDelay;
-          result.recoveryEntryDelays++;
-        }
-        result.maximumRecoveryExposure = Math.max(
-          result.maximumRecoveryExposure, recoveryExposure + tradeStake
-        );
-      }
-      if (won) {
-        result.wins++;
-        consecutiveLosses = 0;
-        if (isRecoveryTrade) {
-          result.recoveryWins++;
-          recoveryProfit = Number((recoveryProfit + profitLoss).toFixed(2));
-          if (recoveryProfit + 0.005 >= accumulatedLoss) {
-            result.recoveryCyclesRecovered++;
-            inRecovery = false;
-            accumulatedLoss = 0;
-            recoveryProfit = 0;
-            recoveryExposure = 0;
-          }
-        }
-      } else {
-        result.losses++;
-        consecutiveLosses++;
-        result.maximumConsecutiveLosses = Math.max(
-          result.maximumConsecutiveLosses, consecutiveLosses
-        );
-        if (!isRecoveryTrade) {
-          result.recoveryCyclesStarted++;
-          recoveryStartedAt = Number(sample[entryIndex + 1].time);
-          recoveryExposure = 0;
-          inRecovery = true;
-        }
-        accumulatedLoss = Number((accumulatedLoss + tradeStake).toFixed(2));
-        recoveryExposure = Number((recoveryExposure + tradeStake).toFixed(2));
-        result.maximumRecoveryExposure = Math.max(
-          result.maximumRecoveryExposure, recoveryExposure
-        );
-      }
-      lastSettlementTime = Number(sample[entryIndex + 1].time);
-      nextEntryIndex = entryIndex + 1;
-    }
-
-    result.winRate = result.trades ? result.wins / result.trades : 0;
-    result.recoveryRate = result.recoveryCyclesStarted
-      ? result.recoveryCyclesRecovered / result.recoveryCyclesStarted : 0;
-    result.recoveryWinRate = result.recoveryTrades
-      ? result.recoveryWins / result.recoveryTrades : 0;
-    result.averageRecoveryEntryDelayMs = result.recoveryEntryDelays
-      ? result.recoveryEntryDelayMs / result.recoveryEntryDelays : 0;
-    return result;
-  }
-
-  function validateRapidRecoveryHistory(options) {
-    var opts = options || {};
-    var development = Array.isArray(opts.developmentTicks) ? opts.developmentTicks : [];
-    var validation = Array.isArray(opts.validationTicks) ? opts.validationTicks : [];
-    var developmentEnd = development.reduce(function (end, tick) {
-      var time = Number(tick && tick.time);
-      return Number.isFinite(time) ? Math.max(end, time) : end;
-    }, -Infinity);
-    var validationStart = validation.reduce(function (start, tick) {
-      var time = Number(tick && tick.time);
-      return Number.isFinite(time) ? Math.min(start, time) : start;
-    }, Infinity);
-    var distinctData = development !== validation &&
-      development.length > 0 && validation.length > 0 &&
-      developmentEnd < validationStart;
-    function compare(ticks) {
-      var intervalOnly = simulateRapidRecoveryEntries(ticks, opts, false);
-      var prediction = simulateRapidRecoveryEntries(ticks, opts, true);
-      return {
-        intervalOnly: intervalOnly,
-        prediction: prediction,
-        netProfitImprovement: Number(
-          (prediction.netProfitLoss - intervalOnly.netProfitLoss).toFixed(2)
-        ),
-      };
-    }
-    var devReport = compare(development);
-    var validationReport = compare(validation);
-    var validationCandidate = validationReport.prediction;
-    var validationBaseline = validationReport.intervalOnly;
-    var materialImprovement = validationCandidate.netProfitLoss -
-      validationBaseline.netProfitLoss >= Math.max(0.01, validationCandidate.totalStake * 0.01);
-    var eligible = distinctData && validationCandidate.trades >= 1000 &&
-      materialImprovement &&
-      validationCandidate.recoveryRate >= validationBaseline.recoveryRate &&
-      validationCandidate.maximumConsecutiveLosses <= validationBaseline.maximumConsecutiveLosses &&
-      validationCandidate.maximumRecoveryExposure <= validationBaseline.maximumRecoveryExposure;
-    return {
-      development: devReport,
-      validation: validationReport,
-      distinctSamples: distinctData,
-      liveEntryFilterEligible: eligible,
-    };
   }
 
   function tickKey(tick) {
@@ -1650,8 +1388,6 @@
       countdown.textContent = state.statusText === "Ready" ? "Ready" : "Stopped";
     } else if (state.awaitingSettle) {
       countdown.textContent = "Waiting for settlement";
-    } else if (state.rapidRecoveryEntryArmed) {
-      countdown.textContent = "Waiting for recovery signal";
     } else if (state.nextTradeAt) {
       var remainingMs = state.nextTradeAt - Date.now();
       countdown.textContent = remainingMs <= 0 ? "Executing\u2026" : formatRapidCountdown(remainingMs);
@@ -1663,7 +1399,6 @@
   function scheduleRapidTrade(state, tradeKind) {
     if (!state.running || state.awaitingSettle) return;
     if (state.rapidCountdownTimerId) clearTimeout(state.rapidCountdownTimerId);
-    state.rapidRecoveryEntryArmed = false;
     state.nextTradeAt = Date.now() + state.intervalSeconds * 1000;
     state.statusText = "Next " + tradeKind + " trade scheduled";
     function armTimer() {
@@ -1672,11 +1407,7 @@
         state.rapidCountdownTimerId = null;
         if (!state.running || state.awaitingSettle) return;
         state.nextTradeAt = 0;
-        if (tradeKind === "recovery") {
-          armRapidRecoveryEntry(state);
-        } else {
-          executeRapidTrade(state, tradeKind);
-        }
+        executeRapidTrade(state, tradeKind);
         return;
       }
       state.rapidCountdownTimerId = setTimeout(function () {
@@ -1688,39 +1419,11 @@
           return;
         }
         state.nextTradeAt = 0;
-        if (tradeKind === "recovery") {
-          armRapidRecoveryEntry(state);
-        } else {
-          executeRapidTrade(state, tradeKind);
-        }
+        executeRapidTrade(state, tradeKind);
       }, Math.min(1000, remainingMs));
     }
     armTimer();
     renderBot(state);
-  }
-
-  function armRapidRecoveryEntry(state) {
-    if (!state.running || !state.recoveryMode || state.awaitingSettle ||
-        state.activeTradeId !== null) return;
-    state.rapidRecoveryEntryArmed = true;
-    state.statusText = "Recovery interval elapsed — waiting for a fresh Over 1 entry signal";
-    attemptRapidRecoveryEntry(state);
-    renderBot(state);
-  }
-
-  function attemptRapidRecoveryEntry(state) {
-    if (!state.running || !state.recoveryMode || !state.rapidRecoveryEntryArmed ||
-        state.awaitingSettle || state.activeTradeId !== null) return;
-    var prediction = refreshRapidRecoveryPrediction(state, state.symbol);
-    if (!prediction.shouldEnter || prediction.symbol !== state.symbol) {
-      state.statusText = prediction.fresh
-        ? "Monitoring " + state.symbol + " for recovery entry conditions"
-        : "Waiting for fresh " + state.symbol + " tick data for recovery entry";
-      return;
-    }
-    state.rapidRecoveryEntryArmed = false;
-    state.statusText = "Recovery entry conditions met — submitting trade";
-    executeRapidTrade(state, "recovery");
   }
 
   function scheduleRapidReconciliation(state, tradeId) {
@@ -1740,10 +1443,7 @@
         ? window.DerivWS.getState() : null;
       if (isAuthed() && connection && connection.connected && Number.isFinite(LATEST_BALANCE)) {
         var nextTradeKind = tradeKind || (state.recoveryMode ? "recovery" : "normal");
-        if (nextTradeKind === "recovery" && executeImmediately) {
-          armRapidRecoveryEntry(state);
-        }
-        else if (executeImmediately) executeRapidTrade(state, nextTradeKind);
+        if (executeImmediately) executeRapidTrade(state, nextTradeKind);
         else scheduleRapidTrade(state, nextTradeKind);
       } else {
         waitForRapidReconnect(state, tradeKind, executeImmediately);
@@ -2533,7 +2233,6 @@
         clearTimeout(state.rapidReconnectTimerId);
         state.rapidReconnectTimerId = null;
       }
-      state.rapidRecoveryEntryArmed = false;
       if (state._settleTimer && state.activeTradeId === null) {
         clearTimeout(state._settleTimer);
         state._settleTimer = null;
@@ -2613,7 +2312,6 @@
       state.rapidCountdownTimerId = null;
     }
     state.rapidTradeKind = null;
-    state.rapidRecoveryEntryArmed = false;
     state.activeContractId = null;
     state.lossStopped = false;
     state.takeProfitReached = false;
@@ -3123,9 +2821,6 @@
       symbolSel.addEventListener("change", function (e) {
         s.symbol = e.target.value;
         ensureSymbolStream(s.symbol);
-        if (def.id === "rapidOver1") {
-          refreshRapidRecoveryPrediction(s, s.symbol);
-        }
         if (def.id === "over1AiPredictor") {
           refreshOver1LiveAnalysis(s);
           renderOver1LiveAnalysis(s);
@@ -3823,14 +3518,6 @@
       session.tradeAllowed = true;
       return { running: session.running, lossStopped: false, takeProfitReached: false, tradeAllowed: true, sessionProfit: session.sessionProfit, currentStake: session.currentStake };
     },
-  };
-
-  window.AutonixRapidOver1Prediction = {
-    windowSize: RAPID_OVER1_PREDICTION_WINDOW,
-    liveEntryFilterEnabled: RAPID_OVER1_LIVE_ENTRY_FILTER_ENABLED,
-    evaluateRecoveryEntry: evaluateRapidRecoveryEntry,
-    simulateRecoveryEntries: simulateRapidRecoveryEntries,
-    validateHistory: validateRapidRecoveryHistory,
   };
 
   window.AutonixFreeBotStrategy = {
