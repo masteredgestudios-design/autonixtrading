@@ -85,3 +85,67 @@ describe('Over 1 AI Predictor model', () => {
     expect(stopped.tradeAllowed).toBe(false);
   });
 });
+
+describe('Over 1 AI Predictor tick stream', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.resetModules();
+    document.body.innerHTML = '<div id="bots-grid"><div id="bot-cards-render-target"></div></div>';
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    delete window.DerivWS;
+    delete window.SESSION_DATA;
+  });
+
+  it('counts seeded and live ticks once across duplicate updates and repeated stream setup', async () => {
+    const listeners = [];
+    window.SESSION_DATA = { isAuthenticated: false };
+    window.DerivWS = {
+      getState: () => ({ connected: true, authorized: false }),
+      isAuthorized: () => false,
+      getHistory: jest.fn(() => Promise.resolve([
+        { price: 1.02, time: 100000 },
+        { price: 1.03, time: 101000 },
+      ])),
+      subscribeTicks: jest.fn((symbol, callback) => {
+        listeners.push(callback);
+        return jest.fn();
+      }),
+    };
+
+    require('../static/js/bots-page.js');
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    window.AutonixCore.ensureSymbolStream('1HZ100V');
+    document.dispatchEvent(new CustomEvent('derivBalance', {
+      detail: { balance: 100, currency: 'USD' },
+    }));
+
+    expect(window.DerivWS.subscribeTicks).toHaveBeenCalledTimes(1);
+    expect(listeners).toHaveLength(1);
+
+    const onTick = listeners[0];
+    onTick({ quote: 1.03, epoch: 101 });
+    onTick({ quote: 1.04, epoch: 102 });
+    onTick({ quote: 1.04, epoch: 102 });
+    onTick({ quote: 1.05, epoch: 103 });
+
+    const ticks = window.AutonixCore.tickBuffers['1HZ100V'];
+    const analysis = window.AutonixOver1Predictor.analyzePreviousTicks(ticks, 3);
+    const frequencyCounts = window.AutonixCore.countDigits(ticks, ticks.length);
+
+    expect(ticks).toHaveLength(4);
+    expect(frequencyCounts.reduce((total, count) => total + count, 0)).toBe(4);
+    expect(analysis).toEqual({
+      ready: true,
+      shouldTrade: true,
+      digits: [3, 4, 5],
+    });
+    expect(document.getElementById('live-digits-over1AiPredictor').textContent).toBe('3  ·  4  ·  5');
+  });
+});
