@@ -131,7 +131,7 @@ describe('Free Bot Rise/Fall analysis', () => {
     jest.useRealTimers();
   });
 
-  it('keeps Basic activation and renders Expert as inert Coming Soon', async () => {
+  it('keeps Basic activation and renders Expert with the Over 1 predictor controls', async () => {
     jest.useFakeTimers();
     const response = (body) => ({ ok: true, json: () => Promise.resolve(body) });
     global.fetch = jest.fn((url, options) => {
@@ -151,12 +151,12 @@ describe('Free Bot Rise/Fall analysis', () => {
     document.getElementById('validate-basicBot').click();
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
     expect(document.getElementById('start-basicBot')).toBeTruthy();
-    const expertCard = document.querySelector('.expert-coming-soon-card');
+    const expertCard = document.getElementById('card-over1AiPredictor');
     expect(expertCard.textContent).toContain('EXPERT BOT');
-    expect(expertCard.textContent).toContain('COMING SOON');
-    expect(expertCard.textContent).toContain('The Expert Bot will be available soon.');
-    expect(expertCard.querySelector('button, input, select')).toBeNull();
-    expect(global.fetch.mock.calls.some(([url]) => String(url).includes('expert'))).toBe(false);
+    expect(expertCard.textContent).toContain('Selective Over 1 entries');
+    expect(expertCard.querySelector('#start-over1AiPredictor')).toBeTruthy();
+    expect(expertCard.querySelector('#input-stake-over1AiPredictor')).toBeTruthy();
+    expect(expertCard.querySelector('#live-analysis-over1AiPredictor')).toBeTruthy();
     jest.clearAllTimers();
     jest.useRealTimers();
   });

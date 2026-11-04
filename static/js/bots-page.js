@@ -140,7 +140,7 @@
     },
     {
       id: "over1AiPredictor",
-      name: "Over 1 AI Predictor",
+      name: "EXPERT BOT",
       tier: "ai",
       duration: 1,
       tradeType: "over-under",
@@ -1356,7 +1356,7 @@
         won: won,
       });
       window.showToast && window.showToast(
-        "Over 1 AI Predictor: " + (won ? "win" : "loss") + " recorded",
+        "Expert Bot: " + (won ? "win" : "loss") + " recorded",
         won ? "green" : "red", 3500
       );
     } else {
@@ -1828,9 +1828,9 @@
         '<div class="bot-card-header">' +
           '<div class="bot-card-icon">' + def.icon + '</div>' +
           '<div class="bot-card-title-wrap">' +
-            '<span class="bot-tier-badge bot-tier-ai">AI</span>' +
+            '<span class="bot-tier-badge bot-tier-expert">EXPERT</span>' +
             '<h2 class="bot-card-name">' + def.name + '</h2>' +
-            '<p class="bot-card-tagline">Over 1 signals from configurable recent tick digits</p>' +
+            '<p class="bot-card-tagline">Selective Over 1 entries from configurable recent tick digits</p>' +
           '</div>' +
           '<span class="bot-status-pill stopped" id="status-' + def.id + '">' +
             '<span class="bot-status-dot"></span>' +
@@ -2342,19 +2342,6 @@
     var grid = document.getElementById("bot-cards-render-target");
     if (!grid) return;
     grid.innerHTML = "";
-    var comingSoon = document.createElement("article");
-    comingSoon.className = "bot-card bot-card-premium expert-coming-soon-card";
-    comingSoon.setAttribute("aria-labelledby", "expert-coming-soon-title");
-    comingSoon.innerHTML =
-      '<div class="bot-card-header">' +
-        '<div class="bot-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c4 2 7 5 8 10-3 2-6 3-10 3L7 12c0-4 1-7 5-10Z"/><path d="m10 15-1 5 4-4M8 8l-4 1 4 4"/><circle cx="15" cy="8" r="1"/></svg></div>' +
-        '<div class="bot-card-title-wrap"><span class="bot-tier-badge bot-tier-expert">EXPERT</span><h2 class="bot-card-name" id="expert-coming-soon-title">EXPERT BOT</h2></div>' +
-      '</div>' +
-      '<div class="expert-coming-soon-body">' +
-        '<span class="expert-coming-soon-label">COMING SOON</span>' +
-        '<p class="expert-coming-soon-message">We\'re working on something powerful. The Expert Bot will be available soon.</p>' +
-      '</div>';
-    grid.appendChild(comingSoon);
     BOT_DEFS.forEach(function (def) {
       var article = document.createElement("article");
       article.className = "bot-card" + (def.requiresActivation ? " bot-card-premium" : "");

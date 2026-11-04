@@ -1,4 +1,4 @@
-describe('Over 1 AI Predictor model', () => {
+describe('Expert Bot model', () => {
   const makeTicks = (digits) => digits.map((digit) => ({ price: Number(`1.0${digit}`) }));
 
   beforeEach(() => {
@@ -86,7 +86,7 @@ describe('Over 1 AI Predictor model', () => {
   });
 });
 
-describe('Over 1 AI Predictor tick stream', () => {
+describe('Expert Bot tick stream', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.resetModules();

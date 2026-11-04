@@ -277,7 +277,6 @@ def _post_form(url: str, payload: dict, timeout: int = 15):
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw = resp.read()
-        # Handle gzip-compressed responses (Accept-Encoding: gzip)
         import gzip as _gzip
 
         try:
