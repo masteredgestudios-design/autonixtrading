@@ -54,7 +54,7 @@
           </div>
           <div class="bots-summary-item">
             <span class="bots-summary-label">Active Bots</span>
-            <span class="bots-summary-value" id="bots-active-count">0 / 5</span>
+            <span class="bots-summary-value" id="bots-active-count">0 / 4</span>
           </div>
           <div class="bots-summary-item">
             <span class="bots-summary-label">Session P/L</span>
@@ -78,8 +78,6 @@
       </header>
 
       <div class="bots-grid" id="bots-grid">
-        {% include "partials/ai_trader.html" %}
-
         <div class="bots-render-target" id="bot-cards-render-target">
           <!-- Bot cards rendered by bots-page.js -->
         </div>
@@ -259,5 +257,4 @@
 {% endblock %} {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/bots-page.js') }}?v=42"></script>
 <script src="{{ url_for('static', filename='js/bulk-trader.js') }}?v=5"></script>
-<script src="{{ url_for('static', filename='js/ai-trader.js') }}?v=2"></script>
 {% endblock %}

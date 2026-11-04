@@ -141,28 +141,27 @@
     {
       id: "over1AiPredictor",
       name: "EXPERT BOT",
-      tier: "ai",
+      tier: "expert",
       duration: 1,
       tradeType: "over-under",
       martingale: 4.5,
       defaults: { stake: 10, tp: 5, sl: 100 },
       accent: "#8b5cf6",
-      requiresActivation: false,
+      requiresActivation: true,
+      activationTier: "expert",
+      price: 100,
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16M7 15l3-5 3 3 4-7"/><path d="M19 5h2v2"/></svg>',
     },
   ];
 
-  /* ─── Activation state (session-only, no localStorage) ───────── */
-  var activationState = { freeBot: true, basicBot: false };
+  /* ─── Activation state (backend-authoritative) ───────────────── */
+  var activationState = { freeBot: true, basicBot: false, over1AiPredictor: false };
   var activationTimers = {};
-  var activationActivityTimers = {};
-  var ACTIVATION_TIMEOUT_MS = 10 * 60 * 1000;
 
   function scheduleActivationExpiry(botId, remainingSeconds) {
     clearTimeout(activationTimers[botId]);
-    var delay = Number.isFinite(Number(remainingSeconds))
-      ? Math.max(0, Number(remainingSeconds) * 1000)
-      : ACTIVATION_TIMEOUT_MS;
+    if (remainingSeconds === null || remainingSeconds === undefined) return;
+    var delay = Math.max(0, Number(remainingSeconds) * 1000);
     activationTimers[botId] = setTimeout(function () { expireActivation(botId); }, delay);
   }
 
@@ -171,24 +170,11 @@
     var def = BOT_DEFS.find(function (item) { return item.id === botId; });
     activationState[botId] = false;
     clearTimeout(activationTimers[botId]);
-    fetch("/api/activation-session", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "lock", tier: def.activationTier }),
-    }).catch(function () {});
+    var botState = states[botId];
+    if (botState && botState.running) stopBot(botState, "activation");
     document.dispatchEvent(new CustomEvent("autonix:activation-expired", {
-      detail: { tier: def.activationTier },
+      detail: { tier: def && def.activationTier },
     }));
-    if (botId === "basicBot") {
-      var basicState = states[botId];
-      if (basicState && basicState.running) {
-        basicState.running = false;
-        basicState.analysisStatus = "idle";
-        renderBot(basicState);
-        renderSummary();
-      }
-    }
     renderCardContent(botId);
   }
 
@@ -209,28 +195,37 @@
     });
   }
 
-  function recordBotActivity(event) {
-    var target = event.target;
-    var card = target && target.closest && target.closest("#card-basicBot");
-    if (!card) return;
-    var botId = card.id.replace("card-", "");
-    if (!activationState[botId]) return;
+  function verifyActivation(tier) {
+    return fetch("/api/activation-check", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tier: tier }),
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        if (!response.ok || data.active !== true) throw new Error(data.error || "Activation unavailable");
+        return data;
+      });
+    });
+  }
+
+  function pollActivationStatus(botId) {
     var def = BOT_DEFS.find(function (item) { return item.id === botId; });
-    scheduleActivationExpiry(botId, ACTIVATION_TIMEOUT_MS / 1000);
-    clearTimeout(activationActivityTimers[botId]);
-    activationActivityTimers[botId] = setTimeout(function () {
-      fetch("/api/activation-session", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "activity", tier: def.activationTier }),
-      }).then(function (response) {
-        return response.ok ? response.json() : Promise.reject(new Error("Activation expired"));
-      }).then(function (data) {
-        if (data.active) scheduleActivationExpiry(botId, data.remaining_seconds);
-        else expireActivation(botId);
-      }).catch(function () { expireActivation(botId); });
-    }, 200);
+    if (!def || !def.requiresActivation) return;
+    fetch("/api/activation-session?tier=" + encodeURIComponent(def.activationTier), {
+      credentials: "include",
+    }).then(function (response) {
+      return response.ok ? response.json() : Promise.reject(new Error("Activation unavailable"));
+    }).then(function (data) {
+      if (!data.active) {
+        expireActivation(botId);
+        return;
+      }
+      var wasActive = activationState[botId];
+      activationState[botId] = true;
+      scheduleActivationExpiry(botId, data.remaining_seconds);
+      if (!wasActive) renderCardContent(botId);
+    }).catch(function () { expireActivation(botId); });
   }
 
   /* ─── Symbol options ─────────────────────────────────────────── */
@@ -1206,8 +1201,23 @@
     placeBotTrade(state, sig);
   }
 
-  function placeBotTrade(state, sig) {
+  function placeBotTrade(state, sig, activationVerified) {
     if (!state.running || state.awaitingSettle) return;
+    if (state.def.requiresActivation && !activationVerified) {
+      if (state._activationCheckPending) return;
+      state._activationCheckPending = true;
+      verifyActivation(state.def.activationTier).then(function (data) {
+        state._activationCheckPending = false;
+        if (!state.running) return;
+        activationState[state.def.id] = true;
+        scheduleActivationExpiry(state.def.id, data.remaining_seconds);
+        placeBotTrade(state, sig, true);
+      }).catch(function () {
+        state._activationCheckPending = false;
+        expireActivation(state.def.id);
+      });
+      return;
+    }
     if (state.def.requiresActivation && !activationState[state.def.id]) return;
     if (state.sessionPL >= state.tp) { stopBot(state, "tp"); return; }
     if (state.sl > 0 && state.sessionPL <= -state.sl) { stopBot(state, "sl"); return; }
@@ -1419,8 +1429,22 @@
   }
 
   /* ─── Start / Stop / Reset ───────────────────────────────────── */
-  function startBot(state) {
+  function startBot(state, activationVerified) {
     if (state.running) return;
+    if (state.def.requiresActivation && !activationVerified) {
+      if (state._activationCheckPending) return;
+      state._activationCheckPending = true;
+      verifyActivation(state.def.activationTier).then(function (data) {
+        state._activationCheckPending = false;
+        activationState[state.def.id] = true;
+        scheduleActivationExpiry(state.def.id, data.remaining_seconds);
+        startBot(state, true);
+      }).catch(function () {
+        state._activationCheckPending = false;
+        expireActivation(state.def.id);
+      });
+      return;
+    }
     if (state.def.requiresActivation && !activationState[state.def.id]) return;
     if (state.def.id === "over1AiPredictor" && state.lossStopped) {
       window.showToast && window.showToast(state.def.name + ": Manual restart required after the loss stop.", "red", 4000);
@@ -1503,6 +1527,7 @@
       martCap: state.def.name + ": Max recovery steps reached — bot halted",
       connection: state.def.name + ": Connection lost — bot halted",
       auth: state.def.name + ": Login required — bot halted",
+      activation: state.def.name + ": Activation expired or revoked — bot halted",
       loss: state.def.name + ": Session stopped after a loss",
     };
     var color = reason === "tp" ? "green" : reason === "manual" ? "neutral" : "red";
@@ -1571,7 +1596,7 @@
       body: JSON.stringify({ tier: def.activationTier, code: code.trim() }),
     })
       .then(function (r) { return r.json(); })
-      .then(function (data) { callback(data.valid, data.error); })
+      .then(function (data) { callback(data.valid, data.error, data); })
       .catch(function () { callback(false, "Network error — please try again."); });
   }
 
@@ -1665,7 +1690,7 @@
   }
 
   function tierBadgeHTML(tier) {
-    var labels = { free: "FREE", basic: "BASIC" };
+    var labels = { free: "FREE", basic: "BASIC", expert: "EXPERT" };
     return '<span class="bot-tier-badge bot-tier-' + tier + '">' + (labels[tier] || tier.toUpperCase()) + '</span>';
   }
 
@@ -1823,7 +1848,7 @@
       );
     }
 
-    if (def.id === "over1AiPredictor") {
+    if (def.id === "over1AiPredictor" && isActivated) {
       return (
         '<div class="bot-card-header">' +
           '<div class="bot-card-icon">' + def.icon + '</div>' +
@@ -1878,7 +1903,7 @@
           '<div class="bot-card-title-wrap">' +
             tierBadgeHTML(def.tier) +
             '<h2 class="bot-card-name">' + def.name + '</h2>' +
-            '<p class="bot-card-tagline">Advanced Differs strategy · Multi-window analysis</p>' +
+            '<p class="bot-card-tagline">' + (def.id === "over1AiPredictor" ? "Selective Over 1 entries from configurable recent tick digits" : "Advanced Differs strategy · Multi-window analysis") + '</p>' +
           '</div>' +
         '</div>' +
         '<div class="bot-activation-panel">' +
@@ -1889,7 +1914,13 @@
             '<p class="bot-activation-prompt">Enter your activation code to unlock</p>' +
           '</div>' +
           '<div class="bot-activation-form">' +
-            '<input type="text" class="bot-activation-input" id="actcode-' + def.id + '" placeholder="e.g. ' + def.activationTier + '@001" autocomplete="off" />' +
+            '<div class="bot-activation-secret-wrap">' +
+              '<input type="password" class="bot-activation-input" id="actcode-' + def.id + '" placeholder="Enter your activation code to unlock" autocomplete="off" spellcheck="false" />' +
+              '<button type="button" class="bot-activation-visibility" id="toggle-actcode-' + def.id + '" aria-label="Show activation code" title="Show activation code">' +
+                '<svg class="activation-eye-open" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>' +
+                '<svg class="activation-eye-closed" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 5.2A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a14.8 14.8 0 0 1-3.1 3.9M6.2 6.2C3.5 8.1 2 12 2 12s3.5 7 10 7a10.7 10.7 0 0 0 3-.4"/></svg>' +
+              '</button>' +
+            '</div>' +
             '<button class="bot-validate-btn" id="validate-' + def.id + '">Validate</button>' +
           '</div>' +
           '<div class="bot-activation-error" id="acterr-' + def.id + '" style="display:none"></div>' +
@@ -1897,7 +1928,7 @@
         '<div class="bot-purchase-panel">' +
           '<button class="bot-purchase-btn" id="purchase-' + def.id + '">' +
             '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
-            'Get Basic Activation Code' +
+            (def.activationTier === "expert" ? "Get Expert Activation Code" : "Get Basic Activation Code") +
           '</button>' +
           '<a href="https://wa.me/254776685670" target="_blank" rel="noopener" class="bot-wa-btn">' +
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.534 5.849L0 24l6.335-1.512A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.6a9.545 9.545 0 0 1-4.878-1.336l-.35-.208-3.628.866.9-3.536-.228-.364A9.557 9.557 0 0 1 2.4 12C2.4 6.698 6.698 2.4 12 2.4c5.302 0 9.6 4.298 9.6 9.6 0 5.302-4.298 9.6-9.6 9.6z"/></svg>' +
@@ -2006,12 +2037,18 @@
         }
         validateBtn.disabled = true;
         validateBtn.textContent = "Validating\u2026";
-        validateActivation(def.id, code, function (valid, errMsg) {
+        validateActivation(def.id, code, function (valid, errMsg, result) {
           validateBtn.disabled = false;
           validateBtn.textContent = "Validate";
           if (valid) {
             activationState[def.id] = true;
-            scheduleActivationExpiry(def.id, ACTIVATION_TIMEOUT_MS / 1000);
+            if (input) {
+              input.value = "";
+              input.type = "password";
+            }
+            if (result && result.remaining_seconds !== null && result.remaining_seconds !== undefined) {
+              scheduleActivationExpiry(def.id, result.remaining_seconds);
+            }
             renderCardContent(def.id);
           } else {
             if (errEl) { errEl.textContent = errMsg || "Invalid activation code."; errEl.style.display = ""; }
@@ -2028,11 +2065,43 @@
       }
     }
 
+    var codeInputForVisibility = document.getElementById("actcode-" + def.id);
+    var visibilityBtn = document.getElementById("toggle-actcode-" + def.id);
+    if (codeInputForVisibility && visibilityBtn) {
+      var activationForm = visibilityBtn.closest(".bot-activation-form");
+      function hideActivationCode() {
+        codeInputForVisibility.type = "password";
+        visibilityBtn.setAttribute("aria-label", "Show activation code");
+        visibilityBtn.title = "Show activation code";
+        var openEye = visibilityBtn.querySelector(".activation-eye-open");
+        var closedEye = visibilityBtn.querySelector(".activation-eye-closed");
+        if (openEye) openEye.style.display = "";
+        if (closedEye) closedEye.style.display = "none";
+      }
+      visibilityBtn.addEventListener("click", function () {
+        var show = codeInputForVisibility.type === "password";
+        codeInputForVisibility.type = show ? "text" : "password";
+        visibilityBtn.setAttribute("aria-label", show ? "Hide activation code" : "Show activation code");
+        visibilityBtn.title = show ? "Hide activation code" : "Show activation code";
+        var openEye = visibilityBtn.querySelector(".activation-eye-open");
+        var closedEye = visibilityBtn.querySelector(".activation-eye-closed");
+        if (openEye) openEye.style.display = show ? "none" : "";
+        if (closedEye) closedEye.style.display = show ? "" : "none";
+      });
+      if (activationForm) {
+        activationForm.addEventListener("focusout", function () {
+          setTimeout(function () {
+            if (!activationForm.contains(document.activeElement)) hideActivationCode();
+          }, 0);
+        });
+      }
+    }
+
     // Paid bots: purchase button
     var purchaseBtn = document.getElementById("purchase-" + def.id);
     if (purchaseBtn) {
       purchaseBtn.addEventListener("click", function () {
-        openPaymentModal(def.price, def.name);
+        openPaymentModal(def.price, def.id === "over1AiPredictor" ? "Expert Bot" : def.name);
       });
     }
   }
@@ -2248,7 +2317,6 @@
 
   window.AutonixSuite = {
     systems: {
-      aiTrader: { running: false, sessionPL: 0 },
       bulkTrader: { running: false, sessionPL: 0 },
     },
     update: function (id, running, sessionPL) {
@@ -2445,9 +2513,14 @@
   /* ─── Init ───────────────────────────────────────────────────── */
   document.addEventListener("DOMContentLoaded", function () {
     renderAll();
-    ["basicBot"].forEach(loadActivationSession);
-    ["click", "input", "change", "keydown"].forEach(function (eventName) {
-      document.addEventListener(eventName, recordBotActivity, true);
+    ["basicBot", "over1AiPredictor"].forEach(loadActivationSession);
+    setInterval(function () {
+      ["basicBot", "over1AiPredictor"].forEach(pollActivationStatus);
+    }, 15000);
+    document.addEventListener("pagehide", function () {
+      document.querySelectorAll(".bot-activation-input").forEach(function (input) {
+        input.type = "password";
+      });
     });
     ensureSymbolStream(DEFAULT_SYMBOL);
     watchConnection();

@@ -3428,8 +3428,16 @@ textarea,
   width: 100%;
   max-width: 340px;
 }
+.bot-activation-secret-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
 .bot-activation-input {
   flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 40px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -3443,6 +3451,24 @@ textarea,
 }
 .bot-activation-input:focus { border-color: var(--bot-accent, #5b9dff); }
 .bot-activation-input.input-error { border-color: var(--color-brand) !important; animation: shake .3s ease; }
+.bot-activation-visibility {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.bot-activation-visibility:hover { color: var(--text-primary); }
 @keyframes shake {
   0%,100% { transform: translateX(0); }
   25%      { transform: translateX(-4px); }
@@ -3744,11 +3770,10 @@ textarea,
   width: auto;
   min-width: 0;
 }
-.bots-grid > #ai-trader-section { order: 5; }
-.bots-render-target > #card-freeBot { order: 4; }
+.bots-render-target > #card-freeBot { order: 1; }
 .bots-render-target > #card-basicBot { order: 2; }
-.bots-render-target > #card-over1AiPredictor { order: 1; }
-.bots-grid > #bulk-trader-section { order: 6; }
+.bots-render-target > #card-over1AiPredictor { order: 3; }
+.bots-grid > #bulk-trader-section { order: 4; }
 
 @media (min-width: 769px) {
   .bots-grid {
@@ -4126,90 +4151,6 @@ textarea,
 [data-theme="light"] .bulk-history-table thead th { background: rgba(0,0,0,.04); }
 [data-theme="light"] .bulk-input { background: #fff; }
 
-/* ── AI Trader ── */
-.ai-trader-section { gap: 18px; }
-.ai-summary-card,
-.ai-stats-card,
-.ai-analysis-card,
-.ai-log-card {
-  background: linear-gradient(135deg, rgba(15,23,42,0.92), rgba(8,15,35,0.84));
-  border: 1px solid rgba(91,157,255,.22);
-  border-radius: 14px;
-  padding: 16px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 12px 30px rgba(4,10,28,.28);
-}
-.ai-analysis-card { display: flex; flex-direction: column; gap: 12px; }
-.ai-analysis-header,
-.ai-analysis-reason { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.ai-analysis-header span,
-.ai-analysis-item span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
-.ai-analysis-header strong { font-size: 14px; color: var(--text-primary); }
-.ai-analysis-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.ai-analysis-item { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.04); }
-.ai-analysis-item strong { font-size: 15px; color: var(--text-primary); }
-.ai-analysis-item strong.active { color: var(--bot-accent, #00E5A0); }
-.ai-analysis-reason { justify-content: flex-start; padding-top: 2px; }
-.ai-analysis-reason strong { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
-.ai-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 10px;
-}
-.ai-pill {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(91,157,255,.16), rgba(0,229,160,.1));
-  border: 1px solid rgba(255,255,255,.06);
-}
-.ai-pill span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
-.ai-pill strong { font-size: 15px; color: var(--text-primary); }
-.ai-stats-card {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 10px;
-}
-.ai-stat-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.04);
-}
-.ai-stat-card span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
-.ai-stat-card strong { font-size: 14px; color: var(--text-primary); }
-.ai-log-card { display: flex; flex-direction: column; gap: 10px; max-height: clamp(220px, 32vh, 320px); min-height: 0; overflow: hidden; }
-.ai-log-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.ai-log-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); }
-.ai-log-status { font-size: 12px; color: #00E5A0; font-weight: 700; }
-.ai-log-list { list-style: none; padding: 0 4px 0 0; margin: 0; display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; overflow-wrap: anywhere; flex: 1 1 auto; min-height: 0; }
-.ai-log-list::-webkit-scrollbar { width: 6px; }
-.ai-log-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 999px; }
-.ai-log-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.04); border-left: 2px solid rgba(91,157,255,.3); }
-.ai-log-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; min-width: 54px; }
-.ai-log-text { font-size: 12.5px; color: var(--text-primary); line-height: 1.5; white-space: pre-line; }
-.ai-log-info { background: linear-gradient(90deg, rgba(91,157,255,.13), rgba(255,255,255,.03)); }
-.ai-log-win { background: linear-gradient(90deg, rgba(0,229,160,.13), rgba(255,255,255,.03)); }
-.ai-log-loss { background: linear-gradient(90deg, rgba(239,68,68,.13), rgba(255,255,255,.03)); }
-.ai-log-warn { background: linear-gradient(90deg, rgba(245,158,11,.15), rgba(255,255,255,.03)); }
-.ai-log-info .ai-log-time { color: #5b9dff; }
-.ai-log-win .ai-log-time { color: #00E5A0; }
-.ai-log-loss .ai-log-time { color: #ef4444; }
-.ai-log-warn .ai-log-time { color: #F59E0B; }
-.ai-empty-state { color: var(--text-muted); font-size: 13px; }
-[data-theme="light"] .ai-summary-card,
-[data-theme="light"] .ai-stats-card,
-[data-theme="light"] .ai-analysis-card,
-[data-theme="light"] .ai-log-card { background: rgba(0,0,0,.03); border-color: rgba(0,0,0,.08); }
-[data-theme="light"] .ai-pill,
-[data-theme="light"] .ai-stat-card,
-[data-theme="light"] .ai-analysis-item,
-[data-theme="light"] .ai-log-item { background: rgba(0,0,0,.04); }
-
 @media (max-width: 768px) {
   .bots-workspace {
     height: auto;
@@ -4235,14 +4176,11 @@ textarea,
     overflow-wrap: anywhere;
   }
 
-  .bulk-trader-section,
-  .ai-trader-section {
+  .bulk-trader-section {
     padding: 20px 16px;
   }
 
-  .bulk-config-grid,
-  .ai-summary-grid,
-  .ai-stats-card {
+  .bulk-config-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -4255,20 +4193,14 @@ textarea,
     min-width: 0;
   }
 
-  .ai-log-card {
-    max-height: 42vh;
-  }
 }
 
 @media (max-width: 480px) {
-  .bulk-trader-section,
-  .ai-trader-section {
+  .bulk-trader-section {
     padding: 16px 12px;
   }
 
-  .bulk-config-grid,
-  .ai-summary-grid,
-  .ai-stats-card {
+  .bulk-config-grid {
     grid-template-columns: 1fr;
   }
 
@@ -4285,18 +4217,6 @@ textarea,
     flex-basis: 100%;
   }
 
-  .ai-log-card {
-    max-height: 46vh;
-  }
-
-  .ai-log-item {
-    gap: 7px;
-    padding: 8px 9px;
-  }
-
-  .ai-log-time {
-    min-width: 44px;
-  }
 }
 
 .bot-card-aux.bulk-trader-section {
@@ -4363,26 +4283,11 @@ textarea,
 .bot-card-aux .bulk-stop-btn {
   border-radius: 10px;
 }
-.bot-card-aux .ai-summary-card,
-.bot-card-aux .ai-stats-card,
-.bot-card-aux .ai-analysis-card,
-.bot-card-aux .ai-log-card,
 .bot-card-aux .bulk-analysis-summary,
 .bot-card-aux .bulk-live-summary,
 .bot-card-aux .bulk-history-wrap {
   border-radius: 10px;
   box-shadow: none;
-}
-.bot-card-aux .ai-stats-card {
-  padding: 14px;
-}
-.bot-card-aux .ai-stat-card,
-.bot-card-aux .ai-pill,
-.bot-card-aux .ai-analysis-item {
-  border-radius: 8px;
-}
-.bot-card-aux .ai-log-card {
-  max-height: 320px;
 }
 
 @media (min-width: 900px) {
@@ -4403,20 +4308,6 @@ textarea,
   .bot-card-aux .bulk-config-grid {
     grid-column: 1;
     align-self: stretch;
-  }
-  .bot-card-aux .ai-summary-card,
-  .bot-card-aux .ai-stats-card {
-    grid-column: 2;
-  }
-  .bot-card-aux.ai-trader-section .bulk-actions-row {
-    grid-column: 1;
-    grid-row: 3;
-  }
-  .bot-card-aux .ai-summary-card { grid-row: 2; }
-  .bot-card-aux .ai-stats-card { grid-row: 3; }
-  .bot-card-aux .ai-analysis-card,
-  .bot-card-aux .ai-log-card {
-    grid-column: 1 / -1;
   }
 }
 

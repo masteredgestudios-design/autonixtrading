@@ -13,6 +13,16 @@ describe('Free Bot Rise/Fall analysis', () => {
     price: 100 + direction * index,
   }));
 
+  it('keeps Over/Under selected by default in the trade type selector', () => {
+    const chartHtml = require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'templates', 'partials', 'chart_area.html'),
+      'utf8',
+    );
+
+    expect(chartHtml).toContain('data-type="over-under"');
+    expect(chartHtml).toMatch(/class="trade-type-btn active"[\s\S]*data-type="over-under"/);
+  });
+
   it('qualifies a consistently rising market as Rise', () => {
     const result = window.AutonixFreeBotStrategy.analyzeRiseFall(makeTicks(1));
 
@@ -131,13 +141,17 @@ describe('Free Bot Rise/Fall analysis', () => {
     jest.useRealTimers();
   });
 
-  it('keeps Basic activation and renders Expert with the Over 1 predictor controls', async () => {
+  it('keeps Basic activation separate and gates the Expert predictor with its own code', async () => {
     jest.useFakeTimers();
     const response = (body) => ({ ok: true, json: () => Promise.resolve(body) });
     global.fetch = jest.fn((url, options) => {
       if (!options || options.method !== 'POST') return Promise.resolve(response({ active: false }));
       const body = JSON.parse(options.body);
-      if (url === '/api/validate-activation') return Promise.resolve(response({ valid: true }));
+      if (url === '/api/validate-activation') {
+        const valid = body.tier === 'basic' && body.code === 'basic-code' ||
+          body.tier === 'expert' && body.code === 'expert-code';
+        return Promise.resolve(response({ valid }));
+      }
       return Promise.resolve(response({
         active: body.action === 'activity',
         remaining_seconds: 600,
@@ -153,11 +167,27 @@ describe('Free Bot Rise/Fall analysis', () => {
     expect(document.getElementById('start-basicBot')).toBeTruthy();
     const expertCard = document.getElementById('card-over1AiPredictor');
     expect(expertCard.textContent).toContain('EXPERT BOT');
+    expect(expertCard.textContent).toContain('Enter your activation code to unlock');
+    expect(expertCard.querySelector('#actcode-over1AiPredictor').placeholder)
+      .toBe('Enter your activation code to unlock');
+    expect(expertCard.querySelector('#start-over1AiPredictor')).toBeNull();
+    expect(expertCard.querySelector('#purchase-over1AiPredictor').textContent)
+      .toContain('Get Expert Activation Code');
+
+    document.getElementById('actcode-over1AiPredictor').value = 'basic-code';
+    document.getElementById('validate-over1AiPredictor').click();
+    for (let index = 0; index < 8; index += 1) await Promise.resolve();
+    expect(expertCard.textContent).toContain('Enter your activation code to unlock');
+
+    document.getElementById('actcode-over1AiPredictor').value = 'expert-code';
+    document.getElementById('validate-over1AiPredictor').click();
+    for (let index = 0; index < 8; index += 1) await Promise.resolve();
     expect(expertCard.textContent).toContain('Selective Over 1 entries');
     expect(expertCard.querySelector('#start-over1AiPredictor')).toBeTruthy();
     expect(expertCard.querySelector('#input-stake-over1AiPredictor')).toBeTruthy();
     expect(expertCard.querySelector('#live-analysis-over1AiPredictor')).toBeTruthy();
     jest.clearAllTimers();
     jest.useRealTimers();
+    delete global.fetch;
   });
 });

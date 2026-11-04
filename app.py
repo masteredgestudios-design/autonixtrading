@@ -5,6 +5,7 @@ import hmac
 import hashlib
 import base64
 import secrets
+import sqlite3
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -2150,58 +2151,139 @@ def sitemap():
 def robots():
     return send_file('robots.txt')
 
-ACTIVATION_TIMEOUT_SECONDS = 10 * 60
+ACTIVATION_TIERS = {"basic", "expert"}
 
 
-def _active_activation_sessions():
-    records = session.get("bot_activation_sessions", {})
-    if not isinstance(records, dict):
-        records = {}
-    now = time.time()
-    active = {}
-    for tier, record in records.items():
-        if tier != "basic" or not isinstance(record, dict):
-            continue
+def _activation_database_path():
+    configured = os.getenv("ACTIVATION_DATABASE_PATH", "").strip()
+    return Path(configured) if configured else DATA_DIR / "activations.sqlite3"
+
+
+def _activation_code_hash(code):
+    pepper = os.getenv("ACTIVATION_CODE_PEPPER") or app.secret_key
+    if isinstance(pepper, str):
+        pepper = pepper.encode("utf-8")
+    return hmac.new(pepper, code.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _parse_activation_expiration(value):
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    try:
+        expires_at = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("expires_at must be an ISO 8601 date/time") from exc
+    if expires_at.tzinfo is None:
+        raise ValueError("expires_at must include a timezone")
+    return expires_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _utc_timestamp():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _activation_database():
+    path = _activation_database_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path, timeout=10)
+    connection.row_factory = sqlite3.Row
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS activation_codes ("
+        "code_hash TEXT PRIMARY KEY, tier TEXT NOT NULL, expires_at TEXT, "
+        "redeemed_at TEXT, redeemed_account TEXT, created_at TEXT NOT NULL)"
+    )
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS bot_activations ("
+        "account_id TEXT NOT NULL, tier TEXT NOT NULL, code_hash TEXT NOT NULL, "
+        "activated_at TEXT NOT NULL, expires_at TEXT, revoked_at TEXT, "
+        "PRIMARY KEY (account_id, tier))"
+    )
+    for tier in ACTIVATION_TIERS:
+        env_name = tier.upper() + "_BOT_CODES"
+        expiry_name = tier.upper() + "_BOT_CODE_EXPIRES_AT"
         try:
-            last_activity = float(record.get("last_activity"))
-        except (TypeError, ValueError):
-            continue
-        if 0 <= now - last_activity < ACTIVATION_TIMEOUT_SECONDS:
-            active[tier] = {"last_activity": last_activity}
-    if active != records:
-        session["bot_activation_sessions"] = active
-    return active
+            expires_at = _parse_activation_expiration(os.getenv(expiry_name))
+        except ValueError:
+            app.logger.warning("Ignoring invalid %s value", expiry_name)
+            expires_at = None
+        for code in os.getenv(env_name, "").split(","):
+            code = code.strip()
+            if code:
+                connection.execute(
+                    "INSERT OR IGNORE INTO activation_codes "
+                    "(code_hash, tier, expires_at, created_at) VALUES (?, ?, ?, ?)",
+                    (_activation_code_hash(code), tier, expires_at, _utc_timestamp()),
+                )
+    connection.commit()
+    return connection
+
+
+def _authenticated_activation_account():
+    user = session.get("user")
+    if not isinstance(user, dict) or user.get("isAuthenticated") is not True:
+        return None
+    active_account = user.get("activeAccount") or {}
+    account_id = active_account.get("account") if isinstance(active_account, dict) else None
+    return str(account_id).strip() if account_id else None
+
+
+def _activation_admin_authorized():
+    expected = os.getenv("ACTIVATION_ADMIN_TOKEN", "")
+    provided = request.headers.get("X-Activation-Admin-Token", "")
+    return bool(expected and provided and hmac.compare_digest(expected, provided))
+
+
+def _activation_status(account_id, tier):
+    connection = _activation_database()
+    try:
+        row = connection.execute(
+            "SELECT expires_at, revoked_at FROM bot_activations "
+            "WHERE account_id = ? AND tier = ?",
+            (account_id, tier),
+        ).fetchone()
+    finally:
+        connection.close()
+    now = _utc_timestamp()
+    active = bool(row and row["revoked_at"] is None and (not row["expires_at"] or row["expires_at"] > now))
+    remaining = None
+    if active and row["expires_at"]:
+        remaining = max(
+            0,
+            int((datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00")) - datetime.now(timezone.utc)).total_seconds()),
+        )
+    return {
+        "active": active,
+        "expires_at": row["expires_at"] if row else None,
+        "permanent": bool(active and not row["expires_at"]),
+        "remaining_seconds": remaining,
+    }
 
 
 @app.route("/api/activation-session", methods=["GET", "POST"])
 def activation_session_api():
-    data = request.get_json(silent=True) or {}
-    tier = str(
-        request.args.get("tier") if request.method == "GET" else data.get("tier") or ""
-    ).strip().lower()
-    if tier != "basic":
+    tier = str(request.args.get("tier") or "").strip().lower()
+    if tier not in ACTIVATION_TIERS:
         return jsonify({"error": "Unknown tier"}), 400
+    account_id = _authenticated_activation_account()
+    if not account_id:
+        return jsonify({"active": False, "error": "Authentication required"}), 401
+    return jsonify(_activation_status(account_id, tier))
 
-    records = _active_activation_sessions()
-    action = "status" if request.method == "GET" else str(data.get("action", ""))
-    if action == "status":
-        record = records.get(tier)
-        remaining = max(
-            0,
-            int(ACTIVATION_TIMEOUT_SECONDS - (time.time() - record["last_activity"])),
-        ) if record else 0
-        return jsonify({"active": bool(record), "remaining_seconds": remaining})
-    if action == "activity":
-        if tier not in records:
-            return jsonify({"active": False, "error": "Activation expired"}), 403
-        records[tier] = {"last_activity": time.time()}
-        session["bot_activation_sessions"] = records
-        return jsonify({"active": True, "remaining_seconds": ACTIVATION_TIMEOUT_SECONDS})
-    if action == "lock":
-        records.pop(tier, None)
-        session["bot_activation_sessions"] = records
-        return jsonify({"active": False})
-    return jsonify({"error": "Unknown action"}), 400
+
+@app.route("/api/activation-check", methods=["POST"])
+def activation_check_api():
+    data = request.get_json(silent=True) or {}
+    tier = str(data.get("tier") or "").strip().lower()
+    if tier not in ACTIVATION_TIERS:
+        return jsonify({"active": False, "error": "Unknown tier"}), 400
+    account_id = _authenticated_activation_account()
+    if not account_id:
+        return jsonify({"active": False, "error": "Authentication required"}), 401
+    status = _activation_status(account_id, tier)
+    if not status["active"]:
+        return jsonify({"active": False, "error": "Activation expired or revoked"}), 403
+    return jsonify(status)
 
 
 @app.route("/api/validate-activation", methods=["POST"])
@@ -2209,15 +2291,96 @@ def validate_activation():
     data = request.get_json(silent=True) or {}
     tier = str(data.get("tier") or "").strip().lower()
     code = str(data.get("code") or "").strip()
-    if tier != "basic":
+    if tier not in ACTIVATION_TIERS:
         return jsonify({"valid": False, "error": "Unknown tier"}), 400
-    valid_codes = [c.strip() for c in os.getenv("BASIC_BOT_CODES", "").split(",") if c.strip()]
-    if code and any(hmac.compare_digest(code, valid_code) for valid_code in valid_codes):
-        records = _active_activation_sessions()
-        records[tier] = {"last_activity": time.time()}
-        session["bot_activation_sessions"] = records
-        return jsonify({"valid": True, "expires_in": ACTIVATION_TIMEOUT_SECONDS})
-    return jsonify({"valid": False, "error": "Invalid activation code. Please check and try again."})
+    account_id = _authenticated_activation_account()
+    if not account_id:
+        return jsonify({"valid": False, "error": "Authentication required"}), 401
+    if not code:
+        return jsonify({"valid": False, "error": "Invalid activation code. Please check and try again."})
+
+    connection = _activation_database()
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        record = connection.execute(
+            "SELECT tier, expires_at, redeemed_at FROM activation_codes WHERE code_hash = ?",
+            (_activation_code_hash(code),),
+        ).fetchone()
+        now = _utc_timestamp()
+        if not record or record["tier"] != tier or record["redeemed_at"] or (record["expires_at"] and record["expires_at"] <= now):
+            connection.rollback()
+            return jsonify({"valid": False, "error": "Invalid, expired, or already redeemed activation code."})
+        connection.execute(
+            "UPDATE activation_codes SET redeemed_at = ?, redeemed_account = ? WHERE code_hash = ?",
+            (now, account_id, _activation_code_hash(code)),
+        )
+        connection.execute(
+            "INSERT INTO bot_activations (account_id, tier, code_hash, activated_at, expires_at, revoked_at) "
+            "VALUES (?, ?, ?, ?, ?, NULL) "
+            "ON CONFLICT(account_id, tier) DO UPDATE SET code_hash = excluded.code_hash, "
+            "activated_at = excluded.activated_at, expires_at = excluded.expires_at, revoked_at = NULL",
+            (account_id, tier, _activation_code_hash(code), now, record["expires_at"]),
+        )
+        connection.commit()
+        return jsonify({
+            "valid": True,
+            "expires_at": record["expires_at"],
+            "permanent": record["expires_at"] is None,
+        })
+    finally:
+        connection.close()
+
+
+@app.route("/api/admin/activation-codes", methods=["POST"])
+def create_activation_code():
+    if not _activation_admin_authorized():
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json(silent=True) or {}
+    tier = str(data.get("tier") or "").strip().lower()
+    if tier not in ACTIVATION_TIERS:
+        return jsonify({"error": "Unknown tier"}), 400
+    code = str(data.get("code") or secrets.token_urlsafe(24)).strip()
+    try:
+        expires_at = _parse_activation_expiration(data.get("expires_at"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if expires_at and expires_at <= _utc_timestamp():
+        return jsonify({"error": "expires_at must be in the future"}), 400
+    connection = _activation_database()
+    try:
+        connection.execute(
+            "INSERT INTO activation_codes (code_hash, tier, expires_at, created_at) VALUES (?, ?, ?, ?)",
+            (_activation_code_hash(code), tier, expires_at, _utc_timestamp()),
+        )
+        connection.commit()
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Activation code already exists"}), 409
+    finally:
+        connection.close()
+    return jsonify({"code": code, "tier": tier, "expires_at": expires_at}), 201
+
+
+@app.route("/api/admin/activations/revoke", methods=["POST"])
+def revoke_activation():
+    if not _activation_admin_authorized():
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json(silent=True) or {}
+    tier = str(data.get("tier") or "").strip().lower()
+    account_id = str(data.get("account_id") or "").strip()
+    if tier not in ACTIVATION_TIERS or not account_id:
+        return jsonify({"error": "A valid tier and account_id are required"}), 400
+    connection = _activation_database()
+    try:
+        result = connection.execute(
+            "UPDATE bot_activations SET revoked_at = ? WHERE account_id = ? AND tier = ? AND revoked_at IS NULL",
+            (_utc_timestamp(), account_id, tier),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    if not result.rowcount:
+        return jsonify({"error": "Active activation not found"}), 404
+    return jsonify({"revoked": True, "account_id": account_id, "tier": tier})
 
 
 # ─── Debug endpoints (for testing auth flow) ──────────────────────────────────
