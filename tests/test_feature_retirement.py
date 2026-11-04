@@ -49,6 +49,12 @@ class FeatureRetirementTests(unittest.TestCase):
             self.assertTrue(redeemed.json["permanent"])
             self.assertTrue(self.client.get("/api/activation-session?tier=basic").json["active"])
             self.assertEqual(self.client.post("/api/activation-check", json={"tier": "basic"}).status_code, 200)
+            connection = sqlite3.connect(os.environ["ACTIVATION_DATABASE_PATH"])
+            stored_hash = connection.execute(
+                "SELECT code_hash FROM activation_codes WHERE tier = ?", ("basic",)
+            ).fetchone()[0]
+            connection.close()
+            self.assertNotEqual(stored_hash, "basic-only")
 
             self.client.delete("/auth/session")
             self.login_as("CR100001")
@@ -82,6 +88,10 @@ class FeatureRetirementTests(unittest.TestCase):
                 json={"tier": "expert", "code": "expert-only"},
             )
             self.assertTrue(expert_code.json["valid"])
+            self.assertTrue(self.client.get("/api/activation-session?tier=expert").json["active"])
+
+            self.client.delete("/auth/session")
+            self.login_as("CR100001")
             self.assertTrue(self.client.get("/api/activation-session?tier=expert").json["active"])
 
             self.login_as("CR200002")
@@ -139,6 +149,12 @@ class FeatureRetirementTests(unittest.TestCase):
     def test_activation_status_requires_authenticated_account(self):
         self.client.delete("/auth/session")
         self.assertEqual(self.client.get("/api/activation-session?tier=basic").status_code, 401)
+
+    def test_admin_activation_api_requires_admin_token(self):
+        response = self.client.post(
+            "/api/admin/activation-codes", json={"tier": "basic"}
+        )
+        self.assertEqual(response.status_code, 403)
 
 
 if __name__ == "__main__":

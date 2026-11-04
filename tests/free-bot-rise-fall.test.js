@@ -161,15 +161,23 @@ describe('Free Bot Rise/Fall analysis', () => {
     document.dispatchEvent(new Event('DOMContentLoaded'));
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
 
-    document.getElementById('actcode-basicBot').value = 'basic-code';
+    const basicCodeInput = document.getElementById('actcode-basicBot');
+    expect(basicCodeInput.type).toBe('password');
+    expect(basicCodeInput.placeholder).toBe('');
+    document.getElementById('toggle-actcode-basicBot').click();
+    expect(basicCodeInput.type).toBe('text');
+    document.getElementById('toggle-actcode-basicBot').click();
+    expect(basicCodeInput.type).toBe('password');
+    basicCodeInput.value = 'basic-code';
     document.getElementById('validate-basicBot').click();
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
     expect(document.getElementById('start-basicBot')).toBeTruthy();
+    expect(document.getElementById('actcode-basicBot')).toBeNull();
     const expertCard = document.getElementById('card-over1AiPredictor');
     expect(expertCard.textContent).toContain('EXPERT BOT');
-    expect(expertCard.textContent).toContain('Enter your activation code to unlock');
-    expect(expertCard.querySelector('#actcode-over1AiPredictor').placeholder)
+    expect(expertCard.querySelector('.bot-activation-label').textContent)
       .toBe('Enter your activation code to unlock');
+    expect(expertCard.querySelector('#actcode-over1AiPredictor').placeholder).toBe('');
     expect(expertCard.querySelector('#start-over1AiPredictor')).toBeNull();
     expect(expertCard.querySelector('#purchase-over1AiPredictor').textContent)
       .toContain('Get Expert Activation Code');
@@ -179,6 +187,12 @@ describe('Free Bot Rise/Fall analysis', () => {
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
     expect(expertCard.textContent).toContain('Enter your activation code to unlock');
 
+    const expertCodeInput = document.getElementById('actcode-over1AiPredictor');
+    expect(expertCodeInput.type).toBe('password');
+    document.getElementById('toggle-actcode-over1AiPredictor').click();
+    expect(expertCodeInput.type).toBe('text');
+    document.getElementById('toggle-actcode-over1AiPredictor').click();
+    expect(expertCodeInput.type).toBe('password');
     document.getElementById('actcode-over1AiPredictor').value = 'expert-code';
     document.getElementById('validate-over1AiPredictor').click();
     for (let index = 0; index < 8; index += 1) await Promise.resolve();
@@ -186,6 +200,7 @@ describe('Free Bot Rise/Fall analysis', () => {
     expect(expertCard.querySelector('#start-over1AiPredictor')).toBeTruthy();
     expect(expertCard.querySelector('#input-stake-over1AiPredictor')).toBeTruthy();
     expect(expertCard.querySelector('#live-analysis-over1AiPredictor')).toBeTruthy();
+    expect(document.getElementById('actcode-over1AiPredictor')).toBeNull();
     jest.clearAllTimers();
     jest.useRealTimers();
     delete global.fetch;

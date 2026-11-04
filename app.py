@@ -501,7 +501,6 @@ def _build_accounts_session(
     server-side for API calls but are stripped before being sent to the
     browser via tojson (see _safe_for_template).
     """
-    session.pop("bot_activation_sessions", None)
     active = next((a for a in accounts if not a["isVirtual"]), accounts[0])
     session["user"] = {
         "isAuthenticated": True,
@@ -1182,7 +1181,6 @@ def auth_login():
     # Keep session small: clear any existing user data before auth so the
     # PKCE session keys don't push the cookie over 4 KB
     session.pop("user", None)
-    session.pop("bot_activation_sessions", None)
     session["pkce_nonce"] = nonce  # used for optional CSRF check
     session["pkce_redirect"] = redirect_uri  # redirect_uri must match exactly
     session.modified = True
@@ -2160,7 +2158,9 @@ def _activation_database_path():
 
 
 def _activation_code_hash(code):
-    pepper = os.getenv("ACTIVATION_CODE_PEPPER") or app.secret_key
+    pepper = os.getenv("ACTIVATION_CODE_PEPPER") or os.getenv("SESSION_SECRET")
+    if not pepper:
+        return None
     if isinstance(pepper, str):
         pepper = pepper.encode("utf-8")
     return hmac.new(pepper, code.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -2209,11 +2209,12 @@ def _activation_database():
             expires_at = None
         for code in os.getenv(env_name, "").split(","):
             code = code.strip()
-            if code:
+            code_hash = _activation_code_hash(code) if code else None
+            if code_hash:
                 connection.execute(
                     "INSERT OR IGNORE INTO activation_codes "
                     "(code_hash, tier, expires_at, created_at) VALUES (?, ?, ?, ?)",
-                    (_activation_code_hash(code), tier, expires_at, _utc_timestamp()),
+                    (code_hash, tier, expires_at, _utc_timestamp()),
                 )
     connection.commit()
     return connection
@@ -2260,7 +2261,7 @@ def _activation_status(account_id, tier):
     }
 
 
-@app.route("/api/activation-session", methods=["GET", "POST"])
+@app.route("/api/activation-session", methods=["GET"])
 def activation_session_api():
     tier = str(request.args.get("tier") or "").strip().lower()
     if tier not in ACTIVATION_TIERS:
@@ -2298,13 +2299,16 @@ def validate_activation():
         return jsonify({"valid": False, "error": "Authentication required"}), 401
     if not code:
         return jsonify({"valid": False, "error": "Invalid activation code. Please check and try again."})
+    code_hash = _activation_code_hash(code)
+    if not code_hash:
+        return jsonify({"valid": False, "error": "Activation service is not configured."}), 503
 
     connection = _activation_database()
     try:
         connection.execute("BEGIN IMMEDIATE")
         record = connection.execute(
             "SELECT tier, expires_at, redeemed_at FROM activation_codes WHERE code_hash = ?",
-            (_activation_code_hash(code),),
+            (code_hash,),
         ).fetchone()
         now = _utc_timestamp()
         if not record or record["tier"] != tier or record["redeemed_at"] or (record["expires_at"] and record["expires_at"] <= now):
@@ -2312,14 +2316,14 @@ def validate_activation():
             return jsonify({"valid": False, "error": "Invalid, expired, or already redeemed activation code."})
         connection.execute(
             "UPDATE activation_codes SET redeemed_at = ?, redeemed_account = ? WHERE code_hash = ?",
-            (now, account_id, _activation_code_hash(code)),
+            (now, account_id, code_hash),
         )
         connection.execute(
             "INSERT INTO bot_activations (account_id, tier, code_hash, activated_at, expires_at, revoked_at) "
             "VALUES (?, ?, ?, ?, ?, NULL) "
             "ON CONFLICT(account_id, tier) DO UPDATE SET code_hash = excluded.code_hash, "
             "activated_at = excluded.activated_at, expires_at = excluded.expires_at, revoked_at = NULL",
-            (account_id, tier, _activation_code_hash(code), now, record["expires_at"]),
+            (account_id, tier, code_hash, now, record["expires_at"]),
         )
         connection.commit()
         return jsonify({
@@ -2339,6 +2343,8 @@ def create_activation_code():
     tier = str(data.get("tier") or "").strip().lower()
     if tier not in ACTIVATION_TIERS:
         return jsonify({"error": "Unknown tier"}), 400
+    if not (os.getenv("ACTIVATION_CODE_PEPPER") or os.getenv("SESSION_SECRET")):
+        return jsonify({"error": "Activation service is not configured"}), 503
     code = str(data.get("code") or secrets.token_urlsafe(24)).strip()
     try:
         expires_at = _parse_activation_expiration(data.get("expires_at"))

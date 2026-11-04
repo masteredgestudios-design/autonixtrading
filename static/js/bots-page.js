@@ -1911,11 +1911,11 @@
             '<div class="bot-lock-icon">' +
               '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
             '</div>' +
-            '<p class="bot-activation-prompt">Enter your activation code to unlock</p>' +
           '</div>' +
           '<div class="bot-activation-form">' +
             '<div class="bot-activation-secret-wrap">' +
-              '<input type="password" class="bot-activation-input" id="actcode-' + def.id + '" placeholder="Enter your activation code to unlock" autocomplete="off" spellcheck="false" />' +
+              '<label class="bot-activation-label" for="actcode-' + def.id + '">Enter your activation code to unlock</label>' +
+              '<input type="password" class="bot-activation-input" id="actcode-' + def.id + '" autocomplete="off" spellcheck="false" />' +
               '<button type="button" class="bot-activation-visibility" id="toggle-actcode-' + def.id + '" aria-label="Show activation code" title="Show activation code">' +
                 '<svg class="activation-eye-open" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>' +
                 '<svg class="activation-eye-closed" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 5.2A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a14.8 14.8 0 0 1-3.1 3.9M6.2 6.2C3.5 8.1 2 12 2 12s3.5 7 10 7a10.7 10.7 0 0 0 3-.4"/></svg>' +
@@ -2520,6 +2520,14 @@
     document.addEventListener("pagehide", function () {
       document.querySelectorAll(".bot-activation-input").forEach(function (input) {
         input.type = "password";
+        var visibilityBtn = input.parentElement && input.parentElement.querySelector(".bot-activation-visibility");
+        if (!visibilityBtn) return;
+        visibilityBtn.setAttribute("aria-label", "Show activation code");
+        visibilityBtn.title = "Show activation code";
+        var openEye = visibilityBtn.querySelector(".activation-eye-open");
+        var closedEye = visibilityBtn.querySelector(".activation-eye-closed");
+        if (openEye) openEye.style.display = "";
+        if (closedEye) closedEye.style.display = "none";
       });
     });
     ensureSymbolStream(DEFAULT_SYMBOL);

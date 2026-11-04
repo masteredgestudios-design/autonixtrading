@@ -117,3 +117,27 @@ not Next.js config:
 
 When assembled by the App Builder, these are configured for you (logo upload, color,
 font, and app name are injected at deploy time).
+
+## Paid Bot Activations
+
+Basic Bot and Expert Bot activations are stored in SQLite and associated with the
+authenticated Deriv account ID. Mount persistent storage for `data/activations.sqlite3`
+or set `ACTIVATION_DATABASE_PATH` to an absolute path on a persistent volume.
+
+Set these server-side environment variables before deployment:
+
+| Variable | Description |
+|---|---|
+| `SESSION_SECRET` | Stable, high-entropy Flask session signing secret. Required to preserve authenticated sessions across restarts. |
+| `ACTIVATION_CODE_PEPPER` | Stable, high-entropy secret used to hash activation codes. Keep it private and unchanged while codes remain redeemable. |
+| `ACTIVATION_ADMIN_TOKEN` | Stable, high-entropy token required to issue and revoke activations. Send it only from a trusted server/admin environment using the `X-Activation-Admin-Token` header. |
+| `ACTIVATION_DATABASE_PATH` | Optional absolute path for the SQLite database. Defaults to `data/activations.sqlite3`. |
+| `BASIC_BOT_CODES` / `EXPERT_BOT_CODES` | Optional comma-separated codes to seed as one-time, permanent codes. Prefer the admin API for dated codes. |
+| `BASIC_BOT_CODE_EXPIRES_AT` / `EXPERT_BOT_CODE_EXPIRES_AT` | Optional ISO 8601 timestamp (including timezone) applied to codes seeded from the matching variable. Omit for permanent codes. |
+
+Administrators issue a one-time code with `POST /api/admin/activation-codes`, passing
+`tier` (`basic` or `expert`) and optionally `expires_at` (for example,
+`2030-01-01T00:00:00Z`). The generated or supplied code is returned once; only its
+keyed hash is stored. To revoke access, call `POST /api/admin/activations/revoke`
+with `account_id` and `tier`. Both endpoints require the admin header. Do not call
+them from browser code or expose the admin token to clients.

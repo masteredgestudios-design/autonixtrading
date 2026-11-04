@@ -3424,14 +3424,21 @@ textarea,
 .bot-activation-prompt { font-size: 13px; color: var(--text-secondary); margin: 0; }
 .bot-activation-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   width: 100%;
   max-width: 340px;
 }
 .bot-activation-secret-wrap {
   position: relative;
-  flex: 1;
+  flex: 1 1 180px;
   min-width: 0;
+}
+.bot-activation-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 .bot-activation-input {
   flex: 1;
@@ -3475,6 +3482,7 @@ textarea,
   75%      { transform: translateX(4px); }
 }
 .bot-validate-btn {
+  align-self: flex-end;
   padding: 9px 18px;
   border-radius: 8px;
   font-size: 13px;
